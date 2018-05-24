@@ -2,6 +2,7 @@ package kraken
 
 import (
 	"testing"
+	"time"
 
 	"github.com/thrasher-/gocryptotrader/config"
 	"github.com/thrasher-/gocryptotrader/currency/pair"
@@ -96,7 +97,7 @@ func TestGetDepth(t *testing.T) {
 
 func TestGetTrades(t *testing.T) {
 	t.Parallel()
-	_, err := k.GetTrades("BCHEUR")
+	_, err := k.GetTrades("BCHEUR", 0)
 	if err != nil {
 		t.Error("Test Failed - GetTrades() error", err)
 	}
@@ -583,5 +584,13 @@ func TestWithdrawCancel(t *testing.T) {
 		t.Error("Test Failed - WithdrawCancel() error cannot be nil")
 	} else if !areTestAPIKeysSet() && err == nil {
 		t.Errorf("Test Failed - WithdrawCancel() error - expecting an error when no keys are set but received nil")
+	}
+}
+
+func TestGetPlatformHistory(t *testing.T) {
+	p := pair.NewCurrencyPair("XBT", "USD")
+	_, err := k.GetPlatformHistory(p, "SPOT", time.Time{}, "")
+	if err != nil {
+		t.Error("Test Failed - GetPlatformHistory() error", err)
 	}
 }

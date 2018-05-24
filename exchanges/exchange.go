@@ -218,6 +218,17 @@ type TradeHistory struct {
 	Description string
 }
 
+// PlatformTrade defines a trade that has been filled/matched by an exchange
+// trading engine
+type PlatformTrade struct {
+	Timestamp time.Time
+	TID       string
+	Price     float64
+	Amount    float64
+	Exchange  string
+	Type      string
+}
+
 // OrderDetail holds order detail data
 type OrderDetail struct {
 	Exchange        string
@@ -305,7 +316,7 @@ type IBotExchange interface {
 	GetAccountInfo() (AccountInfo, error)
 	GetAuthenticatedAPISupport() bool
 	SetCurrencies(pairs []pair.CurrencyPair, enabledPairs bool) error
-	GetExchangeHistory(pair.CurrencyPair, string) ([]TradeHistory, error)
+	GetPlatformHistory(p pair.CurrencyPair, assetType string, timestampStart time.Time, tradeID string) ([]PlatformTrade, error)
 	SupportsAutoPairUpdates() bool
 	GetLastPairsUpdateTime() int64
 	SupportsRESTTickerBatchUpdates() bool

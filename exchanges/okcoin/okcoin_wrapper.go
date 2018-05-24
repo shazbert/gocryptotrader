@@ -189,11 +189,32 @@ func (o *OKCoin) GetFundingHistory() ([]exchange.FundHistory, error) {
 	return fundHistory, common.ErrFunctionNotSupported
 }
 
-// GetExchangeHistory returns historic trade data since exchange opening.
-func (o *OKCoin) GetExchangeHistory(p pair.CurrencyPair, assetType string) ([]exchange.TradeHistory, error) {
-	var resp []exchange.TradeHistory
+// GetPlatformHistory returns historic platform trade data since exchange
+// intial operations
+func (o *OKCoin) GetPlatformHistory(p pair.CurrencyPair, assetType string, timestampStart time.Time, tradeID string) ([]exchange.PlatformTrade, error) {
+	var resp []exchange.PlatformTrade
+	ID, err := strconv.ParseInt(tradeID, 10, 64)
+	if err != nil {
+		return resp, err
+	}
 
-	return resp, common.ErrNotYetImplemented
+	formattedPair := exchange.FormatExchangeCurrency(o.GetName(), p)
+	t, err := o.GetTrades(formattedPair.String(), ID)
+	if err != nil {
+		return resp, err
+	}
+
+	for i := range t {
+		resp = append(resp, exchange.PlatformTrade{
+			Timestamp: time.Unix(0, common.UnixMillisToNano(t[i].DateMS)),
+			TID:       strconv.FormatInt(t[i].TradeID, 10),
+			Price:     t[i].Price,
+			Amount:    t[i].Amount,
+			Exchange:  o.GetName(),
+			Type:      t[i].Type,
+		})
+	}
+	return resp, nil
 }
 
 // SubmitOrder submits a new order

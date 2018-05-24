@@ -2,6 +2,7 @@ package bithumb
 
 import (
 	"testing"
+	"time"
 
 	"github.com/thrasher-/gocryptotrader/common"
 	"github.com/thrasher-/gocryptotrader/config"
@@ -72,7 +73,7 @@ func TestGetOrderBook(t *testing.T) {
 
 func TestGetTransactionHistory(t *testing.T) {
 	t.Parallel()
-	_, err := b.GetTransactionHistory("btc")
+	_, err := b.GetTransactionHistory("btc", 0)
 	if err != nil {
 		t.Error("test failed - Bithumb GetTransactionHistory() error", err)
 	}
@@ -519,5 +520,13 @@ func TestGetDepositAddress(t *testing.T) {
 		if err == nil {
 			t.Error("Test Failed - GetDepositAddress() error cannot be nil")
 		}
+	}
+}
+
+func TestGetPlatformHistory(t *testing.T) {
+	p := pair.NewCurrencyPair("BTC", "USD")
+	_, err := b.GetPlatformHistory(p, "SPOT", time.Time{}, "")
+	if err != nil {
+		t.Error("test failed - Bithumb GetPlatformHistory() error", err)
 	}
 }

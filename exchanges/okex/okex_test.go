@@ -2,6 +2,7 @@ package okex
 
 import (
 	"testing"
+	"time"
 
 	"github.com/thrasher-/gocryptotrader/common"
 	"github.com/thrasher-/gocryptotrader/config"
@@ -593,5 +594,13 @@ func TestWithdrawInternationalBank(t *testing.T) {
 	_, err := o.WithdrawFiatFundsToInternationalBank(withdrawFiatRequest)
 	if err != common.ErrFunctionNotSupported {
 		t.Errorf("Expected '%v', received: '%v'", common.ErrFunctionNotSupported, err)
+	}
+}
+
+func TestGetPlatformHistory(t *testing.T) {
+	p := pair.NewCurrencyPairDelimiter("ltc_btc", "_")
+	_, err := o.GetPlatformHistory(p, "SPOT", time.Time{}, "")
+	if err != nil {
+		t.Error("Test failed - okex GetPlatformHistory() error", err)
 	}
 }

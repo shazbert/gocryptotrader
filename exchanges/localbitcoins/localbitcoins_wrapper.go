@@ -4,15 +4,15 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/thrasher-/gocryptotrader/currency/symbol"
-
 	"github.com/thrasher-/gocryptotrader/common"
 	"github.com/thrasher-/gocryptotrader/currency/pair"
+	"github.com/thrasher-/gocryptotrader/currency/symbol"
 	exchange "github.com/thrasher-/gocryptotrader/exchanges"
 	"github.com/thrasher-/gocryptotrader/exchanges/orderbook"
 	"github.com/thrasher-/gocryptotrader/exchanges/ticker"
@@ -139,11 +139,32 @@ func (l *LocalBitcoins) GetFundingHistory() ([]exchange.FundHistory, error) {
 	return fundHistory, common.ErrFunctionNotSupported
 }
 
-// GetExchangeHistory returns historic trade data since exchange opening.
-func (l *LocalBitcoins) GetExchangeHistory(p pair.CurrencyPair, assetType string) ([]exchange.TradeHistory, error) {
-	var resp []exchange.TradeHistory
+// GetPlatformHistory returns historic platform trade data since exchange
+// intial operations
+func (l *LocalBitcoins) GetPlatformHistory(p pair.CurrencyPair, assetType string, timestampStart time.Time, tradeID string) ([]exchange.PlatformTrade, error) {
+	var resp []exchange.PlatformTrade
 
-	return resp, common.ErrNotYetImplemented
+	v := url.Values{}
+	if tradeID != "" {
+		v.Set("since", tradeID)
+	}
+
+	t, err := l.GetTrades(p.SecondCurrency.Lower().String(), v)
+	if err != nil {
+		return resp, err
+	}
+
+	for i := range t {
+		resp = append(resp, exchange.PlatformTrade{
+			Timestamp: time.Unix(t[i].Date, 0),
+			TID:       strconv.FormatInt(t[i].TID, 10),
+			Price:     t[i].Price,
+			Amount:    t[i].Amount,
+			Exchange:  l.GetName(),
+			Type:      "Trading Type - Not Specified",
+		})
+	}
+	return resp, nil
 }
 
 // SubmitOrder submits a new order

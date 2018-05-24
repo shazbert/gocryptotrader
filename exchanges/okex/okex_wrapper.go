@@ -184,11 +184,55 @@ func (o *OKEX) GetFundingHistory() ([]exchange.FundHistory, error) {
 	return fundHistory, common.ErrFunctionNotSupported
 }
 
-// GetExchangeHistory returns historic trade data since exchange opening.
-func (o *OKEX) GetExchangeHistory(p pair.CurrencyPair, assetType string) ([]exchange.TradeHistory, error) {
-	var resp []exchange.TradeHistory
+// GetPlatformHistory returns historic platform trade data since exchange
+// intial operations
+func (o *OKEX) GetPlatformHistory(p pair.CurrencyPair, assetType string, timestampStart time.Time, tradeID string) ([]exchange.PlatformTrade, error) {
+	var resp []exchange.PlatformTrade
 
-	return resp, common.ErrNotYetImplemented
+	if assetType != "SPOT" {
+		t, err := o.GetContractTradeHistory(p.Pair().String(), assetType)
+		if err != nil {
+			return resp, err
+		}
+
+		for i := range t {
+			nanoTimestamp := common.UnixMillisToNano(int64(t[i].DateInMS))
+			resp = append(resp, exchange.PlatformTrade{
+				Timestamp: time.Unix(0, nanoTimestamp),
+				TID:       strconv.FormatInt(int64(t[i].TID), 10),
+				Price:     t[i].Price,
+				Amount:    t[i].Amount,
+				Exchange:  o.GetName(),
+				Type:      t[i].Type,
+			})
+		}
+		return resp, nil
+	}
+
+	ID, err := strconv.ParseInt(tradeID, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	t, err := o.GetSpotRecentTrades(ActualSpotTradeHistoryRequestParams{
+		Symbol: p.Pair().String(),
+		Since:  int(ID)})
+	if err != nil {
+		return resp, err
+	}
+
+	for i := range t {
+		nanoTimestamp := common.UnixMillisToNano(int64(t[i].DateInMS))
+		resp = append(resp, exchange.PlatformTrade{
+			Timestamp: time.Unix(0, nanoTimestamp),
+			TID:       strconv.FormatInt(int64(t[i].TID), 10),
+			Price:     t[i].Price,
+			Amount:    t[i].Amount,
+			Exchange:  o.GetName(),
+			Type:      t[i].Type,
+		})
+	}
+	return resp, nil
 }
 
 // SubmitOrder submits a new order

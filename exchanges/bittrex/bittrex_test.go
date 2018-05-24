@@ -513,3 +513,11 @@ func TestGetDepositAddress(t *testing.T) {
 		}
 	}
 }
+
+func TestGetPlatformHistory(t *testing.T) {
+	p := pair.NewCurrencyPairDelimiter("BTC-DOGE", "-")
+	_, err := b.GetPlatformHistory(p, "SPOT", time.Time{}, "")
+	if err != nil {
+		t.Error("Test Failed - Bittrex - GetPlatformHistory() error", err)
+	}
+}

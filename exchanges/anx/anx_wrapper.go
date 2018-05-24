@@ -216,10 +216,10 @@ func (a *ANX) GetFundingHistory() ([]exchange.FundHistory, error) {
 	return fundHistory, common.ErrFunctionNotSupported
 }
 
-// GetExchangeHistory returns historic trade data since exchange opening.
-func (a *ANX) GetExchangeHistory(p pair.CurrencyPair, assetType string) ([]exchange.TradeHistory, error) {
-	var resp []exchange.TradeHistory
-
+// GetPlatformHistory returns historic platform trade data since exchange
+// intial operations
+func (a *ANX) GetPlatformHistory(p pair.CurrencyPair, assetType string, timestampStart time.Time, tradeID string) ([]exchange.PlatformTrade, error) {
+	var resp []exchange.PlatformTrade
 	return resp, common.ErrNotYetImplemented
 }
 

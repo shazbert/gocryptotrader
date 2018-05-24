@@ -16,6 +16,7 @@ import (
 	"github.com/thrasher-/gocryptotrader/currency"
 	"github.com/thrasher-/gocryptotrader/currency/coinmarketcap"
 	"github.com/thrasher-/gocryptotrader/currency/forexprovider"
+	"github.com/thrasher-/gocryptotrader/database"
 	exchange "github.com/thrasher-/gocryptotrader/exchanges"
 	log "github.com/thrasher-/gocryptotrader/logger"
 	"github.com/thrasher-/gocryptotrader/portfolio"
@@ -28,13 +29,15 @@ type Bot struct {
 	portfolio  *portfolio.Base
 	exchanges  []exchange.IBotExchange
 	comms      *communications.Communications
+	db         *database.ORM
 	shutdown   chan bool
 	dryRun     bool
 	configFile string
 	dataDir    string
 }
 
-const banner = `
+const (
+	banner = `
    ______        ______                     __        ______                  __
   / ____/____   / ____/_____ __  __ ____   / /_ ____ /_  __/_____ ______ ____/ /___   _____
  / / __ / __ \ / /    / ___// / / // __ \ / __// __ \ / /  / ___// __  // __  // _ \ / ___/
@@ -42,6 +45,7 @@ const banner = `
 \____/ \____/ \____//_/    \__, // .___/ \__/ \____//_/  /_/    \__,_/ \__,_/ \___//_/
                           /____//_/
 `
+)
 
 var bot Bot
 
@@ -60,6 +64,11 @@ func main() {
 	dryrun := flag.Bool("dryrun", false, "dry runs bot, doesn't save config file")
 	version := flag.Bool("version", false, "retrieves current GoCryptoTrader version")
 	verbosity := flag.Bool("verbose", false, "increases logging verbosity for GoCryptoTrader")
+	dbSeedHistory := flag.Bool("history", false, "Aggregates historic exchange trade data into the database, based of enabled exchange & enabled currency via the configuration")
+	dbPath := flag.String("db-path", database.DefaultPath, "Defines a non default path to the database")
+	configName := flag.String("use-config", "", "Sets saved configuration stored in database")
+	configOverride := flag.Bool("o-config", true, "Sets config.json to override stored database configuration")
+	saveConfig := flag.Bool("save-config", true, "Saves current supplied config.json as named configuration in database")
 
 	flag.Parse()
 
@@ -79,14 +88,53 @@ func main() {
 	log.Debugf("Loading config file %s..\n", bot.configFile)
 	err = bot.config.LoadConfig(bot.configFile)
 	if err != nil {
-		log.Fatalf("Failed to load config. Err: %s", err)
+		log.Fatalf("Failed to open/create data directory: %s. Err: %s",
+			bot.dataDir,
+			err)
+	}
+	log.Printf("Using data directory: %s.\n", bot.dataDir)
+
+	log.Printf("Setting up database directory with supplementary files at %s",
+		database.DefaultDir)
+	err = database.Setup(database.DefaultDir, *verbosity)
+	if err != nil {
+		log.Fatal("Failed to set up database directory", err)
 	}
 
-	err = common.CheckDir(bot.dataDir, true)
-	if err != nil {
-		log.Fatalf("Failed to open/create data directory: %s. Err: %s", bot.dataDir, err)
+	log.Printf("Connecting to database at %s", *dbPath)
+	if *saveConfig {
+		log.Printf("Saving configuration from %s to database", defaultPath)
 	}
-	log.Debugf("Using data directory: %s.\n", bot.dataDir)
+
+	if *configOverride {
+		log.Printf("Configuration from %s will override selected database configuration",
+			defaultPath)
+	}
+
+	if *dbSeedHistory {
+		log.Println("Warning: Current database is set to fetch historical trade data")
+	}
+
+	bot.db, err = database.Connect(*dbPath, *verbosity)
+	if err != nil {
+		log.Fatalf("Database connection error with config %s - %s",
+			bot.config.Name, err)
+	}
+
+	err = bot.db.UserLogin()
+	if err != nil {
+		log.Fatal("User failed to authenticate - ", err)
+	}
+
+	bot.config, err = bot.db.GetConfig(*configName,
+		bot.configFile,
+		*configOverride,
+		*saveConfig)
+	if err != nil {
+		log.Fatal("Failed to get configuration -", err)
+	}
+
+	log.Printf("Configuration %s succesfully loaded", bot.config.Name)
 
 	err = bot.config.CheckLoggerConfig()
 	if err != nil {
@@ -231,6 +279,11 @@ func Shutdown() {
 
 	if len(portfolio.Portfolio.Addresses) != 0 {
 		bot.config.Portfolio = portfolio.Portfolio
+	}
+
+	err := bot.db.Disconnect()
+	if err != nil {
+		log.Println("Unable to disconnect from database.")
 	}
 
 	if !bot.dryRun {

@@ -2,6 +2,7 @@ package btcc
 
 import (
 	"sync"
+	"time"
 
 	"github.com/thrasher-/gocryptotrader/common"
 	"github.com/thrasher-/gocryptotrader/config"
@@ -29,7 +30,9 @@ func (b *BTCC) Run() {
 		log.Debugf("%s %d currencies enabled: %s.\n", b.GetName(), len(b.EnabledPairs), b.EnabledPairs)
 	}
 
-	if common.StringDataContains(b.EnabledPairs, "CNY") || common.StringDataContains(b.AvailablePairs, "CNY") || common.StringDataContains(b.BaseCurrencies, "CNY") {
+	if common.StringDataContains(b.EnabledPairs, "CNY") ||
+		common.StringDataContains(b.AvailablePairs, "CNY") ||
+		common.StringDataContains(b.BaseCurrencies, "CNY") {
 		log.Warn("BTCC only supports BTCUSD now, upgrading available, enabled and base currencies to BTCUSD/USD")
 		pairs := []string{"BTCUSD"}
 		cfg := config.GetConfig()
@@ -82,8 +85,8 @@ func (b *BTCC) UpdateOrderbook(p pair.CurrencyPair, assetType string) (orderbook
 	return orderbook.Base{}, common.ErrFunctionNotSupported
 }
 
-// GetAccountInfo : Retrieves balances for all enabled currencies for
-// the Kraken exchange - TODO
+// GetAccountInfo retrieves balances for all enabled currencies for
+// the BTCC exchange - TODO
 func (b *BTCC) GetAccountInfo() (exchange.AccountInfo, error) {
 	return exchange.AccountInfo{}, common.ErrFunctionNotSupported
 }
@@ -94,9 +97,11 @@ func (b *BTCC) GetFundingHistory() ([]exchange.FundHistory, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
-// GetExchangeHistory returns historic trade data since exchange opening.
-func (b *BTCC) GetExchangeHistory(p pair.CurrencyPair, assetType string) ([]exchange.TradeHistory, error) {
-	return nil, common.ErrFunctionNotSupported
+// GetPlatformHistory returns historic platform trade data since exchange
+// intial operations
+func (b *BTCC) GetPlatformHistory(p pair.CurrencyPair, assetType string, timestampStart time.Time, tradeID string) ([]exchange.PlatformTrade, error) {
+	var resp []exchange.PlatformTrade
+	return resp, common.ErrFunctionNotSupported
 }
 
 // SubmitOrder submits a new order

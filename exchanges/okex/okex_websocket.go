@@ -292,11 +292,13 @@ func (o *OKEX) WsHandleData() {
 						continue
 					}
 
-					o.Websocket.DataHandler <- exchange.WebsocketOrderbookUpdate{
-						Exchange: o.GetName(),
-						Asset:    assetType,
-						Pair:     pair.NewCurrencyPairFromString(newPair),
-					}
+					// TODO correct orderbook processing
+
+					// o.Websocket.DataHandler <- exchange.WebsocketOrderbookUpdate{
+					// 	Exchange: o.GetName(),
+					// 	Asset:    assetType,
+					// 	Pair:     pair.NewCurrencyPairFromString(newPair),
+					// }
 				}
 			}
 		}

@@ -174,19 +174,21 @@ func (o *OKCoin) WsHandleData() {
 				}
 
 			case common.StringContains(init[0].Channel, "depth"):
-				var orderbook WsOrderbook
+				var ob WsOrderbook
 
-				err = common.JSONDecode(init[0].Data, &orderbook)
+				err = common.JSONDecode(init[0].Data, &ob)
 				if err != nil {
 					o.Websocket.DataHandler <- err
 					continue
 				}
 
-				o.Websocket.DataHandler <- exchange.WebsocketOrderbookUpdate{
-					Pair:     pair.NewCurrencyPairFromString(currencyPair),
-					Exchange: o.GetName(),
-					Asset:    assetType,
-				}
+				// TODO correct orderbook processing
+
+				// o.Websocket.DataHandler <- exchange.WebsocketOrderbookUpdate{
+				// 	Pair:     pair.NewCurrencyPairFromString(currencyPair),
+				// 	Exchange: o.GetName(),
+				// 	Asset:    assetType,
+				// }
 
 			case common.StringContains(init[0].Channel, "kline"):
 				var klineData [][]interface{}

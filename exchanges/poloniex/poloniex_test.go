@@ -2,6 +2,7 @@ package poloniex
 
 import (
 	"testing"
+	"time"
 
 	"github.com/thrasher-/gocryptotrader/common"
 	"github.com/thrasher-/gocryptotrader/config"
@@ -386,5 +387,13 @@ func TestGetDepositAddress(t *testing.T) {
 		if err == nil {
 			t.Error("Test Failed - GetDepositAddress()")
 		}
+	}
+}
+
+func TestGetPlatformHistory(t *testing.T) {
+	pOne := pair.NewCurrencyPairDelimiter("BTC_NXT", "_")
+	_, err := p.GetPlatformHistory(pOne, "SPOT", time.Time{}, "")
+	if err != nil {
+		t.Error("Test faild - Poloniex GetPlatformHistory() error", err)
 	}
 }

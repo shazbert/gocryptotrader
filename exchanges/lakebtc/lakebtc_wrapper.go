@@ -142,11 +142,28 @@ func (l *LakeBTC) GetFundingHistory() ([]exchange.FundHistory, error) {
 	return fundHistory, common.ErrFunctionNotSupported
 }
 
-// GetExchangeHistory returns historic trade data since exchange opening.
-func (l *LakeBTC) GetExchangeHistory(p pair.CurrencyPair, assetType string) ([]exchange.TradeHistory, error) {
-	var resp []exchange.TradeHistory
+// GetPlatformHistory returns historic platform trade data since exchange
+// intial operations
+func (l *LakeBTC) GetPlatformHistory(p pair.CurrencyPair, assetType string, timestampStart time.Time, tradeID string) ([]exchange.PlatformTrade, error) {
+	var resp []exchange.PlatformTrade
 
-	return resp, common.ErrNotYetImplemented
+	t, err := l.GetTradeHistory(p.Pair().String())
+	if err != nil {
+		return resp, err
+	}
+
+	for i := range t {
+		orderID := strconv.FormatInt(t[i].TID, 10)
+		resp = append(resp, exchange.PlatformTrade{
+			Timestamp: time.Unix(t[i].Date, 0),
+			TID:       orderID,
+			Price:     t[i].Price,
+			Amount:    t[i].Amount,
+			Exchange:  l.GetName(),
+			Type:      "Not Specified",
+		})
+	}
+	return resp, nil
 }
 
 // SubmitOrder submits a new order

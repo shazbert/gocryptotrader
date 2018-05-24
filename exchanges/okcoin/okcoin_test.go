@@ -2,6 +2,7 @@ package okcoin
 
 import (
 	"testing"
+	"time"
 
 	"github.com/thrasher-/gocryptotrader/common"
 	"github.com/thrasher-/gocryptotrader/config"
@@ -36,6 +37,7 @@ func TestSetup(t *testing.T) {
 	okcoinConfig.APISecret = apiSecret
 
 	o.Setup(okcoinConfig)
+	o.APIUrl = okcoinAPIURL // NOTE Until websocket updates merged in
 }
 
 func setFeeBuilder() exchange.FeeBuilder {
@@ -329,5 +331,13 @@ func TestWithdrawInternationalBank(t *testing.T) {
 	_, err := o.WithdrawFiatFundsToInternationalBank(withdrawFiatRequest)
 	if err != common.ErrFunctionNotSupported {
 		t.Errorf("Expected '%v', received: '%v'", common.ErrFunctionNotSupported, err)
+	}
+}
+
+func TestGetPlatformHistory(t *testing.T) {
+	p := pair.NewCurrencyPairDelimiter("btc_usd", "_")
+	_, err := o.GetPlatformHistory(p, "SPOT", time.Time{}, "")
+	if err != nil {
+		t.Error("test failed - OKCoin GetPlatformHistory() error", err)
 	}
 }
