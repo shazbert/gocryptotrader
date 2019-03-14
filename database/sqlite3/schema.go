@@ -1,25 +1,26 @@
-package database
+package sqlite3
 
-var schema = map[string]string{
-	"gct_user": `CREATE TABLE gct_user (
+var sqliteSchema = map[string]string{
+	"client": `CREATE TABLE client (
 		id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
-  		name text NOT NULL,
-  		password text NOT NULL,
-		created_at DATETIME NOT NULL,
-		updated_at DATETIME NOT NULL
-	  );`,
-
-	"gct_config": `CREATE TABLE gct_config (
-		id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
-		config_name text NOT NULL,
-		config_full BLOB NOT NULL,
+  		user_name text NOT NULL,
+		password text NOT NULL,
+		email text,
+		role text,
 		created_at DATETIME NOT NULL,
 		updated_at DATETIME NOT NULL,
-		gct_user_id integer NOT NULL,
-  		FOREIGN KEY(gct_user_id) REFERENCES gct_user(id) 
+		last_logged_in DATETIME NOT NULL,
+		UNIQUE(user_name)
+	  );`,
+
+	"exchange": `CREATE TABLE exchange (
+		id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+		exchange_name text NOT NULL,
+		created_at DATETIME NOT NULL,
+		UNIQUE(exchange_name)
 	);`,
 
-	"order_history": `CREATE TABLE order_history (
+	"client_order_history": `CREATE TABLE client_order_history (
 		id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
 		order_id text NOT NULL,
 		fulfilled_on DATETIME NOT NULL,
@@ -28,13 +29,13 @@ var schema = map[string]string{
 		order_type text NOT NULL,
 		amount real NOT NULL,
 		rate real NOT NULL,
-		exchange_name text NOT NULL,
+		exchange_id int NOT NULL,
 		created_at DATETIME NOT NULL,
-		updated_at DATETIME NOT NULL,
-		UNIQUE(exchange_name, fulfilled_on, currency_pair , asset_type, amount, rate)
+		FOREIGN KEY(exchange_id) REFERENCES exchange(id),
+		UNIQUE(exchange_id, order_id)
 	);`,
 
-	"exchange_trade_history": `CREATE TABLE exchange_trade_history (
+	"exchange_platform_trade_history": `CREATE TABLE exchange_platform_trade_history (
 		id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
 		fulfilled_on DATETIME NOT NULL,
 		currency_pair text NOT NULL,
@@ -43,10 +44,10 @@ var schema = map[string]string{
 		amount real NOT NULL,
 		rate real NOT NULL,
 		order_id text NOT NULL,
-		exchange_name text NOT NULL,
+		exchange_id int NOT NULL,
 		created_at DATETIME NOT NULL,
-		updated_at DATETIME NOT NULL,
-		UNIQUE(exchange_name, fulfilled_on, currency_pair , asset_type, amount, rate)
+		FOREIGN KEY(exchange_id) REFERENCES exchange(id),
+		UNIQUE(exchange_id, order_id)
 	);`}
 
 var deprecatedDatabaseTables = []string{}

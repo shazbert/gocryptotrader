@@ -716,3 +716,17 @@ func HashPassword(password []byte) (string, error) {
 	}
 	return string(hashPw), nil
 }
+
+// GetDefaultDatabaseDir returns the default database directory
+func GetDefaultDatabaseDir() string {
+	// DefaultDir is the default directory for database data
+	return fmt.Sprintf("%s%sdatabase%s",
+		GetDefaultDataDir(runtime.GOOS),
+		GetOSPathSlash(),
+		GetOSPathSlash())
+}
+
+// GetDefaultSQLitePath returns the default path to a SQLite3 database
+func GetDefaultSQLitePath() string {
+	return GetDefaultDatabaseDir() + "database.db"
+}

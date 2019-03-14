@@ -17,6 +17,7 @@ import (
 	"github.com/thrasher-/gocryptotrader/currency/coinmarketcap"
 	"github.com/thrasher-/gocryptotrader/currency/forexprovider"
 	"github.com/thrasher-/gocryptotrader/database"
+	"github.com/thrasher-/gocryptotrader/database/base"
 	exchange "github.com/thrasher-/gocryptotrader/exchanges"
 	log "github.com/thrasher-/gocryptotrader/logger"
 	"github.com/thrasher-/gocryptotrader/portfolio"
@@ -29,7 +30,7 @@ type Bot struct {
 	portfolio  *portfolio.Base
 	exchanges  []exchange.IBotExchange
 	comms      *communications.Communications
-	db         *database.ORM
+	db         database.Databaser
 	shutdown   chan bool
 	dryRun     bool
 	configFile string
@@ -64,11 +65,13 @@ func main() {
 	dryrun := flag.Bool("dryrun", false, "dry runs bot, doesn't save config file")
 	version := flag.Bool("version", false, "retrieves current GoCryptoTrader version")
 	verbosity := flag.Bool("verbose", false, "increases logging verbosity for GoCryptoTrader")
-	dbSeedHistory := flag.Bool("history", false, "Aggregates historic exchange trade data into the database, based of enabled exchange & enabled currency via the configuration")
-	dbPath := flag.String("db-path", database.DefaultPath, "Defines a non default path to the database")
-	configName := flag.String("use-config", "", "Sets saved configuration stored in database")
-	configOverride := flag.Bool("o-config", true, "Sets config.json to override stored database configuration")
-	saveConfig := flag.Bool("save-config", true, "Saves current supplied config.json as named configuration in database")
+	dbDir := flag.String("dbdirectory", common.GetDefaultDatabaseDir(), "Sets a non default path to a database data directory")
+	sqlitePath := flag.String("sqlitepath", common.GetDefaultSQLitePath(), "Sets a non default path to a SQLite3 database")
+	postgres := flag.Bool("postgres", false, "initiates a postgres connection and bypasses default database 'SQLite3'")
+	dbHost := flag.String("dbhost", "", "Sets database host")
+	dbUser := flag.String("dbuser", "", "Sets database user")
+	dbpass := flag.String("dbpass", "", "Sets database password")
+	dbName := flag.String("dbname", "", "Sets database name")
 
 	flag.Parse()
 
@@ -92,49 +95,102 @@ func main() {
 			bot.dataDir,
 			err)
 	}
-	log.Printf("Using data directory: %s.\n", bot.dataDir)
 
-	log.Printf("Setting up database directory with supplementary files at %s",
-		database.DefaultDir)
-	err = database.Setup(database.DefaultDir, *verbosity)
+	log.Debugf("Using data directory: %s.\n", bot.dataDir)
+	log.Debugf("Setting up database directory with supplementary files at %s",
+		*dbDir)
+
+	if *postgres {
+		bot.db = database.GetPostgresInstance()
+		err = bot.db.Setup(base.ConnDetails{Verbose: *verbosity,
+			DirectoryPath: *dbDir,
+			Host:          *dbHost,
+			User:          *dbUser,
+			Pass:          *dbpass,
+			DBName:        *dbName,
+		})
+		if err != nil {
+			log.Fatal("Postgres instance failed ", err)
+		}
+
+	} else {
+		// default instance of SQLite3
+		bot.db = database.GetSQLite3Instance()
+		err = bot.db.Setup(base.ConnDetails{
+			DirectoryPath: *dbDir,
+			SQLPath:       *sqlitePath,
+			Verbose:       *verbosity,
+		})
+		if err != nil {
+			log.Fatal("default database 'SQLite3' failed to setup reason:", err)
+		}
+	}
+
+	log.Debug("Initial setup complete, establishing connection to database")
+	err = bot.db.Connect()
 	if err != nil {
-		log.Fatal("Failed to set up database directory", err)
+		disconnectErr := bot.db.Disconnect()
+		if disconnectErr != nil {
+			log.Error(disconnectErr)
+		}
+		log.Error("Database connection failure reason:", err)
+	} else {
+		err = bot.db.ClientLogin()
+		if err != nil {
+			log.Fatal("User failed to log into database reason:", err)
+		}
 	}
 
-	log.Printf("Connecting to database at %s", *dbPath)
-	if *saveConfig {
-		log.Printf("Saving configuration from %s to database", defaultPath)
+	if bot.db.IsConnected() {
+		log.Debugf("Bot is now connected to a %s database", bot.db.GetName())
+		client, err := bot.db.GetClientDetails()
+		if err != nil {
+			log.Error("Retrieving client data from database failure reason:",
+				err)
+		} else {
+			log.Debugf("Database credentials set for client %s", client)
+		}
 	}
 
-	if *configOverride {
-		log.Printf("Configuration from %s will override selected database configuration",
-			defaultPath)
-	}
+	// err = database.Setup(database.DefaultDir, *verbosity)
+	// if err != nil {
+	// 	log.Fatal("Failed to set up database directory", err)
+	// }
 
-	if *dbSeedHistory {
-		log.Println("Warning: Current database is set to fetch historical trade data")
-	}
+	// log.Printf("Connecting to database at %s", *dbPath)
+	// if *saveConfig {
+	// 	log.Printf("Saving configuration from %s to database", defaultPath)
+	// }
 
-	bot.db, err = database.Connect(*dbPath, *verbosity)
-	if err != nil {
-		log.Fatalf("Database connection error with config %s - %s",
-			bot.config.Name, err)
-	}
+	// if *configOverride {
+	// 	log.Printf("Configuration from %s will override selected database configuration",
+	// 		defaultPath)
+	// }
 
-	err = bot.db.UserLogin()
-	if err != nil {
-		log.Fatal("User failed to authenticate - ", err)
-	}
+	// if *dbSeedHistory {
+	// 	log.Println("Warning: Current database is set to fetch historical trade data")
+	// }
 
-	bot.config, err = bot.db.GetConfig(*configName,
-		bot.configFile,
-		*configOverride,
-		*saveConfig)
-	if err != nil {
-		log.Fatal("Failed to get configuration -", err)
-	}
+	// bot.db, err = database.Connect(*dbPath, *verbosity)
+	// if err != nil {
+	// 	log.Fatalf("Database connection error with config %s - %s",
+	// 		bot.config.Name, err)
+	// }
 
-	log.Printf("Configuration %s succesfully loaded", bot.config.Name)
+	// err = bot.db.UserLogin()
+	// if err != nil {
+	// 	log.Fatal("User failed to authenticate - ", err)
+	// }
+
+	// bot.config, err = bot.db.GetConfig(*configName,
+	// 	bot.configFile,
+	// 	*configOverride,
+	// 	*saveConfig)
+	// if err != nil {
+	// 	log.Fatal("Failed to get configuration -", err)
+	// }
+
+	// log.Printf("Configuration %s succesfully loaded", bot.config.Name)
 
 	err = bot.config.CheckLoggerConfig()
 	if err != nil {
@@ -234,6 +290,7 @@ func main() {
 	go TickerUpdaterRoutine()
 	go OrderbookUpdaterRoutine()
 	go WebsocketRoutine(*verbosity)
+	go PlatformTradeUpdaterRoutine()
 
 	<-bot.shutdown
 	Shutdown()

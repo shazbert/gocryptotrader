@@ -147,6 +147,22 @@ type ExchangeConfig struct {
 	ConfigCurrencyPairFormat  *CurrencyPairFormatConfig `json:"configCurrencyPairFormat"`
 	RequestCurrencyPairFormat *CurrencyPairFormatConfig `json:"requestCurrencyPairFormat"`
 	BankAccounts              []BankAccount             `json:"bankAccounts"`
+	Database                  Database                  `json:"database"`
+}
+
+// Database denotes configurations for what is saved to database from the
+// loaded exchange
+type Database struct {
+	// LoadPlatformTrades loads the trades that have been matched on the
+	// exchange by all clients
+	LoadPlatformTrades bool `json:"loadPlatformTrades"`
+	// TimestampStart defines the start date at which you want the trades to be
+	// fetched, if no time is set will default to fetching the last 24 hours or
+	// what ever the max historic time is.
+	TimestampStart int64 `json:"timestampStart"`
+	// TimestampEnd defines the end date if no time is set will default to
+	// time.Now()
+	TimestampEnd int64 `json:"timestampEnd"`
 }
 
 // BankAccount holds differing bank account details by supported funding
@@ -365,6 +381,20 @@ func (c *Config) CheckClientBankAccounts() error {
 		}
 	}
 	return nil
+}
+
+// GetDatabaseConfig returns a exchange database configuration
+func (c *Config) GetDatabaseConfig(exchangeName string) (Database, error) {
+	m.Lock()
+	defer m.Unlock()
+	for i := range c.Exchanges {
+		if c.Exchanges[i].Name == exchangeName {
+			return c.Exchanges[i].Database, nil
+		}
+	}
+
+	return Database{},
+		fmt.Errorf("exchange %s configuration not found", exchangeName)
 }
 
 // GetCommunicationsConfig returns the communications configuration
