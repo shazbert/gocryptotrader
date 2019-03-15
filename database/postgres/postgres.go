@@ -21,7 +21,7 @@ const (
 	conn = "user=%s password=%s dbname=%s sslmode=require host=%s"
 )
 
-// Postgres defines a connection to a SQLite3 database
+// Postgres defines a connection to a PosgreSQL database
 type Postgres struct {
 	base.RelationalMap
 }
@@ -71,7 +71,7 @@ func (p *Postgres) Setup(c base.ConnDetails) error {
 		return err
 	}
 
-	fullPathToSchema := p.PathDBDir + base.SQLite3Schema
+	fullPathToSchema := p.PathDBDir + base.PostGresSchema
 	// Creates a schema file for informational deployment
 	_, err = common.ReadFile(fullPathToSchema)
 	if err != nil {
@@ -98,7 +98,7 @@ func (p *Postgres) Setup(c base.ConnDetails) error {
 	return nil
 }
 
-// Connect initiates a connection to a SQLite database
+// Connect initiates a connection to a PosgreSQL database
 func (p *Postgres) Connect() error {
 	if p.Host == "" {
 		return fmt.Errorf("connect error host not set for %s", p.InstanceName)
@@ -131,6 +131,7 @@ func (p *Postgres) Connect() error {
 
 	err = p.C.Ping()
 	if err != nil {
+		p.C.Close()
 		return err
 	}
 
