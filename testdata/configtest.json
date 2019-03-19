@@ -12,6 +12,28 @@
  "profiler": {
   "enabled": false
  },
+ "databases": {
+  "postgres": {
+   "enabled": false,
+   "pathToDB": "",
+   "host": "",
+   "password": "",
+   "userName": "",
+   "port": "",
+   "databaseName": "",
+   "sslMode": ""
+  },
+  "sqlite3": {
+   "enabled": false,
+   "pathToDB": "",
+   "host": "",
+   "password": "",
+   "userName": "",
+   "port": "",
+   "databaseName": "",
+   "sslMode": ""
+  }
+ },
  "currencyConfig": {
   "forexProviders": [
    {
@@ -197,6 +219,16 @@
      "iban": "",
      "supportedCurrencies": ""
     }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "ATENC_EUR",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
+    }
    ]
   },
   {
@@ -236,6 +268,16 @@
      "swiftCode": "",
      "iban": "",
      "supportedCurrencies": ""
+    }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "PAX-TUSD",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
     }
    ]
   },
@@ -285,6 +327,16 @@
      "iban": "DE78660700240057016801",
      "supportedCurrencies": "JPY,GBP"
     }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "RCNUSD",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
+    }
    ]
   },
   {
@@ -327,6 +379,16 @@
      "iban": "",
      "supportedCurrencies": ""
     }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "BCH_BTC",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
+    }
    ]
   },
   {
@@ -368,6 +430,16 @@
      "iban": "",
      "supportedCurrencies": ""
     }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "ZECKRW",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
+    }
    ]
   },
   {
@@ -407,6 +479,16 @@
      "swiftCode": "",
      "iban": "",
      "supportedCurrencies": ""
+    }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "BCHUSD",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
     }
    ]
   },
@@ -449,6 +531,16 @@
      "iban": "",
      "supportedCurrencies": ""
     }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "BTC-MANA",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
+    }
    ]
   },
   {
@@ -467,13 +559,14 @@
    "apiUrlSecondary": "NON_DEFAULT_HTTP_LINK_TO_EXCHANGE_API",
    "proxyAddress": "",
    "websocketUrl": "NON_DEFAULT_HTTP_LINK_TO_WEBSOCKET_EXCHANGE_API",
-   "availablePairs": "BTCUSD",
-   "enabledPairs": "BTCUSD",
+   "availablePairs": "BTC_USD,BCH_USD,ETH_USD,LTC_USD,DASH_USD,BCH_BTC,ETH_BTC,LTC_BTC,DASH_BTC,BTCC_ETH",
+   "enabledPairs": "BCH_USD",
    "baseCurrencies": "USD",
    "assetTypes": "SPOT",
    "supportsAutoPairUpdates": true,
    "configCurrencyPairFormat": {
-    "uppercase": true
+    "uppercase": true,
+    "delimiter": "_"
    },
    "requestCurrencyPairFormat": {
     "uppercase": true
@@ -487,6 +580,16 @@
      "swiftCode": "",
      "iban": "",
      "supportedCurrencies": ""
+    }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "BTC_USD",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
     }
    ]
   },
@@ -529,6 +632,16 @@
      "iban": "",
      "supportedCurrencies": ""
     }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "BTC-USD",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
+    }
    ]
   },
   {
@@ -569,6 +682,16 @@
      "iban": "",
      "supportedCurrencies": ""
     }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "BCHSV-AUD",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
+    }
    ]
   },
   {
@@ -608,6 +731,16 @@
      "swiftCode": "",
      "iban": "",
      "supportedCurrencies": ""
+    }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "XMRUSDT",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
     }
    ]
   },
@@ -651,6 +784,16 @@
      "iban": "",
      "supportedCurrencies": ""
     }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "MNX_BTC",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
+    }
    ]
   },
   {
@@ -691,6 +834,16 @@
      "swiftCode": "",
      "iban": "",
      "supportedCurrencies": ""
+    }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "ETCGBP",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
     }
    ]
   },
@@ -733,6 +886,16 @@
      "iban": "",
      "supportedCurrencies": ""
     }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "OMG_USDT",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
+    }
    ]
   },
   {
@@ -771,6 +934,16 @@
      "swiftCode": "",
      "iban": "",
      "supportedCurrencies": ""
+    }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "ZECBCH",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
     }
    ]
   },
@@ -811,6 +984,16 @@
      "swiftCode": "",
      "iban": "",
      "supportedCurrencies": ""
+    }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "SALT-ETH",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
     }
    ]
   },
@@ -853,6 +1036,16 @@
      "iban": "",
      "supportedCurrencies": ""
     }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "EGCC-ETH",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
+    }
    ]
   },
   {
@@ -893,6 +1086,16 @@
      "swiftCode": "",
      "iban": "",
      "supportedCurrencies": ""
+    }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "MEX-BTC",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
     }
    ]
   },
@@ -935,6 +1138,16 @@
      "iban": "",
      "supportedCurrencies": ""
     }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "XBTSGD",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
+    }
    ]
   },
   {
@@ -976,6 +1189,16 @@
      "iban": "",
      "supportedCurrencies": ""
     }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "EOS-XBT",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
+    }
    ]
   },
   {
@@ -1015,6 +1238,16 @@
      "iban": "",
      "supportedCurrencies": ""
     }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "USDCAD",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
+    }
    ]
   },
   {
@@ -1053,6 +1286,16 @@
      "swiftCode": "",
      "iban": "",
      "supportedCurrencies": ""
+    }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "BTCARS",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
     }
    ]
   },
@@ -1095,6 +1338,16 @@
      "iban": "",
      "supportedCurrencies": ""
     }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "GUSD_BTC",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
+    }
    ]
   },
   {
@@ -1136,6 +1389,16 @@
      "iban": "",
      "supportedCurrencies": ""
     }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "WIN_BTC",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
+    }
    ]
   },
   {
@@ -1176,6 +1439,16 @@
      "swiftCode": "",
      "iban": "",
      "supportedCurrencies": ""
+    }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "BTC_GAME",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
     }
    ]
   },
@@ -1220,6 +1493,16 @@
      "iban": "",
      "supportedCurrencies": ""
     }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "BCC_USD",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
+    }
    ]
   },
   {
@@ -1261,6 +1544,16 @@
      "iban": "",
      "supportedCurrencies": ""
     }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "TRUE_BTC",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
+    }
    ]
   },
   {
@@ -1299,6 +1592,16 @@
      "swiftCode": "",
      "iban": "",
      "supportedCurrencies": ""
+    }
+   ],
+   "databaseExchangeConfigs": [
+    {
+     "enabled": false,
+     "currencyPair": "ETHUSD",
+     "assetType": "SPOT",
+     "timestampStart": 0,
+     "tradeIDStart": "",
+     "timestampEnd": 0
     }
    ]
   }

@@ -224,6 +224,35 @@ func (c *Config) PurgeExchangeAPICredentials() {
 	}
 }
 
+// CheckDatabaseExchangeConfig adds an example currencypair to array and also
+// checks to see if config pair is part of the available pairs list
+func (c *Config) CheckDatabaseExchangeConfig() {
+	for x := range c.Exchanges {
+		// Sets an example configuration in array
+		if c.Exchanges[x].DatabaseExchangeConfigs == nil {
+			c.Exchanges[x].DatabaseExchangeConfigs = append(c.Exchanges[x].DatabaseExchangeConfigs,
+				DatabaseExchangeConfig{
+					Pair:      c.Exchanges[x].AvailablePairs.GetRandomPair(),
+					AssetType: "SPOT",
+				})
+		}
+	}
+}
+
+// GetDatabaseConfig returns a exchange database configuration
+func (c *Config) GetDatabaseConfig(exchangeName string) ([]DatabaseExchangeConfig, error) {
+	m.Lock()
+	defer m.Unlock()
+	for i := range c.Exchanges {
+		if c.Exchanges[i].Name == exchangeName {
+			return c.Exchanges[i].DatabaseExchangeConfigs, nil
+		}
+	}
+
+	return nil,
+		fmt.Errorf("exchange %s configuration not found", exchangeName)
+}
+
 // GetCommunicationsConfig returns the communications configuration
 func (c *Config) GetCommunicationsConfig() CommunicationsConfig {
 	m.Lock()
@@ -796,7 +825,7 @@ func (c *Config) UpdateExchangeConfig(e *ExchangeConfig) error {
 func (c *Config) CheckExchangeConfigValues() error {
 	exchanges := 0
 	for i, exch := range c.Exchanges {
-		if exch.Name == "GDAX" {
+		if c.Exchanges[i].Name == "GDAX" {
 			c.Exchanges[i].Name = "CoinbasePro"
 		}
 
@@ -924,7 +953,9 @@ func (c *Config) CheckExchangeConfigValues() error {
 				lastUpdated := common.UnixTimestampToTime(c.Exchanges[i].CurrencyPairs.LastUpdated)
 				lastUpdated = lastUpdated.AddDate(0, 0, configPairsLastUpdatedWarningThreshold)
 				if lastUpdated.Unix() <= time.Now().Unix() {
-					log.Warnf(WarningPairsLastUpdatedThresholdExceeded, exch.Name, configPairsLastUpdatedWarningThreshold)
+					log.Warnf(WarningPairsLastUpdatedThresholdExceeded,
+						c.Exchanges[i].Name,
+						configPairsLastUpdatedWarningThreshold)
 				}
 			}
 			if exch.HTTPTimeout <= 0 {
@@ -1003,6 +1034,9 @@ func (c *Config) CheckExchangeConfigValues() error {
 	if exchanges == 0 {
 		return errors.New(ErrNoEnabledExchanges)
 	}
+
+	c.CheckDatabaseExchangeConfig()
+
 	return nil
 }
 

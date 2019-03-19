@@ -2,6 +2,7 @@ package binance
 
 import (
 	"testing"
+	"time"
 
 	"github.com/thrasher-/gocryptotrader/common"
 	"github.com/thrasher-/gocryptotrader/config"
@@ -80,7 +81,7 @@ func TestGetHistoricalTrades(t *testing.T) {
 
 func TestGetAggregatedTrades(t *testing.T) {
 	t.Parallel()
-	_, err := b.GetAggregatedTrades("BTCUSDT", 5)
+	_, err := b.GetAggregatedTrades("BTCUSDT", 5, 0, 0)
 	if err != nil {
 		t.Error("Test Failed - Binance GetAggregatedTrades() error", err)
 	}
@@ -537,4 +538,20 @@ func TestGetDepositAddress(t *testing.T) {
 			t.Error("Test Failed - GetDepositAddress() error cannot be nil")
 		}
 	}
+}
+
+func TestGetPlatformHistory(t *testing.T) {
+
+	b.SetDefaults()
+	TestSetup(t)
+
+	b.Verbose = true
+	// t.Parallel()
+	p := currency.NewPair(currency.BTC, currency.USDT)
+	m, err := b.GetPlatformHistory(p, "SPOT", time.Now().AddDate(-1, 0, 0), "")
+	if err != nil {
+		t.Error("test failed - Binance GetPlatformHistory() error", err)
+	}
+
+	t.Error(m)
 }

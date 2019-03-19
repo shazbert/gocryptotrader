@@ -3,6 +3,7 @@ package kraken
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -295,11 +296,32 @@ func (k *Kraken) GetFundingHistory() ([]exchange.FundHistory, error) {
 	return fundHistory, common.ErrFunctionNotSupported
 }
 
-// GetExchangeHistory returns historic trade data since exchange opening.
-func (k *Kraken) GetExchangeHistory(p currency.Pair, assetType assets.AssetType) ([]exchange.TradeHistory, error) {
-	var resp []exchange.TradeHistory
+// GetPlatformHistory returns historic platform trade data since exchange
+// initial operations
+func (k *Kraken) GetPlatformHistory(p currency.Pair, assetType assets.AssetType, timestampStart time.Time, tradeID string) ([]exchange.PlatformTrade, error) {
+	var resp []exchange.PlatformTrade
+	ID, err := strconv.ParseInt(tradeID, 10, 64)
+	if err != nil && tradeID != "" {
+		return resp, err
+	}
 
-	return resp, common.ErrNotYetImplemented
+	formattedPair := k.FormatExchangeCurrency(p, assetType)
+	trades, err := k.GetTrades(formattedPair.String(), ID)
+	if err != nil {
+		return resp, err
+	}
+
+	for i := range trades {
+		resp = append(resp, exchange.PlatformTrade{
+			Timestamp: time.Unix(int64(trades[i].Time), 0),
+			TID:       "OrderID - Not specified",
+			Price:     trades[i].Price,
+			Amount:    trades[i].Volume,
+			Exchange:  k.GetName(),
+			Type:      trades[i].BuyOrSell,
+		})
+	}
+	return resp, nil
 }
 
 // SubmitOrder submits a new order
