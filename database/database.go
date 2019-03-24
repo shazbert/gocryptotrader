@@ -17,15 +17,11 @@ type Databaser interface {
 	IsConnected() bool
 	GetClientDetails() (string, error)
 	GetName() string
-	InsertPlatformTrade(orderID,
-		exchangeName,
-		currencyPair,
-		assetType,
-		orderType string,
-		amount,
-		rate float64,
-		fulfilledOn time.Time) error
+	InsertPlatformTrades(exchangeName string, trades []*base.PlatformTrades) error
 	GetPlatformTradeLast(exchangeName,
+		currencyPair,
+		assetType string) (time.Time, string, error)
+	GetPlatformTradeFirst(exchangeName,
 		currencyPair,
 		assetType string) (time.Time, string, error)
 	GetFullPlatformHistory(exchName,

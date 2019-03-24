@@ -64,9 +64,12 @@ func main() {
 	dryrun := flag.Bool("dryrun", false, "dry runs bot, doesn't save config file")
 	version := flag.Bool("version", false, "retrieves current GoCryptoTrader version")
 	verbosity := flag.Bool("verbose", false, "increases logging verbosity for GoCryptoTrader")
+
+	// Database flags
 	dbDir := flag.String("dbdirectory", common.GetDefaultDatabaseDir(), "Sets a non default path to a database data directory")
+	sqlite := flag.Bool("sqlite", false, "initiates and connects to a sqlite3 database")
 	sqlitePath := flag.String("sqlitepath", common.GetDefaultSQLitePath(), "Sets a non default path to a SQLite3 database")
-	postgres := flag.Bool("postgres", false, "initiates a postgres connection and bypasses default database 'SQLite3'")
+	postgres := flag.Bool("postgres", false, "initiates a postgres connection")
 	dbHost := flag.String("dbhost", "", "Sets database host")
 	dbUser := flag.String("dbuser", "", "Sets database user")
 	dbpass := flag.String("dbpass", "", "Sets database password")
@@ -104,72 +107,85 @@ func main() {
 			err)
 	}
 
-	log.Debugf("Using data directory: %s.\n", bot.dataDir)
-	log.Debugf("Setting up database directory with supplementary files at %s",
-		*dbDir)
-
-	if *postgres {
-		bot.db = database.GetPostgresInstance()
-		if *dbHost == "" || *dbUser == "" || *dbpass == "" || *dbName == "" || *dbSSLMode == "" {
-			log.Warn("Database PostgreSQL command line flags incorrectly set, defaulting to config.json")
-			*dbHost = bot.config.Databases.Postgres.Host
-			*dbUser = bot.config.Databases.Postgres.Username
-			*dbpass = bot.config.Databases.Postgres.Password
-			*dbName = bot.config.Databases.Postgres.DatabaseName
-			*dbPort = bot.config.Databases.Postgres.Port
-			*dbSSLMode = bot.config.Databases.Postgres.SSLMode
+	var dbOn bool
+	if *postgres || *sqlite || bot.config.Databases.Postgres.Enabled || bot.config.Databases.Sqlite3.Enabled {
+		if (*postgres || bot.config.Databases.Postgres.Enabled) &&
+			(*sqlite || bot.config.Databases.Sqlite3.Enabled) {
+			log.Fatal("Can only run one database at a time, please check config and flags")
 		}
 
-		err = bot.db.Setup(base.ConnDetails{Verbose: *verbosity,
-			DirectoryPath: *dbDir,
-			Host:          *dbHost,
-			User:          *dbUser,
-			Pass:          *dbpass,
-			DBName:        *dbName,
-			Port:          *dbPort,
-			SSLMode:       *dbSSLMode,
-		})
+		log.Debugf("Using data directory: %s.\n", bot.dataDir)
+		log.Debugf("Setting up database directory with supplementary files at %s",
+			*dbDir)
+
+		if *postgres {
+			bot.db = database.GetPostgresInstance()
+			if *dbHost == "" || *dbUser == "" || *dbpass == "" || *dbName == "" || *dbSSLMode == "" {
+				log.Warn("Database PostgreSQL command line flags incorrectly set, defaulting to config.json")
+				*dbHost = bot.config.Databases.Postgres.Host
+				*dbUser = bot.config.Databases.Postgres.Username
+				*dbpass = bot.config.Databases.Postgres.Password
+				*dbName = bot.config.Databases.Postgres.DatabaseName
+				*dbPort = bot.config.Databases.Postgres.Port
+				*dbSSLMode = bot.config.Databases.Postgres.SSLMode
+			}
+
+			err = bot.db.Setup(base.ConnDetails{Verbose: *verbosity,
+				DirectoryPath: *dbDir,
+				Host:          *dbHost,
+				User:          *dbUser,
+				Pass:          *dbpass,
+				DBName:        *dbName,
+				Port:          *dbPort,
+				SSLMode:       *dbSSLMode,
+				MemCacheSize:  bot.config.Databases.MemoryAllocationInBytes,
+			})
+			if err != nil {
+				log.Fatal("Postgres instance failed ", err)
+			}
+
+		}
+
+		if *sqlite {
+			bot.db = database.GetSQLite3Instance()
+			err = bot.db.Setup(base.ConnDetails{
+				DirectoryPath: *dbDir,
+				SQLPath:       *sqlitePath,
+				Verbose:       *verbosity,
+				MemCacheSize:  bot.config.Databases.MemoryAllocationInBytes,
+			})
+			if err != nil {
+				log.Fatal("default database 'SQLite3' failed to setup reason:", err)
+			}
+		}
+
+		log.Debug("Initial setup complete, establishing connection to database")
+		err = bot.db.Connect()
 		if err != nil {
-			log.Fatal("Postgres instance failed ", err)
-		}
-
-	} else {
-		// default instance of SQLite3
-		bot.db = database.GetSQLite3Instance()
-		err = bot.db.Setup(base.ConnDetails{
-			DirectoryPath: *dbDir,
-			SQLPath:       *sqlitePath,
-			Verbose:       *verbosity,
-		})
-		if err != nil {
-			log.Fatal("default database 'SQLite3' failed to setup reason:", err)
-		}
-	}
-
-	log.Debug("Initial setup complete, establishing connection to database")
-	err = bot.db.Connect()
-	if err != nil {
-		disconnectErr := bot.db.Disconnect()
-		if disconnectErr != nil {
-			log.Error(disconnectErr)
-		}
-		log.Error("Database connection failure reason:", err)
-	} else {
-		err = bot.db.ClientLogin(*newclient)
-		if err != nil {
-			log.Fatal("User failed to log into database reason:", err)
-		}
-	}
-
-	if bot.db.IsConnected() {
-		log.Debugf("Bot is now connected to a %s database", bot.db.GetName())
-		var client string
-		client, err = bot.db.GetClientDetails()
-		if err != nil {
-			log.Error("Retrieving client data from database failure reason:",
-				err)
+			disconnectErr := bot.db.Disconnect()
+			if disconnectErr != nil {
+				log.Error(disconnectErr)
+			}
+			log.Error("Database connection failure reason:", err)
 		} else {
-			log.Debugf("Database credentials set for client %s", client)
+			err = bot.db.ClientLogin(*newclient)
+			if err != nil {
+				log.Fatal("User failed to log into database reason:", err)
+			}
+		}
+
+		if bot.db.IsConnected() {
+			log.Debugf("Bot is now connected to a %s database", bot.db.GetName())
+			var client string
+			client, err = bot.db.GetClientDetails()
+			if err != nil {
+				log.Error("Retrieving client data from database failure reason:",
+					err)
+			} else {
+				log.Debugf("Database credentials set for client %s", client)
+			}
+
+			dbOn = true
 		}
 	}
 
@@ -261,7 +277,10 @@ func main() {
 	go TickerUpdaterRoutine()
 	go OrderbookUpdaterRoutine()
 	go WebsocketRoutine(*verbosity)
-	go PlatformTradeUpdaterRoutine()
+
+	if dbOn {
+		go PlatformTradeUpdaterRoutine()
+	}
 
 	<-bot.shutdown
 	Shutdown()
@@ -311,7 +330,9 @@ func Shutdown() {
 
 	err := bot.db.Disconnect()
 	if err != nil {
-		log.Println("Unable to disconnect from database.")
+		log.Debug("Unable to disconnect from database.", err)
+	} else {
+		log.Debug("Succesfully shutdown database.")
 	}
 
 	if !bot.dryRun {

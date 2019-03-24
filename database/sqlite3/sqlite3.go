@@ -39,6 +39,13 @@ func (s *SQLite3) Setup(c base.ConnDetails) error {
 	s.InstanceName = base.SQLite
 	s.PathDBDir = c.DirectoryPath
 
+	if c.MemCacheSize == 0 {
+		s.MaxSizeOfCache = base.DefaultMemCache
+	} else {
+		log.Warnf("Database write buffer size %d is not default", c.MemCacheSize)
+		s.MaxSizeOfCache = c.MemCacheSize
+	}
+
 	// Checks to see if default directory is made
 	err := common.CheckDir(s.PathDBDir, true)
 	if err != nil {
@@ -69,12 +76,12 @@ func (s *SQLite3) Setup(c base.ConnDetails) error {
 // GetSchema returns the full schema ready for file use
 func GetSchema() string {
 	var fullSchema string
-
-	fullSchema += sqliteSchema[0] + "\n\n"
-	fullSchema += sqliteSchema[1] + "\n\n"
-	fullSchema += sqliteSchema[2] + "\n\n"
-	fullSchema += sqliteSchema[3]
-
+	for i, s := range sqliteSchema {
+		fullSchema += s
+		if len(sqliteSchema)-1 != i {
+			fullSchema += "\n\n"
+		}
+	}
 	return fullSchema
 }
 
@@ -133,6 +140,16 @@ func (s *SQLite3) Connect() error {
 		}
 	}
 
+	err = s.InsertAccessControl(base.GetAccessLevels())
+	if err != nil {
+		return err
+	}
+
+	err = s.InsertExchanges(base.GetSupportedExchanges())
+	if err != nil {
+		return err
+	}
+
 	s.Connected = true
 	return nil
 }
@@ -142,7 +159,7 @@ func (s *SQLite3) ClientLogin(newclient bool) error {
 	fmt.Println()
 	if newclient {
 		log.Info(base.InfoInsertClient)
-		return s.InsertNewClient()
+		return s.InsertNewClientByPrompt()
 	}
 
 	clients, err := models.Clients().All(base.Ctx, s.C)
@@ -152,7 +169,7 @@ func (s *SQLite3) ClientLogin(newclient bool) error {
 
 	if len(clients) == 0 {
 		log.Info(base.InfoNoClients)
-		return s.InsertNewClient()
+		return s.InsertNewClientByPrompt()
 	}
 
 	if len(clients) == 1 {
@@ -199,8 +216,9 @@ func (s *SQLite3) CheckClientPassword(c *models.Client) error {
 	return fmt.Errorf(base.LoginFailure, c.UserName)
 }
 
-// InsertNewClient inserts a new client by username and password
-func (s *SQLite3) InsertNewClient() error {
+// InsertNewClientByPrompt inserts a new client by username and password
+// prompt when starting a new gocryptotrader instance
+func (s *SQLite3) InsertNewClientByPrompt() error {
 	username, err := common.PromptForUsername()
 	if err != nil {
 		return err
@@ -227,12 +245,18 @@ func (s *SQLite3) InsertNewClient() error {
 	}
 
 	newuser := &models.Client{
-		UserName:     username,
-		Password:     hashPw,
-		LastLoggedIn: time.Now(),
+		UserName:          username,
+		Password:          hashPw,
+		PasswordCreatedAt: time.Now(),
+		LastLoggedIn:      time.Now(),
+		Enabled:           true,
 	}
 
-	err = newuser.Insert(base.Ctx, s.C, boil.Infer())
+	basicAccess := &models.AccessControl{
+		Level: int64(base.Basic),
+	}
+
+	err = basicAccess.AddAccessLevelClients(base.Ctx, s.C, true, newuser)
 	if err != nil {
 		return err
 	}
@@ -246,8 +270,8 @@ func (s *SQLite3) InsertNewClient() error {
 	return nil
 }
 
-// InsertPlatformTrade inserts platform matched trades
-func (s *SQLite3) InsertPlatformTrade(orderID, exchangeName, currencyPair, assetType, orderType string, amount, rate float64, fulfilledOn time.Time) error {
+// InsertPlatformTrades inserts platform matched trades
+func (s *SQLite3) InsertPlatformTrades(exchangeName string, trades []*base.PlatformTrades) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -260,18 +284,29 @@ func (s *SQLite3) InsertPlatformTrade(orderID, exchangeName, currencyPair, asset
 		return err
 	}
 
-	return e.SetExchangePlatformTradeHistory(base.Ctx,
-		s.C,
-		true,
-		&models.ExchangePlatformTradeHistory{
-			FulfilledOn:  fulfilledOn,
-			CurrencyPair: currencyPair,
-			AssetType:    assetType,
-			OrderType:    orderType,
-			Amount:       amount,
-			Rate:         rate,
-			OrderID:      orderID,
-		})
+	tx, err := s.NewTx()
+	if err != nil {
+		return err
+	}
+
+	for i := range trades {
+		newStatement := &models.ExchangePlatformTradeHistory{
+			FulfilledOn:  trades[i].FullfilledOn,
+			CurrencyPair: trades[i].Pair,
+			AssetType:    trades[i].AssetType,
+			OrderType:    trades[i].OrderType,
+			Amount:       trades[i].Amount,
+			Rate:         trades[i].Rate,
+			OrderID:      trades[i].OrderID,
+			ExchangeID:   e.ID,
+		}
+		stmErr := newStatement.Insert(base.Ctx, tx, boil.Infer())
+		if stmErr != nil {
+			return stmErr
+		}
+	}
+
+	return s.CommitTx(len(trades))
 }
 
 // InsertAndRetrieveExchange returns the pointer to an exchange model to
@@ -313,7 +348,12 @@ func (s *SQLite3) insertAndRetrieveExchange(exchName string) (*models.Exchange, 
 // for the most recent trade history data in the set
 func (s *SQLite3) GetPlatformTradeLast(exchangeName, currencyPair, assetType string) (time.Time, string, error) {
 	s.Lock()
-	defer s.Unlock()
+	err := s.NewQuery()
+	if err != nil {
+		return time.Time{}, "", err
+	}
+
+	defer func() { s.FinishQuery(); s.Unlock() }()
 
 	if !s.Connected {
 		return time.Time{}, "", base.ErrDatabaseConnection
@@ -335,11 +375,47 @@ func (s *SQLite3) GetPlatformTradeLast(exchangeName, currencyPair, assetType str
 	return th.FulfilledOn, th.OrderID, nil
 }
 
+// GetPlatformTradeFirst returns the first updated time.Time and tradeID values
+// for the initial entry boundary points
+func (s *SQLite3) GetPlatformTradeFirst(exchangeName, currencyPair, assetType string) (time.Time, string, error) {
+	s.Lock()
+	err := s.NewQuery()
+	if err != nil {
+		return time.Time{}, "", err
+	}
+
+	defer func() { s.Unlock(); s.FinishQuery() }()
+
+	if !s.Connected {
+		return time.Time{}, "", base.ErrDatabaseConnection
+	}
+
+	e, err := s.insertAndRetrieveExchange(exchangeName)
+	if err != nil {
+		return time.Time{}, "", err
+	}
+
+	th, err := e.ExchangePlatformTradeHistory(qm.Where(base.QueryCurrencyPair, currencyPair),
+		qm.And(base.QueryAssetType, assetType),
+		qm.OrderBy(base.OrderByFullfilledAsc),
+		qm.Limit(1)).One(base.Ctx, s.C)
+	if err != nil {
+		return time.Time{}, "", err
+	}
+
+	return th.FulfilledOn, th.OrderID, nil
+}
+
 // GetFullPlatformHistory returns the full matched trade history on the
 // exchange platform by exchange name, currency pair and asset class
 func (s *SQLite3) GetFullPlatformHistory(exchangeName, currencyPair, assetType string) ([]exchange.PlatformTrade, error) {
 	s.Lock()
-	defer s.Unlock()
+	err := s.NewQuery()
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() { s.Unlock(); s.FinishQuery() }()
 
 	if !s.Connected {
 		return nil, base.ErrDatabaseConnection
@@ -376,4 +452,41 @@ func (s *SQLite3) GetClientDetails() (string, error) {
 	s.Lock()
 	defer s.Unlock()
 	return s.Client.(*models.Client).UserName, nil
+}
+
+// InsertAccessControl inserts bot access list
+func (s *SQLite3) InsertAccessControl(m map[string]int) error {
+	s.Lock()
+	defer s.Unlock()
+
+	for k, v := range m {
+		control := &models.AccessControl{
+			Level: int64(v),
+			Name:  k,
+		}
+
+		err := control.Insert(base.Ctx, s.C, boil.Infer())
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// InsertExchanges inserts exchange data
+func (s *SQLite3) InsertExchanges(e []string) error {
+	s.Lock()
+	defer s.Unlock()
+
+	for i := range e {
+		exchange := &models.Exchange{
+			ExchangeName: e[i],
+		}
+
+		err := exchange.Insert(base.Ctx, s.C, boil.Infer())
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

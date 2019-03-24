@@ -23,7 +23,7 @@ import (
 
 // ExchangePlatformTradeHistory is an object representing the database table.
 type ExchangePlatformTradeHistory struct {
-	ID           int       `boil:"id" json:"id" toml:"id" yaml:"id"`
+	ID           int64     `boil:"id" json:"id" toml:"id" yaml:"id"`
 	OrderID      string    `boil:"order_id" json:"order_id" toml:"order_id" yaml:"order_id"`
 	ExchangeID   int       `boil:"exchange_id" json:"exchange_id" toml:"exchange_id" yaml:"exchange_id"`
 	CurrencyPair string    `boil:"currency_pair" json:"currency_pair" toml:"currency_pair" yaml:"currency_pair"`
@@ -65,7 +65,7 @@ var ExchangePlatformTradeHistoryColumns = struct {
 // Generated where
 
 var ExchangePlatformTradeHistoryWhere = struct {
-	ID           whereHelperint
+	ID           whereHelperint64
 	OrderID      whereHelperstring
 	ExchangeID   whereHelperint
 	CurrencyPair whereHelperstring
@@ -76,7 +76,7 @@ var ExchangePlatformTradeHistoryWhere = struct {
 	FulfilledOn  whereHelpertime_Time
 	CreatedAt    whereHelpertime_Time
 }{
-	ID:           whereHelperint{field: `id`},
+	ID:           whereHelperint64{field: `id`},
 	OrderID:      whereHelperstring{field: `order_id`},
 	ExchangeID:   whereHelperint{field: `exchange_id`},
 	CurrencyPair: whereHelperstring{field: `currency_pair`},
@@ -399,7 +399,7 @@ func (o *ExchangePlatformTradeHistory) Exchange(mods ...qm.QueryMod) exchangeQue
 	queryMods = append(queryMods, mods...)
 
 	query := Exchanges(queryMods...)
-	queries.SetFrom(query.Query, "\"exchange\"")
+	queries.SetFrom(query.Query, "\"exchanges\"")
 
 	return query
 }
@@ -445,7 +445,7 @@ func (exchangePlatformTradeHistoryL) LoadExchange(ctx context.Context, e boil.Co
 		return nil
 	}
 
-	query := NewQuery(qm.From(`exchange`), qm.WhereIn(`id in ?`, args...))
+	query := NewQuery(qm.From(`exchanges`), qm.WhereIn(`id in ?`, args...))
 	if mods != nil {
 		mods.Apply(query)
 	}
@@ -461,10 +461,10 @@ func (exchangePlatformTradeHistoryL) LoadExchange(ctx context.Context, e boil.Co
 	}
 
 	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for exchange")
+		return errors.Wrap(err, "failed to close results of eager load for exchanges")
 	}
 	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for exchange")
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for exchanges")
 	}
 
 	if len(exchangePlatformTradeHistoryAfterSelectHooks) != 0 {
@@ -560,7 +560,7 @@ func ExchangePlatformTradeHistories(mods ...qm.QueryMod) exchangePlatformTradeHi
 
 // FindExchangePlatformTradeHistory retrieves a single record by ID with an executor.
 // If selectCols is empty Find will return all columns.
-func FindExchangePlatformTradeHistory(ctx context.Context, exec boil.ContextExecutor, iD int, selectCols ...string) (*ExchangePlatformTradeHistory, error) {
+func FindExchangePlatformTradeHistory(ctx context.Context, exec boil.ContextExecutor, iD int64, selectCols ...string) (*ExchangePlatformTradeHistory, error) {
 	exchangePlatformTradeHistoryObj := &ExchangePlatformTradeHistory{}
 
 	sel := "*"
@@ -1071,7 +1071,7 @@ func (o *ExchangePlatformTradeHistorySlice) ReloadAll(ctx context.Context, exec 
 }
 
 // ExchangePlatformTradeHistoryExists checks if the ExchangePlatformTradeHistory row exists.
-func ExchangePlatformTradeHistoryExists(ctx context.Context, exec boil.ContextExecutor, iD int) (bool, error) {
+func ExchangePlatformTradeHistoryExists(ctx context.Context, exec boil.ContextExecutor, iD int64) (bool, error) {
 	var exists bool
 	sql := "select exists(select 1 from \"exchange_platform_trade_history\" where \"id\"=$1 limit 1)"
 

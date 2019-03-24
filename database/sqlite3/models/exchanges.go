@@ -61,15 +61,18 @@ var ExchangeWhere = struct {
 var ExchangeRels = struct {
 	ClientOrderHistory           string
 	ExchangePlatformTradeHistory string
+	Keys                         string
 }{
 	ClientOrderHistory:           "ClientOrderHistory",
 	ExchangePlatformTradeHistory: "ExchangePlatformTradeHistory",
+	Keys:                         "Keys",
 }
 
 // exchangeR is where relationships are stored.
 type exchangeR struct {
 	ClientOrderHistory           *ClientOrderHistory
 	ExchangePlatformTradeHistory *ExchangePlatformTradeHistory
+	Keys                         KeySlice
 }
 
 // NewStruct creates a new relationship struct
@@ -301,7 +304,7 @@ func (q exchangeQuery) One(ctx context.Context, exec boil.ContextExecutor) (*Exc
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: failed to execute a one query for exchange")
+		return nil, errors.Wrap(err, "models: failed to execute a one query for exchanges")
 	}
 
 	if err := o.doAfterSelectHooks(ctx, exec); err != nil {
@@ -340,7 +343,7 @@ func (q exchangeQuery) Count(ctx context.Context, exec boil.ContextExecutor) (in
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to count exchange rows")
+		return 0, errors.Wrap(err, "models: failed to count exchanges rows")
 	}
 
 	return count, nil
@@ -356,7 +359,7 @@ func (q exchangeQuery) Exists(ctx context.Context, exec boil.ContextExecutor) (b
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return false, errors.Wrap(err, "models: failed to check if exchange exists")
+		return false, errors.Wrap(err, "models: failed to check if exchanges exists")
 	}
 
 	return count > 0, nil
@@ -386,6 +389,27 @@ func (o *Exchange) ExchangePlatformTradeHistory(mods ...qm.QueryMod) exchangePla
 
 	query := ExchangePlatformTradeHistories(queryMods...)
 	queries.SetFrom(query.Query, "\"exchange_platform_trade_history\"")
+
+	return query
+}
+
+// Keys retrieves all the key's Keys with an executor.
+func (o *Exchange) Keys(mods ...qm.QueryMod) keyQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"keys\".\"exchange_id\"=?", o.ID),
+	)
+
+	query := Keys(queryMods...)
+	queries.SetFrom(query.Query, "\"keys\"")
+
+	if len(queries.GetSelect(query.Query)) == 0 {
+		queries.SetSelect(query.Query, []string{"\"keys\".*"})
+	}
 
 	return query
 }
@@ -586,6 +610,101 @@ func (exchangeL) LoadExchangePlatformTradeHistory(ctx context.Context, e boil.Co
 	return nil
 }
 
+// LoadKeys allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (exchangeL) LoadKeys(ctx context.Context, e boil.ContextExecutor, singular bool, maybeExchange interface{}, mods queries.Applicator) error {
+	var slice []*Exchange
+	var object *Exchange
+
+	if singular {
+		object = maybeExchange.(*Exchange)
+	} else {
+		slice = *maybeExchange.(*[]*Exchange)
+	}
+
+	args := make([]interface{}, 0, 1)
+	if singular {
+		if object.R == nil {
+			object.R = &exchangeR{}
+		}
+		args = append(args, object.ID)
+	} else {
+	Outer:
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &exchangeR{}
+			}
+
+			for _, a := range args {
+				if a == obj.ID {
+					continue Outer
+				}
+			}
+
+			args = append(args, obj.ID)
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	query := NewQuery(qm.From(`keys`), qm.WhereIn(`exchange_id in ?`, args...))
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load keys")
+	}
+
+	var resultSlice []*Key
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice keys")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on keys")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for keys")
+	}
+
+	if len(keyAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+	if singular {
+		object.R.Keys = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &keyR{}
+			}
+			foreign.R.Exchange = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.ExchangeID {
+				local.R.Keys = append(local.R.Keys, foreign)
+				if foreign.R == nil {
+					foreign.R = &keyR{}
+				}
+				foreign.R.Exchange = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 // SetClientOrderHistory of the exchange to the related item.
 // Sets o.R.ClientOrderHistory to related.
 // Adds o to related.R.Exchange.
@@ -688,9 +807,62 @@ func (o *Exchange) SetExchangePlatformTradeHistory(ctx context.Context, exec boi
 	return nil
 }
 
+// AddKeys adds the given related objects to the existing relationships
+// of the exchange, optionally inserting them as new records.
+// Appends related to o.R.Keys.
+// Sets related.R.Exchange appropriately.
+func (o *Exchange) AddKeys(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Key) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.ExchangeID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"keys\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 0, []string{"exchange_id"}),
+				strmangle.WhereClause("\"", "\"", 0, keyPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.DebugMode {
+				fmt.Fprintln(boil.DebugWriter, updateQuery)
+				fmt.Fprintln(boil.DebugWriter, values)
+			}
+
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.ExchangeID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &exchangeR{
+			Keys: related,
+		}
+	} else {
+		o.R.Keys = append(o.R.Keys, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &keyR{
+				Exchange: o,
+			}
+		} else {
+			rel.R.Exchange = o
+		}
+	}
+	return nil
+}
+
 // Exchanges retrieves all the records using an executor.
 func Exchanges(mods ...qm.QueryMod) exchangeQuery {
-	mods = append(mods, qm.From("\"exchange\""))
+	mods = append(mods, qm.From("\"exchanges\""))
 	return exchangeQuery{NewQuery(mods...)}
 }
 
@@ -704,7 +876,7 @@ func FindExchange(ctx context.Context, exec boil.ContextExecutor, iD int64, sele
 		sel = strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, selectCols), ",")
 	}
 	query := fmt.Sprintf(
-		"select %s from \"exchange\" where \"id\"=?", sel,
+		"select %s from \"exchanges\" where \"id\"=?", sel,
 	)
 
 	q := queries.Raw(query, iD)
@@ -714,7 +886,7 @@ func FindExchange(ctx context.Context, exec boil.ContextExecutor, iD int64, sele
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: unable to select from exchange")
+		return nil, errors.Wrap(err, "models: unable to select from exchanges")
 	}
 
 	return exchangeObj, nil
@@ -724,7 +896,7 @@ func FindExchange(ctx context.Context, exec boil.ContextExecutor, iD int64, sele
 // See boil.Columns.InsertColumnSet documentation to understand column list inference for inserts.
 func (o *Exchange) Insert(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) error {
 	if o == nil {
-		return errors.New("models: no exchange provided for insertion")
+		return errors.New("models: no exchanges provided for insertion")
 	}
 
 	var err error
@@ -767,15 +939,15 @@ func (o *Exchange) Insert(ctx context.Context, exec boil.ContextExecutor, column
 			return err
 		}
 		if len(wl) != 0 {
-			cache.query = fmt.Sprintf("INSERT INTO \"exchange\" (\"%s\") %%sVALUES (%s)%%s", strings.Join(wl, "\",\""), strmangle.Placeholders(dialect.UseIndexPlaceholders, len(wl), 1, 1))
+			cache.query = fmt.Sprintf("INSERT INTO \"exchanges\" (\"%s\") %%sVALUES (%s)%%s", strings.Join(wl, "\",\""), strmangle.Placeholders(dialect.UseIndexPlaceholders, len(wl), 1, 1))
 		} else {
-			cache.query = "INSERT INTO \"exchange\" () VALUES ()%s%s"
+			cache.query = "INSERT INTO \"exchanges\" () VALUES ()%s%s"
 		}
 
 		var queryOutput, queryReturning string
 
 		if len(cache.retMapping) != 0 {
-			cache.retQuery = fmt.Sprintf("SELECT \"%s\" FROM \"exchange\" WHERE %s", strings.Join(returnColumns, "\",\""), strmangle.WhereClause("\"", "\"", 0, exchangePrimaryKeyColumns))
+			cache.retQuery = fmt.Sprintf("SELECT \"%s\" FROM \"exchanges\" WHERE %s", strings.Join(returnColumns, "\",\""), strmangle.WhereClause("\"", "\"", 0, exchangePrimaryKeyColumns))
 		}
 
 		cache.query = fmt.Sprintf(cache.query, queryOutput, queryReturning)
@@ -792,7 +964,7 @@ func (o *Exchange) Insert(ctx context.Context, exec boil.ContextExecutor, column
 	result, err := exec.ExecContext(ctx, cache.query, vals...)
 
 	if err != nil {
-		return errors.Wrap(err, "models: unable to insert into exchange")
+		return errors.Wrap(err, "models: unable to insert into exchanges")
 	}
 
 	var lastID int64
@@ -823,7 +995,7 @@ func (o *Exchange) Insert(ctx context.Context, exec boil.ContextExecutor, column
 
 	err = exec.QueryRowContext(ctx, cache.retQuery, identifierCols...).Scan(queries.PtrsFromMapping(value, cache.retMapping)...)
 	if err != nil {
-		return errors.Wrap(err, "models: unable to populate default values for exchange")
+		return errors.Wrap(err, "models: unable to populate default values for exchanges")
 	}
 
 CacheNoHooks:
@@ -865,10 +1037,10 @@ func (o *Exchange) Update(ctx context.Context, exec boil.ContextExecutor, column
 			wl = strmangle.SetComplement(wl, []string{"created_at"})
 		}
 		if len(wl) == 0 {
-			return 0, errors.New("models: unable to update exchange, could not build whitelist")
+			return 0, errors.New("models: unable to update exchanges, could not build whitelist")
 		}
 
-		cache.query = fmt.Sprintf("UPDATE \"exchange\" SET %s WHERE %s",
+		cache.query = fmt.Sprintf("UPDATE \"exchanges\" SET %s WHERE %s",
 			strmangle.SetParamNames("\"", "\"", 0, wl),
 			strmangle.WhereClause("\"", "\"", 0, exchangePrimaryKeyColumns),
 		)
@@ -888,12 +1060,12 @@ func (o *Exchange) Update(ctx context.Context, exec boil.ContextExecutor, column
 	var result sql.Result
 	result, err = exec.ExecContext(ctx, cache.query, values...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update exchange row")
+		return 0, errors.Wrap(err, "models: unable to update exchanges row")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by update for exchange")
+		return 0, errors.Wrap(err, "models: failed to get rows affected by update for exchanges")
 	}
 
 	if !cached {
@@ -911,12 +1083,12 @@ func (q exchangeQuery) UpdateAll(ctx context.Context, exec boil.ContextExecutor,
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all for exchange")
+		return 0, errors.Wrap(err, "models: unable to update all for exchanges")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected for exchange")
+		return 0, errors.Wrap(err, "models: unable to retrieve rows affected for exchanges")
 	}
 
 	return rowsAff, nil
@@ -949,7 +1121,7 @@ func (o ExchangeSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor,
 		args = append(args, pkeyArgs...)
 	}
 
-	sql := fmt.Sprintf("UPDATE \"exchange\" SET %s WHERE %s",
+	sql := fmt.Sprintf("UPDATE \"exchanges\" SET %s WHERE %s",
 		strmangle.SetParamNames("\"", "\"", 0, colNames),
 		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), 0, exchangePrimaryKeyColumns, len(o)))
 
@@ -982,7 +1154,7 @@ func (o *Exchange) Delete(ctx context.Context, exec boil.ContextExecutor) (int64
 	}
 
 	args := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(o)), exchangePrimaryKeyMapping)
-	sql := "DELETE FROM \"exchange\" WHERE \"id\"=?"
+	sql := "DELETE FROM \"exchanges\" WHERE \"id\"=?"
 
 	if boil.DebugMode {
 		fmt.Fprintln(boil.DebugWriter, sql)
@@ -991,12 +1163,12 @@ func (o *Exchange) Delete(ctx context.Context, exec boil.ContextExecutor) (int64
 
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete from exchange")
+		return 0, errors.Wrap(err, "models: unable to delete from exchanges")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by delete for exchange")
+		return 0, errors.Wrap(err, "models: failed to get rows affected by delete for exchanges")
 	}
 
 	if err := o.doAfterDeleteHooks(ctx, exec); err != nil {
@@ -1016,12 +1188,12 @@ func (q exchangeQuery) DeleteAll(ctx context.Context, exec boil.ContextExecutor)
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from exchange")
+		return 0, errors.Wrap(err, "models: unable to delete all from exchanges")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for exchange")
+		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for exchanges")
 	}
 
 	return rowsAff, nil
@@ -1051,7 +1223,7 @@ func (o ExchangeSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor)
 		args = append(args, pkeyArgs...)
 	}
 
-	sql := "DELETE FROM \"exchange\" WHERE " +
+	sql := "DELETE FROM \"exchanges\" WHERE " +
 		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), 0, exchangePrimaryKeyColumns, len(o))
 
 	if boil.DebugMode {
@@ -1066,7 +1238,7 @@ func (o ExchangeSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor)
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for exchange")
+		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for exchanges")
 	}
 
 	if len(exchangeAfterDeleteHooks) != 0 {
@@ -1106,7 +1278,7 @@ func (o *ExchangeSlice) ReloadAll(ctx context.Context, exec boil.ContextExecutor
 		args = append(args, pkeyArgs...)
 	}
 
-	sql := "SELECT \"exchange\".* FROM \"exchange\" WHERE " +
+	sql := "SELECT \"exchanges\".* FROM \"exchanges\" WHERE " +
 		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), 0, exchangePrimaryKeyColumns, len(*o))
 
 	q := queries.Raw(sql, args...)
@@ -1124,7 +1296,7 @@ func (o *ExchangeSlice) ReloadAll(ctx context.Context, exec boil.ContextExecutor
 // ExchangeExists checks if the Exchange row exists.
 func ExchangeExists(ctx context.Context, exec boil.ContextExecutor, iD int64) (bool, error) {
 	var exists bool
-	sql := "select exists(select 1 from \"exchange\" where \"id\"=? limit 1)"
+	sql := "select exists(select 1 from \"exchanges\" where \"id\"=? limit 1)"
 
 	if boil.DebugMode {
 		fmt.Fprintln(boil.DebugWriter, sql)
@@ -1135,7 +1307,7 @@ func ExchangeExists(ctx context.Context, exec boil.ContextExecutor, iD int64) (b
 
 	err := row.Scan(&exists)
 	if err != nil {
-		return false, errors.Wrap(err, "models: unable to check if exchange exists")
+		return false, errors.Wrap(err, "models: unable to check if exchanges exists")
 	}
 
 	return exists, nil

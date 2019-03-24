@@ -152,7 +152,7 @@ type ExchangeConfig struct {
 	ConfigCurrencyPairFormat  *CurrencyPairFormatConfig `json:"configCurrencyPairFormat"`
 	RequestCurrencyPairFormat *CurrencyPairFormatConfig `json:"requestCurrencyPairFormat"`
 	BankAccounts              []BankAccount             `json:"bankAccounts"`
-	Database                  Database                  `json:"database"`
+	DatabaseExchangeConfigs   []DatabaseExchangeConfig  `json:"databaseExchangeConfigs"`
 }
 
 // BankAccount holds differing bank account details by supported funding
@@ -208,12 +208,14 @@ type CommunicationsConfig struct {
 
 // Databases defines databases that are used in the trading engine
 type Databases struct {
-	Postgres DatabaseDetails `json:"postgres"`
-	Sqlite3  DatabaseDetails `json:"sqlite3"`
+	MemoryAllocationInBytes int64           `json:"memoryAllocationInBytes"`
+	Postgres                DatabaseDetails `json:"postgres"`
+	Sqlite3                 DatabaseDetails `json:"sqlite3"`
 }
 
 // DatabaseDetails defines database connection details
 type DatabaseDetails struct {
+	Enabled      bool   `json:"enabled"`
 	PathToDb     string `json:"pathToDB"`
 	Host         string `json:"host"`
 	Password     string `json:"password"`
@@ -223,16 +225,22 @@ type DatabaseDetails struct {
 	SSLMode      string `json:"sslMode"`
 }
 
-// Database denotes configurations for what is saved to database from the
-// loaded exchange
-type Database struct {
-	// LoadPlatformTrades loads the trades that have been matched on the
-	// exchange by all clients
-	LoadPlatformTrades bool `json:"loadPlatformTrades"`
+// DatabaseExchangeConfig denotes configurations for what is saved to database
+// from the loaded exchange
+type DatabaseExchangeConfig struct {
+	Enabled   bool          `json:"enabled"`
+	Pair      currency.Pair `json:"currencyPair"`
+	AssetType string        `json:"assetType"`
+
 	// TimestampStart defines the start date at which you want the trades to be
 	// fetched, if no time is set will default to fetching the last 24 hours or
 	// what ever the max historic time is.
 	TimestampStart int64 `json:"timestampStart"`
+
+	// TradeIDStart defines a start point by trade ID if not set will default to
+	// either a pre-determined default or zero value.
+	TradeIDStart string `json:"tradeIDStart"`
+
 	// TimestampEnd defines the end date if no time is set will default to
 	// time.Now()
 	TimestampEnd int64 `json:"timestampEnd"`
@@ -407,17 +415,42 @@ func (c *Config) CheckClientBankAccounts() error {
 	return nil
 }
 
+// CheckDatabaseExchangeConfig adds an example currencypair to array and also
+// checks to see if config pair is part of the available pairs list
+func (c *Config) CheckDatabaseExchangeConfig() {
+	for x := range c.Exchanges {
+		// Sets an example configuration in array
+		if c.Exchanges[x].DatabaseExchangeConfigs == nil {
+			c.Exchanges[x].DatabaseExchangeConfigs = append(c.Exchanges[x].DatabaseExchangeConfigs,
+				DatabaseExchangeConfig{
+					Pair:      c.Exchanges[x].AvailablePairs.GetRandomPair(),
+					AssetType: "SPOT",
+				})
+		} else {
+			// Drops any instance of currencies that have been dropped from the
+			// available pairs list
+			var strippedConfs []DatabaseExchangeConfig
+			for y := range c.Exchanges[x].DatabaseExchangeConfigs {
+				if c.Exchanges[x].AvailablePairs.Contains(c.Exchanges[x].DatabaseExchangeConfigs[y].Pair, true) {
+					strippedConfs = append(strippedConfs, c.Exchanges[x].DatabaseExchangeConfigs[y])
+				}
+			}
+			c.Exchanges[x].DatabaseExchangeConfigs = strippedConfs
+		}
+	}
+}
+
 // GetDatabaseConfig returns a exchange database configuration
-func (c *Config) GetDatabaseConfig(exchangeName string) (Database, error) {
+func (c *Config) GetDatabaseConfig(exchangeName string) ([]DatabaseExchangeConfig, error) {
 	m.Lock()
 	defer m.Unlock()
 	for i := range c.Exchanges {
 		if c.Exchanges[i].Name == exchangeName {
-			return c.Exchanges[i].Database, nil
+			return c.Exchanges[i].DatabaseExchangeConfigs, nil
 		}
 	}
 
-	return Database{},
+	return nil,
 		fmt.Errorf("exchange %s configuration not found", exchangeName)
 }
 
@@ -781,76 +814,93 @@ func (c *Config) UpdateExchangeConfig(e *ExchangeConfig) error {
 // exchanges
 func (c *Config) CheckExchangeConfigValues() error {
 	exchanges := 0
-	for i, exch := range c.Exchanges {
-		if exch.Name == "GDAX" {
+	for i := range c.Exchanges {
+		if c.Exchanges[i].Name == "GDAX" {
 			c.Exchanges[i].Name = "CoinbasePro"
 		}
 
-		if exch.WebsocketURL != WebsocketURLNonDefaultMessage {
-			if exch.WebsocketURL == "" {
+		if c.Exchanges[i].WebsocketURL != WebsocketURLNonDefaultMessage {
+			if c.Exchanges[i].WebsocketURL == "" {
 				c.Exchanges[i].WebsocketURL = WebsocketURLNonDefaultMessage
 			}
 		}
 
-		if exch.APIURL != APIURLNonDefaultMessage {
-			if exch.APIURL == "" {
+		if c.Exchanges[i].APIURL != APIURLNonDefaultMessage {
+			if c.Exchanges[i].APIURL == "" {
 				// Set default if nothing set
 				c.Exchanges[i].APIURL = APIURLNonDefaultMessage
 			}
 		}
 
-		if exch.APIURLSecondary != APIURLNonDefaultMessage {
-			if exch.APIURLSecondary == "" {
+		if c.Exchanges[i].APIURLSecondary != APIURLNonDefaultMessage {
+			if c.Exchanges[i].APIURLSecondary == "" {
 				// Set default if nothing set
 				c.Exchanges[i].APIURLSecondary = APIURLNonDefaultMessage
 			}
 		}
 
-		if exch.Enabled {
-			if exch.Name == "" {
+		if c.Exchanges[i].Enabled {
+			if c.Exchanges[i].Name == "" {
 				return fmt.Errorf(ErrExchangeNameEmpty, i)
 			}
-			if len(exch.AvailablePairs) == 0 {
-				return fmt.Errorf(ErrExchangeAvailablePairsEmpty, exch.Name)
+			if len(c.Exchanges[i].AvailablePairs) == 0 {
+				return fmt.Errorf(ErrExchangeAvailablePairsEmpty,
+					c.Exchanges[i].Name)
 			}
-			if len(exch.EnabledPairs) == 0 {
-				return fmt.Errorf(ErrExchangeEnabledPairsEmpty, exch.Name)
+			if len(c.Exchanges[i].EnabledPairs) == 0 {
+				return fmt.Errorf(ErrExchangeEnabledPairsEmpty,
+					c.Exchanges[i].Name)
 			}
-			if len(exch.BaseCurrencies) == 0 {
-				return fmt.Errorf(ErrExchangeBaseCurrenciesEmpty, exch.Name)
+			if len(c.Exchanges[i].BaseCurrencies) == 0 {
+				return fmt.Errorf(ErrExchangeBaseCurrenciesEmpty,
+					c.Exchanges[i].Name)
 			}
-			if exch.AuthenticatedAPISupport { // non-fatal error
-				if exch.APIKey == "" || exch.APISecret == "" ||
-					exch.APIKey == DefaultUnsetAPIKey ||
-					exch.APISecret == DefaultUnsetAPISecret {
+			if c.Exchanges[i].AuthenticatedAPISupport { // non-fatal error
+				if c.Exchanges[i].APIKey == "" ||
+					c.Exchanges[i].APISecret == "" ||
+					c.Exchanges[i].APIKey == DefaultUnsetAPIKey ||
+					c.Exchanges[i].APISecret == DefaultUnsetAPISecret {
 					c.Exchanges[i].AuthenticatedAPISupport = false
-					log.Warnf(WarningExchangeAuthAPIDefaultOrEmptyValues, exch.Name)
-				} else if exch.Name == "ITBIT" || exch.Name == "Bitstamp" || exch.Name == "COINUT" || exch.Name == "CoinbasePro" {
-					if exch.ClientID == "" || exch.ClientID == "ClientID" {
+					log.Warnf(WarningExchangeAuthAPIDefaultOrEmptyValues,
+						c.Exchanges[i].Name)
+				} else if c.Exchanges[i].Name == "ITBIT" ||
+					c.Exchanges[i].Name == "Bitstamp" ||
+					c.Exchanges[i].Name == "COINUT" ||
+					c.Exchanges[i].Name == "CoinbasePro" {
+					if c.Exchanges[i].ClientID == "" ||
+						c.Exchanges[i].ClientID == "ClientID" {
 						c.Exchanges[i].AuthenticatedAPISupport = false
-						log.Warnf(WarningExchangeAuthAPIDefaultOrEmptyValues, exch.Name)
+						log.Warnf(WarningExchangeAuthAPIDefaultOrEmptyValues,
+							c.Exchanges[i].Name)
 					}
 				}
 			}
-			if !exch.SupportsAutoPairUpdates {
-				lastUpdated := common.UnixTimestampToTime(exch.PairsLastUpdated)
+			if !c.Exchanges[i].SupportsAutoPairUpdates {
+				lastUpdated := common.UnixTimestampToTime(c.Exchanges[i].PairsLastUpdated)
 				lastUpdated = lastUpdated.AddDate(0, 0, configPairsLastUpdatedWarningThreshold)
 				if lastUpdated.Unix() <= time.Now().Unix() {
-					log.Warnf(WarningPairsLastUpdatedThresholdExceeded, exch.Name, configPairsLastUpdatedWarningThreshold)
+					log.Warnf(WarningPairsLastUpdatedThresholdExceeded,
+						c.Exchanges[i].Name,
+						configPairsLastUpdatedWarningThreshold)
 				}
 			}
 
-			if exch.HTTPTimeout <= 0 {
-				log.Warnf("Exchange %s HTTP Timeout value not set, defaulting to %v.", exch.Name, configDefaultHTTPTimeout)
+			if c.Exchanges[i].HTTPTimeout <= 0 {
+				log.Warnf("Exchange %s HTTP Timeout value not set, defaulting to %v.",
+					c.Exchanges[i].Name, configDefaultHTTPTimeout)
 				c.Exchanges[i].HTTPTimeout = configDefaultHTTPTimeout
 			}
 
-			err := c.CheckPairConsistency(exch.Name)
+			err := c.CheckPairConsistency(c.Exchanges[i].Name)
 			if err != nil {
-				log.Errorf("Exchange %s: CheckPairConsistency error: %s", exch.Name, err)
+				log.Errorf("Exchange %s: CheckPairConsistency error: %s",
+					c.Exchanges[i].Name,
+					err)
 			}
 
-			if len(exch.BankAccounts) == 0 {
+			c.CheckDatabaseExchangeConfig()
+
+			if len(c.Exchanges[i].BankAccounts) == 0 {
 				c.Exchanges[i].BankAccounts = append(c.Exchanges[i].BankAccounts, BankAccount{})
 			} else {
 				for y := range c.Exchanges[i].BankAccounts {
@@ -858,26 +908,26 @@ func (c *Config) CheckExchangeConfigValues() error {
 					if bankAccount.Enabled {
 						if bankAccount.BankName == "" || bankAccount.BankAddress == "" {
 							log.Warnf("banking details for %s is enabled but variables not set",
-								exch.Name)
+								c.Exchanges[i].Name)
 							bankAccount.Enabled = false
 						}
 
 						if bankAccount.AccountName == "" || bankAccount.AccountNumber == "" {
 							log.Warnf("banking account details for %s variables not set",
-								exch.Name)
+								c.Exchanges[i].Name)
 							bankAccount.Enabled = false
 						}
 
 						if bankAccount.SupportedCurrencies == "" {
 							log.Warnf("banking account details for %s acceptable funding currencies not set",
-								exch.Name)
+								c.Exchanges[i].Name)
 							bankAccount.Enabled = false
 						}
 
 						if bankAccount.BSBNumber == "" && bankAccount.IBAN == "" &&
 							bankAccount.SWIFTCode == "" {
 							log.Warnf("banking account details for %s critical banking numbers not set",
-								exch.Name)
+								c.Exchanges[i].Name)
 							bankAccount.Enabled = false
 						}
 					}

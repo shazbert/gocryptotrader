@@ -16,6 +16,11 @@ import (
 	log "github.com/thrasher-/gocryptotrader/logger"
 )
 
+const (
+	// OpeningDefaultTime is the date around when the exchange opened
+	OpeningDefaultTime int64 = 1500552000
+)
+
 // Start starts the Binance go routine
 func (b *Binance) Start(wg *sync.WaitGroup) {
 	wg.Add(1)
@@ -197,10 +202,10 @@ func (b *Binance) GetFundingHistory() ([]exchange.FundHistory, error) {
 
 // GetPlatformHistory returns historic platform trade data since exchange
 // initial operations
-func (b *Binance) GetPlatformHistory(p currency.Pair, assetType string, timestampStart time.Time, tradeID string) ([]exchange.PlatformTrade, error) {
+func (b *Binance) GetPlatformHistory(p currency.Pair, _ string, timestampStart time.Time, _ string) ([]exchange.PlatformTrade, error) {
 	var resp []exchange.PlatformTrade
 
-	if timestampStart.IsZero() {
+	if timestampStart.Unix() == 0 {
 		timestampStart = time.Now().AddDate(0, -3, 0) // set to three months prior
 	}
 	timestampEnd := timestampStart.Add(1 * time.Hour) // add 1 hr
@@ -208,7 +213,7 @@ func (b *Binance) GetPlatformHistory(p currency.Pair, assetType string, timestam
 	formattedPair := exchange.FormatExchangeCurrency(b.GetName(), p)
 
 	t, err := b.GetAggregatedTrades(formattedPair.String(),
-		500,
+		1000,
 		common.UnixMillis(timestampStart),
 		common.UnixMillis(timestampEnd))
 	if err != nil {

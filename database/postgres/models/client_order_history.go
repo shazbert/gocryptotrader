@@ -23,7 +23,7 @@ import (
 
 // ClientOrderHistory is an object representing the database table.
 type ClientOrderHistory struct {
-	ID           int       `boil:"id" json:"id" toml:"id" yaml:"id"`
+	ID           int64     `boil:"id" json:"id" toml:"id" yaml:"id"`
 	OrderID      string    `boil:"order_id" json:"order_id" toml:"order_id" yaml:"order_id"`
 	ClientID     int       `boil:"client_id" json:"client_id" toml:"client_id" yaml:"client_id"`
 	ExchangeID   int       `boil:"exchange_id" json:"exchange_id" toml:"exchange_id" yaml:"exchange_id"`
@@ -83,7 +83,7 @@ func (w whereHelperfloat64) GTE(x float64) qm.QueryMod {
 }
 
 var ClientOrderHistoryWhere = struct {
-	ID           whereHelperint
+	ID           whereHelperint64
 	OrderID      whereHelperstring
 	ClientID     whereHelperint
 	ExchangeID   whereHelperint
@@ -95,7 +95,7 @@ var ClientOrderHistoryWhere = struct {
 	FulfilledOn  whereHelpertime_Time
 	CreatedAt    whereHelpertime_Time
 }{
-	ID:           whereHelperint{field: `id`},
+	ID:           whereHelperint64{field: `id`},
 	OrderID:      whereHelperstring{field: `order_id`},
 	ClientID:     whereHelperint{field: `client_id`},
 	ExchangeID:   whereHelperint{field: `exchange_id`},
@@ -422,7 +422,7 @@ func (o *ClientOrderHistory) Exchange(mods ...qm.QueryMod) exchangeQuery {
 	queryMods = append(queryMods, mods...)
 
 	query := Exchanges(queryMods...)
-	queries.SetFrom(query.Query, "\"exchange\"")
+	queries.SetFrom(query.Query, "\"exchanges\"")
 
 	return query
 }
@@ -436,7 +436,7 @@ func (o *ClientOrderHistory) Client(mods ...qm.QueryMod) clientQuery {
 	queryMods = append(queryMods, mods...)
 
 	query := Clients(queryMods...)
-	queries.SetFrom(query.Query, "\"client\"")
+	queries.SetFrom(query.Query, "\"clients\"")
 
 	return query
 }
@@ -482,7 +482,7 @@ func (clientOrderHistoryL) LoadExchange(ctx context.Context, e boil.ContextExecu
 		return nil
 	}
 
-	query := NewQuery(qm.From(`exchange`), qm.WhereIn(`id in ?`, args...))
+	query := NewQuery(qm.From(`exchanges`), qm.WhereIn(`id in ?`, args...))
 	if mods != nil {
 		mods.Apply(query)
 	}
@@ -498,10 +498,10 @@ func (clientOrderHistoryL) LoadExchange(ctx context.Context, e boil.ContextExecu
 	}
 
 	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for exchange")
+		return errors.Wrap(err, "failed to close results of eager load for exchanges")
 	}
 	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for exchange")
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for exchanges")
 	}
 
 	if len(clientOrderHistoryAfterSelectHooks) != 0 {
@@ -583,7 +583,7 @@ func (clientOrderHistoryL) LoadClient(ctx context.Context, e boil.ContextExecuto
 		return nil
 	}
 
-	query := NewQuery(qm.From(`client`), qm.WhereIn(`id in ?`, args...))
+	query := NewQuery(qm.From(`clients`), qm.WhereIn(`id in ?`, args...))
 	if mods != nil {
 		mods.Apply(query)
 	}
@@ -599,10 +599,10 @@ func (clientOrderHistoryL) LoadClient(ctx context.Context, e boil.ContextExecuto
 	}
 
 	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for client")
+		return errors.Wrap(err, "failed to close results of eager load for clients")
 	}
 	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for client")
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for clients")
 	}
 
 	if len(clientOrderHistoryAfterSelectHooks) != 0 {
@@ -745,7 +745,7 @@ func ClientOrderHistories(mods ...qm.QueryMod) clientOrderHistoryQuery {
 
 // FindClientOrderHistory retrieves a single record by ID with an executor.
 // If selectCols is empty Find will return all columns.
-func FindClientOrderHistory(ctx context.Context, exec boil.ContextExecutor, iD int, selectCols ...string) (*ClientOrderHistory, error) {
+func FindClientOrderHistory(ctx context.Context, exec boil.ContextExecutor, iD int64, selectCols ...string) (*ClientOrderHistory, error) {
 	clientOrderHistoryObj := &ClientOrderHistory{}
 
 	sel := "*"
@@ -1256,7 +1256,7 @@ func (o *ClientOrderHistorySlice) ReloadAll(ctx context.Context, exec boil.Conte
 }
 
 // ClientOrderHistoryExists checks if the ClientOrderHistory row exists.
-func ClientOrderHistoryExists(ctx context.Context, exec boil.ContextExecutor, iD int) (bool, error) {
+func ClientOrderHistoryExists(ctx context.Context, exec boil.ContextExecutor, iD int64) (bool, error) {
 	var exists bool
 	sql := "select exists(select 1 from \"client_order_history\" where \"id\"=$1 limit 1)"
 

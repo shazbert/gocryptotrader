@@ -1,5 +1,7 @@
 package base
 
+import "time"
+
 // RelativeDbPaths defines a relative path structure for the SQlBoiler TOML file
 type RelativeDbPaths struct {
 	Postgress DatabaseFields `toml:"psql"`
@@ -36,4 +38,20 @@ type ConnDetails struct {
 	Pass    string
 	Port    string
 	SSLMode string
+
+	// MemCacheSize denotes a size of the maximum size of a transaction before
+	// being written to database
+	MemCacheSize int64
+}
+
+// PlatformTrades defines a paramater type for insertion of bulk trades
+type PlatformTrades struct {
+	OrderID      string
+	ExchangeName string
+	Pair         string
+	AssetType    string
+	OrderType    string
+	Amount       float64
+	Rate         float64
+	FullfilledOn time.Time
 }

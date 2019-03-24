@@ -1,24 +1,57 @@
 package sqlite3
 
 var sqliteSchema = []string{
-	`CREATE TABLE client (
+	`CREATE TABLE access_controls (
 		id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
-  		user_name text NOT NULL,
+		level integer NOT NULL UNIQUE,
+		name text NOT NULL UNIQUE,
+		created_at DATETIME NOT NULL,
+		updated_at DATETIME NOT NULL
+	);`,
+
+	`CREATE TABLE clients (
+		id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+  		user_name text NOT NULL UNIQUE,
 		password text NOT NULL,
-		email text,
-		role text,
+		email text UNIQUE,
+		one_time_password text,
+		access_level_id integer NOT NULL,
+		password_created_at DATETIME NOT NULL,
 		created_at DATETIME NOT NULL,
 		updated_at DATETIME NOT NULL,
 		last_logged_in DATETIME NOT NULL,
-		UNIQUE(user_name)
+		enabled BOOLEAN NOT NULL,
+		FOREIGN KEY(access_level_id) REFERENCES access_controls(level)
 	  );`,
 
-	`CREATE TABLE exchange (
+	`CREATE TABLE exchanges (
 		id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
-		exchange_name text NOT NULL,
+		exchange_name text NOT NULL UNIQUE,
+		created_at DATETIME NOT NULL,
+		updated_at DATETIME NOT NULL
+	);`,
+
+	`CREATE TABLE keys (
+		id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+		api_key text NOT NULL,
+		api_secret text NOT NULL,
+		roles text NOT NULL,
+		client_id integer NOT NULL,
+		exchange_id integer NOT NULL,
 		created_at DATETIME NOT NULL,
 		updated_at DATETIME NOT NULL,
-		UNIQUE(exchange_name)
+		enabled BOOLEAN NOT NULL, 
+		FOREIGN KEY(client_id) REFERENCES clients(id),
+		FOREIGN KEY(exchange_id) REFERENCES exchanges(id)
+	);`,
+
+	`CREATE TABLE audit_trails (
+		id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+		client_id integer NOT NULL,
+		change text NOT NULL,
+		role_used text NOT NULL,
+		created_at DATETIME NOT NULL,
+		FOREIGN KEY(client_id) REFERENCES clients(id)
 	);`,
 
 	`CREATE TABLE client_order_history (
@@ -33,8 +66,8 @@ var sqliteSchema = []string{
 		rate real NOT NULL,
 		fulfilled_on DATETIME NOT NULL,
 		created_at DATETIME NOT NULL,
-		FOREIGN KEY(exchange_id) REFERENCES exchange(id),
-		FOREIGN KEY(client_id) REFERENCES client(id),
+		FOREIGN KEY(exchange_id) REFERENCES exchanges(id),
+		FOREIGN KEY(client_id) REFERENCES clients(id),
 		UNIQUE(exchange_id, order_id)
 	);`,
 
@@ -49,6 +82,7 @@ var sqliteSchema = []string{
 		rate real NOT NULL,
 		fulfilled_on DATETIME NOT NULL,
 		created_at DATETIME NOT NULL,
-		FOREIGN KEY(exchange_id) REFERENCES exchange(id),
+		FOREIGN KEY(exchange_id) REFERENCES exchanges(id),
 		UNIQUE(exchange_id, order_id)
-	);`}
+	);`,
+}

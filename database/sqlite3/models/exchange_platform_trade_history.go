@@ -23,14 +23,14 @@ import (
 // ExchangePlatformTradeHistory is an object representing the database table.
 type ExchangePlatformTradeHistory struct {
 	ID           int64     `boil:"id" json:"id" toml:"id" yaml:"id"`
-	FulfilledOn  time.Time `boil:"fulfilled_on" json:"fulfilled_on" toml:"fulfilled_on" yaml:"fulfilled_on"`
+	OrderID      string    `boil:"order_id" json:"order_id" toml:"order_id" yaml:"order_id"`
+	ExchangeID   int64     `boil:"exchange_id" json:"exchange_id" toml:"exchange_id" yaml:"exchange_id"`
 	CurrencyPair string    `boil:"currency_pair" json:"currency_pair" toml:"currency_pair" yaml:"currency_pair"`
 	AssetType    string    `boil:"asset_type" json:"asset_type" toml:"asset_type" yaml:"asset_type"`
 	OrderType    string    `boil:"order_type" json:"order_type" toml:"order_type" yaml:"order_type"`
 	Amount       float64   `boil:"amount" json:"amount" toml:"amount" yaml:"amount"`
 	Rate         float64   `boil:"rate" json:"rate" toml:"rate" yaml:"rate"`
-	OrderID      string    `boil:"order_id" json:"order_id" toml:"order_id" yaml:"order_id"`
-	ExchangeID   int64     `boil:"exchange_id" json:"exchange_id" toml:"exchange_id" yaml:"exchange_id"`
+	FulfilledOn  time.Time `boil:"fulfilled_on" json:"fulfilled_on" toml:"fulfilled_on" yaml:"fulfilled_on"`
 	CreatedAt    time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 
 	R *exchangePlatformTradeHistoryR `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -39,25 +39,25 @@ type ExchangePlatformTradeHistory struct {
 
 var ExchangePlatformTradeHistoryColumns = struct {
 	ID           string
-	FulfilledOn  string
+	OrderID      string
+	ExchangeID   string
 	CurrencyPair string
 	AssetType    string
 	OrderType    string
 	Amount       string
 	Rate         string
-	OrderID      string
-	ExchangeID   string
+	FulfilledOn  string
 	CreatedAt    string
 }{
 	ID:           "id",
-	FulfilledOn:  "fulfilled_on",
+	OrderID:      "order_id",
+	ExchangeID:   "exchange_id",
 	CurrencyPair: "currency_pair",
 	AssetType:    "asset_type",
 	OrderType:    "order_type",
 	Amount:       "amount",
 	Rate:         "rate",
-	OrderID:      "order_id",
-	ExchangeID:   "exchange_id",
+	FulfilledOn:  "fulfilled_on",
 	CreatedAt:    "created_at",
 }
 
@@ -65,25 +65,25 @@ var ExchangePlatformTradeHistoryColumns = struct {
 
 var ExchangePlatformTradeHistoryWhere = struct {
 	ID           whereHelperint64
-	FulfilledOn  whereHelpertime_Time
+	OrderID      whereHelperstring
+	ExchangeID   whereHelperint64
 	CurrencyPair whereHelperstring
 	AssetType    whereHelperstring
 	OrderType    whereHelperstring
 	Amount       whereHelperfloat64
 	Rate         whereHelperfloat64
-	OrderID      whereHelperstring
-	ExchangeID   whereHelperint64
+	FulfilledOn  whereHelpertime_Time
 	CreatedAt    whereHelpertime_Time
 }{
 	ID:           whereHelperint64{field: `id`},
-	FulfilledOn:  whereHelpertime_Time{field: `fulfilled_on`},
+	OrderID:      whereHelperstring{field: `order_id`},
+	ExchangeID:   whereHelperint64{field: `exchange_id`},
 	CurrencyPair: whereHelperstring{field: `currency_pair`},
 	AssetType:    whereHelperstring{field: `asset_type`},
 	OrderType:    whereHelperstring{field: `order_type`},
 	Amount:       whereHelperfloat64{field: `amount`},
 	Rate:         whereHelperfloat64{field: `rate`},
-	OrderID:      whereHelperstring{field: `order_id`},
-	ExchangeID:   whereHelperint64{field: `exchange_id`},
+	FulfilledOn:  whereHelpertime_Time{field: `fulfilled_on`},
 	CreatedAt:    whereHelpertime_Time{field: `created_at`},
 }
 
@@ -108,9 +108,9 @@ func (*exchangePlatformTradeHistoryR) NewStruct() *exchangePlatformTradeHistoryR
 type exchangePlatformTradeHistoryL struct{}
 
 var (
-	exchangePlatformTradeHistoryColumns               = []string{"id", "fulfilled_on", "currency_pair", "asset_type", "order_type", "amount", "rate", "order_id", "exchange_id", "created_at"}
+	exchangePlatformTradeHistoryColumns               = []string{"id", "order_id", "exchange_id", "currency_pair", "asset_type", "order_type", "amount", "rate", "fulfilled_on", "created_at"}
 	exchangePlatformTradeHistoryColumnsWithoutDefault = []string{}
-	exchangePlatformTradeHistoryColumnsWithDefault    = []string{"id", "fulfilled_on", "currency_pair", "asset_type", "order_type", "amount", "rate", "order_id", "exchange_id", "created_at"}
+	exchangePlatformTradeHistoryColumnsWithDefault    = []string{"id", "order_id", "exchange_id", "currency_pair", "asset_type", "order_type", "amount", "rate", "fulfilled_on", "created_at"}
 	exchangePlatformTradeHistoryPrimaryKeyColumns     = []string{"id"}
 )
 
@@ -398,7 +398,7 @@ func (o *ExchangePlatformTradeHistory) Exchange(mods ...qm.QueryMod) exchangeQue
 	queryMods = append(queryMods, mods...)
 
 	query := Exchanges(queryMods...)
-	queries.SetFrom(query.Query, "\"exchange\"")
+	queries.SetFrom(query.Query, "\"exchanges\"")
 
 	return query
 }
@@ -444,7 +444,7 @@ func (exchangePlatformTradeHistoryL) LoadExchange(ctx context.Context, e boil.Co
 		return nil
 	}
 
-	query := NewQuery(qm.From(`exchange`), qm.WhereIn(`id in ?`, args...))
+	query := NewQuery(qm.From(`exchanges`), qm.WhereIn(`id in ?`, args...))
 	if mods != nil {
 		mods.Apply(query)
 	}
@@ -460,10 +460,10 @@ func (exchangePlatformTradeHistoryL) LoadExchange(ctx context.Context, e boil.Co
 	}
 
 	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for exchange")
+		return errors.Wrap(err, "failed to close results of eager load for exchanges")
 	}
 	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for exchange")
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for exchanges")
 	}
 
 	if len(exchangePlatformTradeHistoryAfterSelectHooks) != 0 {

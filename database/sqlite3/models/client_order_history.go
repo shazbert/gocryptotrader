@@ -25,13 +25,13 @@ type ClientOrderHistory struct {
 	ID           int64     `boil:"id" json:"id" toml:"id" yaml:"id"`
 	OrderID      string    `boil:"order_id" json:"order_id" toml:"order_id" yaml:"order_id"`
 	ClientID     int64     `boil:"client_id" json:"client_id" toml:"client_id" yaml:"client_id"`
-	FulfilledOn  time.Time `boil:"fulfilled_on" json:"fulfilled_on" toml:"fulfilled_on" yaml:"fulfilled_on"`
+	ExchangeID   int64     `boil:"exchange_id" json:"exchange_id" toml:"exchange_id" yaml:"exchange_id"`
 	CurrencyPair string    `boil:"currency_pair" json:"currency_pair" toml:"currency_pair" yaml:"currency_pair"`
 	AssetType    string    `boil:"asset_type" json:"asset_type" toml:"asset_type" yaml:"asset_type"`
 	OrderType    string    `boil:"order_type" json:"order_type" toml:"order_type" yaml:"order_type"`
 	Amount       float64   `boil:"amount" json:"amount" toml:"amount" yaml:"amount"`
 	Rate         float64   `boil:"rate" json:"rate" toml:"rate" yaml:"rate"`
-	ExchangeID   int64     `boil:"exchange_id" json:"exchange_id" toml:"exchange_id" yaml:"exchange_id"`
+	FulfilledOn  time.Time `boil:"fulfilled_on" json:"fulfilled_on" toml:"fulfilled_on" yaml:"fulfilled_on"`
 	CreatedAt    time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 
 	R *clientOrderHistoryR `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -42,25 +42,25 @@ var ClientOrderHistoryColumns = struct {
 	ID           string
 	OrderID      string
 	ClientID     string
-	FulfilledOn  string
+	ExchangeID   string
 	CurrencyPair string
 	AssetType    string
 	OrderType    string
 	Amount       string
 	Rate         string
-	ExchangeID   string
+	FulfilledOn  string
 	CreatedAt    string
 }{
 	ID:           "id",
 	OrderID:      "order_id",
 	ClientID:     "client_id",
-	FulfilledOn:  "fulfilled_on",
+	ExchangeID:   "exchange_id",
 	CurrencyPair: "currency_pair",
 	AssetType:    "asset_type",
 	OrderType:    "order_type",
 	Amount:       "amount",
 	Rate:         "rate",
-	ExchangeID:   "exchange_id",
+	FulfilledOn:  "fulfilled_on",
 	CreatedAt:    "created_at",
 }
 
@@ -85,25 +85,25 @@ var ClientOrderHistoryWhere = struct {
 	ID           whereHelperint64
 	OrderID      whereHelperstring
 	ClientID     whereHelperint64
-	FulfilledOn  whereHelpertime_Time
+	ExchangeID   whereHelperint64
 	CurrencyPair whereHelperstring
 	AssetType    whereHelperstring
 	OrderType    whereHelperstring
 	Amount       whereHelperfloat64
 	Rate         whereHelperfloat64
-	ExchangeID   whereHelperint64
+	FulfilledOn  whereHelpertime_Time
 	CreatedAt    whereHelpertime_Time
 }{
 	ID:           whereHelperint64{field: `id`},
 	OrderID:      whereHelperstring{field: `order_id`},
 	ClientID:     whereHelperint64{field: `client_id`},
-	FulfilledOn:  whereHelpertime_Time{field: `fulfilled_on`},
+	ExchangeID:   whereHelperint64{field: `exchange_id`},
 	CurrencyPair: whereHelperstring{field: `currency_pair`},
 	AssetType:    whereHelperstring{field: `asset_type`},
 	OrderType:    whereHelperstring{field: `order_type`},
 	Amount:       whereHelperfloat64{field: `amount`},
 	Rate:         whereHelperfloat64{field: `rate`},
-	ExchangeID:   whereHelperint64{field: `exchange_id`},
+	FulfilledOn:  whereHelpertime_Time{field: `fulfilled_on`},
 	CreatedAt:    whereHelpertime_Time{field: `created_at`},
 }
 
@@ -131,9 +131,9 @@ func (*clientOrderHistoryR) NewStruct() *clientOrderHistoryR {
 type clientOrderHistoryL struct{}
 
 var (
-	clientOrderHistoryColumns               = []string{"id", "order_id", "client_id", "fulfilled_on", "currency_pair", "asset_type", "order_type", "amount", "rate", "exchange_id", "created_at"}
+	clientOrderHistoryColumns               = []string{"id", "order_id", "client_id", "exchange_id", "currency_pair", "asset_type", "order_type", "amount", "rate", "fulfilled_on", "created_at"}
 	clientOrderHistoryColumnsWithoutDefault = []string{}
-	clientOrderHistoryColumnsWithDefault    = []string{"id", "order_id", "client_id", "fulfilled_on", "currency_pair", "asset_type", "order_type", "amount", "rate", "exchange_id", "created_at"}
+	clientOrderHistoryColumnsWithDefault    = []string{"id", "order_id", "client_id", "exchange_id", "currency_pair", "asset_type", "order_type", "amount", "rate", "fulfilled_on", "created_at"}
 	clientOrderHistoryPrimaryKeyColumns     = []string{"id"}
 )
 
@@ -421,7 +421,7 @@ func (o *ClientOrderHistory) Client(mods ...qm.QueryMod) clientQuery {
 	queryMods = append(queryMods, mods...)
 
 	query := Clients(queryMods...)
-	queries.SetFrom(query.Query, "\"client\"")
+	queries.SetFrom(query.Query, "\"clients\"")
 
 	return query
 }
@@ -435,7 +435,7 @@ func (o *ClientOrderHistory) Exchange(mods ...qm.QueryMod) exchangeQuery {
 	queryMods = append(queryMods, mods...)
 
 	query := Exchanges(queryMods...)
-	queries.SetFrom(query.Query, "\"exchange\"")
+	queries.SetFrom(query.Query, "\"exchanges\"")
 
 	return query
 }
@@ -481,7 +481,7 @@ func (clientOrderHistoryL) LoadClient(ctx context.Context, e boil.ContextExecuto
 		return nil
 	}
 
-	query := NewQuery(qm.From(`client`), qm.WhereIn(`id in ?`, args...))
+	query := NewQuery(qm.From(`clients`), qm.WhereIn(`id in ?`, args...))
 	if mods != nil {
 		mods.Apply(query)
 	}
@@ -497,10 +497,10 @@ func (clientOrderHistoryL) LoadClient(ctx context.Context, e boil.ContextExecuto
 	}
 
 	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for client")
+		return errors.Wrap(err, "failed to close results of eager load for clients")
 	}
 	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for client")
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for clients")
 	}
 
 	if len(clientOrderHistoryAfterSelectHooks) != 0 {
@@ -582,7 +582,7 @@ func (clientOrderHistoryL) LoadExchange(ctx context.Context, e boil.ContextExecu
 		return nil
 	}
 
-	query := NewQuery(qm.From(`exchange`), qm.WhereIn(`id in ?`, args...))
+	query := NewQuery(qm.From(`exchanges`), qm.WhereIn(`id in ?`, args...))
 	if mods != nil {
 		mods.Apply(query)
 	}
@@ -598,10 +598,10 @@ func (clientOrderHistoryL) LoadExchange(ctx context.Context, e boil.ContextExecu
 	}
 
 	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for exchange")
+		return errors.Wrap(err, "failed to close results of eager load for exchanges")
 	}
 	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for exchange")
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for exchanges")
 	}
 
 	if len(clientOrderHistoryAfterSelectHooks) != 0 {

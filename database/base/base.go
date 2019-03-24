@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"reflect"
 	"sync"
 
 	"github.com/naoina/toml"
@@ -24,6 +25,7 @@ const (
 	QueryAssetType       = "asset_type = ?"
 	QueryUserName        = "user_name = ?"
 	OrderByFulfilledDesc = "fulfilled_on DESC"
+	OrderByFullfilledAsc = "fulfilled_on ASC"
 
 	WarnTablesExist   = "Tables already exist in database, skipping insertion of new tables."
 	WarnWrongPassword = "Incorrect password, please try again, %d attempts left."
@@ -44,11 +46,20 @@ const (
 	LoginFailure        = "failed to log into database for username %s"
 	UsernameAlreadyUsed = "client username %s already in use"
 	DBPathNotSet        = "path to %s database not set"
+
+	// DefaultMemCache defaults to a 1 megabyte memcache for writing to db
+	DefaultMemCache int64 = 1000000
 )
 
 var (
 	// Ctx defines a base database context
 	Ctx = context.Background()
+
+	// SizeOfStatment is max size of assumed sql statement
+	SizeOfStatment = reflect.TypeOf(sql.Stmt{}).Size()
+
+	// SizeOfPointer is size of the pointer to an sql statment
+	SizeOfPointer = reflect.TypeOf(new(sql.Stmt)).Size()
 
 	// ErrDatabaseConnection defines a database connection failure error
 	ErrDatabaseConnection = errors.New("database connection not established")
@@ -86,6 +97,16 @@ type RelationalMap struct {
 	Password     string
 	Port         string
 	SSLMode      string
+
+	// Write buffer to database based of size of memcache
+	MaxSizeOfCache int64 // Max size in Bytes
+	TxCounter      int64 // Number of transactions to infer memory size, size
+	// should be much smaller than this infered amount.
+
+	// transactionQueue has all the statements before commiting to db
+	transactionQueue *sql.Tx
+	txMtx            sync.Mutex // Kind of redundant TODO: rethink this
+	// design later
 
 	// Super duper locking mechanism
 	sync.Mutex
@@ -232,7 +253,68 @@ func (r *RelationalMap) SetupHelperFiles() error {
 // Disconnect closes the database connection
 func (r *RelationalMap) Disconnect() error {
 	r.Lock()
-	defer r.Unlock()
+	r.txMtx.Lock()
+	defer func() { r.txMtx.Unlock(); r.Unlock() }()
 	r.Connected = false
+	err := r.CommitToDB()
+	if err != nil {
+		return err
+	}
 	return r.C.Close()
+}
+
+// NewTx returns a new pointer to a transaction for buffering database purposes
+func (r *RelationalMap) NewTx() (*sql.Tx, error) {
+	r.txMtx.Lock()
+	if r.transactionQueue != nil {
+		return r.transactionQueue, nil
+	}
+	var err error
+	r.transactionQueue, err = r.C.BeginTx(Ctx, nil)
+	if err != nil {
+		r.txMtx.Unlock()
+		return nil, err
+	}
+	return r.transactionQueue, nil
+}
+
+// CommitTx finishes the transaction and ends the input
+func (r *RelationalMap) CommitTx(txLen int) error {
+	defer r.txMtx.Unlock()
+
+	// Check inferred size of memory allocation by transaction amounts
+	r.TxCounter += int64(txLen)
+	if r.TxCounter*int64(SizeOfPointer+SizeOfStatment) >= r.MaxSizeOfCache {
+		err := r.CommitToDB()
+		r.TxCounter = 0          // reset counter
+		r.transactionQueue = nil // force garbage collection
+		return err
+	}
+	// Continue batch process and unlock()
+	return nil
+}
+
+// CommitToDB commits transactional buffer to database
+func (r *RelationalMap) CommitToDB() error {
+	if r.transactionQueue == nil {
+		return nil
+	}
+	if r.Verbose {
+		log.Debugf("Insert %d records into %s database from transaction buffer",
+			r.TxCounter,
+			r.InstanceName)
+	}
+	return r.transactionQueue.Commit()
+}
+
+// NewQuery intiates a new query thus writing transactional buffer to db for
+// new query
+func (r *RelationalMap) NewQuery() error {
+	r.txMtx.Lock()
+	return r.CommitToDB()
+}
+
+// FinishQuery unlocks transactional buffer
+func (r *RelationalMap) FinishQuery() {
+	r.txMtx.Unlock()
 }

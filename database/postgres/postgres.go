@@ -70,6 +70,13 @@ func (p *Postgres) Setup(c base.ConnDetails) error {
 		return err
 	}
 
+	if c.MemCacheSize == 0 {
+		p.MaxSizeOfCache = base.DefaultMemCache
+	} else {
+		log.Warnf("Database write buffer size %d is not default", c.MemCacheSize)
+		p.MaxSizeOfCache = c.MemCacheSize
+	}
+
 	fullPathToSchema := p.PathDBDir + base.PostGresSchema
 	// Creates a schema file for informational deployment
 	_, err = common.ReadFile(fullPathToSchema)
@@ -89,12 +96,12 @@ func (p *Postgres) Setup(c base.ConnDetails) error {
 // GetSchema returns the full schema ready for file use
 func GetSchema() string {
 	var fullSchema string
-
-	fullSchema += postgresSchema[0] + "\n\n"
-	fullSchema += postgresSchema[1] + "\n\n"
-	fullSchema += postgresSchema[2] + "\n\n"
-	fullSchema += postgresSchema[3]
-
+	for i, s := range postgresSchema {
+		fullSchema += s
+		if len(postgresSchema)-1 != i {
+			fullSchema += "\n\n"
+		}
+	}
 	return fullSchema
 }
 
@@ -171,6 +178,16 @@ func (p *Postgres) Connect() error {
 		}
 	}
 
+	err = p.InsertAccessControl(base.GetAccessLevels())
+	if err != nil {
+		return err
+	}
+
+	err = p.InsertExchanges(base.GetSupportedExchanges())
+	if err != nil {
+		return err
+	}
+
 	p.Connected = true
 	return nil
 }
@@ -180,7 +197,7 @@ func (p *Postgres) ClientLogin(newclient bool) error {
 	fmt.Println()
 	if newclient {
 		log.Info(base.InfoInsertClient)
-		return p.InsertNewClient()
+		return p.InsertNewClientByPrompt()
 	}
 
 	clients, err := models.Clients().All(base.Ctx, p.C)
@@ -190,7 +207,7 @@ func (p *Postgres) ClientLogin(newclient bool) error {
 
 	if len(clients) == 0 {
 		log.Info(base.InfoNoClients)
-		return p.InsertNewClient()
+		return p.InsertNewClientByPrompt()
 	}
 
 	if len(clients) == 1 {
@@ -237,8 +254,9 @@ func (p *Postgres) CheckClientPassword(c *models.Client) error {
 	return fmt.Errorf(base.LoginFailure, c.UserName)
 }
 
-// InsertNewClient inserts a new client by username and password
-func (p *Postgres) InsertNewClient() error {
+// InsertNewClientByPrompt inserts a new client by username and password
+// prompt when starting a new gocryptotrader instance
+func (p *Postgres) InsertNewClientByPrompt() error {
 	username, err := common.PromptForUsername()
 	if err != nil {
 		return err
@@ -265,12 +283,18 @@ func (p *Postgres) InsertNewClient() error {
 	}
 
 	newuser := &models.Client{
-		UserName:     username,
-		Password:     hashPw,
-		LastLoggedIn: time.Now(),
+		UserName:          username,
+		Password:          hashPw,
+		PasswordCreatedAt: time.Now(),
+		LastLoggedIn:      time.Now(),
+		Enabled:           true,
 	}
 
-	err = newuser.Insert(base.Ctx, p.C, boil.Infer())
+	basicAccess := &models.AccessControl{
+		Level: int(base.Basic),
+	}
+
+	err = basicAccess.AddAccessLevelClients(base.Ctx, p.C, true, newuser)
 	if err != nil {
 		return err
 	}
@@ -284,8 +308,8 @@ func (p *Postgres) InsertNewClient() error {
 	return nil
 }
 
-// InsertPlatformTrade inserts platform matched trades
-func (p *Postgres) InsertPlatformTrade(orderID, exchangeName, currencyPair, assetType, orderType string, amount, rate float64, fulfilledOn time.Time) error {
+// InsertPlatformTrades inserts platform matched trades
+func (p *Postgres) InsertPlatformTrades(exchangeName string, trades []*base.PlatformTrades) error {
 	p.Lock()
 	defer p.Unlock()
 
@@ -298,18 +322,29 @@ func (p *Postgres) InsertPlatformTrade(orderID, exchangeName, currencyPair, asse
 		return err
 	}
 
-	return e.AddExchangePlatformTradeHistories(base.Ctx,
-		p.C,
-		true,
-		&models.ExchangePlatformTradeHistory{
-			FulfilledOn:  fulfilledOn,
-			CurrencyPair: currencyPair,
-			AssetType:    assetType,
-			OrderType:    orderType,
-			Amount:       amount,
-			Rate:         rate,
-			OrderID:      orderID,
-		})
+	tx, err := p.NewTx()
+	if err != nil {
+		return err
+	}
+
+	for i := range trades {
+		newStatement := &models.ExchangePlatformTradeHistory{
+			FulfilledOn:  trades[i].FullfilledOn,
+			CurrencyPair: trades[i].Pair,
+			AssetType:    trades[i].AssetType,
+			OrderType:    trades[i].OrderType,
+			Amount:       trades[i].Amount,
+			Rate:         trades[i].Rate,
+			OrderID:      trades[i].OrderID,
+			ExchangeID:   e.ID,
+		}
+		stmErr := newStatement.Insert(base.Ctx, tx, boil.Infer())
+		if stmErr != nil {
+			return stmErr
+		}
+	}
+
+	return p.CommitTx(len(trades))
 }
 
 // InsertAndRetrieveExchange returns the pointer to an exchange model to
@@ -323,7 +358,7 @@ func (p *Postgres) insertAndRetrieveExchange(exchName string) (*models.Exchange,
 	e, ok := p.Exchanges[exchName].(*models.Exchange)
 	if !ok {
 		var err error
-		e, err = models.Exchanges(qm.Where("exchange_name = ?", exchName)).One(base.Ctx, p.C)
+		e, err = models.Exchanges(qm.Where(base.QueryExchangeName, exchName)).One(base.Ctx, p.C)
 		if err != nil {
 			i := &models.Exchange{
 				ExchangeName: exchName,
@@ -351,7 +386,12 @@ func (p *Postgres) insertAndRetrieveExchange(exchName string) (*models.Exchange,
 // for the most recent trade history data in the set
 func (p *Postgres) GetPlatformTradeLast(exchangeName, currencyPair, assetType string) (time.Time, string, error) {
 	p.Lock()
-	defer p.Unlock()
+	err := p.NewQuery()
+	if err != nil {
+		return time.Time{}, "", err
+	}
+
+	defer func() { p.FinishQuery(); p.Unlock() }()
 
 	if !p.Connected {
 		return time.Time{}, "", base.ErrDatabaseConnection
@@ -373,11 +413,47 @@ func (p *Postgres) GetPlatformTradeLast(exchangeName, currencyPair, assetType st
 	return th.FulfilledOn, th.OrderID, nil
 }
 
+// GetPlatformTradeFirst returns the first updated time.Time and tradeID values
+// for the initial entry boundary points
+func (p *Postgres) GetPlatformTradeFirst(exchangeName, currencyPair, assetType string) (time.Time, string, error) {
+	p.Lock()
+	err := p.NewQuery()
+	if err != nil {
+		return time.Time{}, "", err
+	}
+
+	defer func() { p.FinishQuery(); p.Unlock() }()
+
+	if !p.Connected {
+		return time.Time{}, "", base.ErrDatabaseConnection
+	}
+
+	e, err := p.insertAndRetrieveExchange(exchangeName)
+	if err != nil {
+		return time.Time{}, "", err
+	}
+
+	th, err := e.ExchangePlatformTradeHistories(qm.Where(base.QueryCurrencyPair, currencyPair),
+		qm.And(base.QueryAssetType, assetType),
+		qm.OrderBy(base.OrderByFullfilledAsc),
+		qm.Limit(1)).One(base.Ctx, p.C)
+	if err != nil {
+		return time.Time{}, "", err
+	}
+
+	return th.FulfilledOn, th.OrderID, nil
+}
+
 // GetFullPlatformHistory returns the full matched trade history on the
 // exchange platform by exchange name, currency pair and asset class
 func (p *Postgres) GetFullPlatformHistory(exchangeName, currencyPair, assetType string) ([]exchange.PlatformTrade, error) {
 	p.Lock()
-	defer p.Unlock()
+	err := p.NewQuery()
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() { p.FinishQuery(); p.Unlock() }()
 
 	if !p.Connected {
 		return nil, base.ErrDatabaseConnection
@@ -414,4 +490,41 @@ func (p *Postgres) GetClientDetails() (string, error) {
 	p.Lock()
 	defer p.Unlock()
 	return p.Client.(*models.Client).UserName, nil
+}
+
+// InsertAccessControl inserts bot access list
+func (p *Postgres) InsertAccessControl(m map[string]int) error {
+	p.Lock()
+	defer p.Unlock()
+
+	for k, v := range m {
+		control := &models.AccessControl{
+			Level: v,
+			Name:  k,
+		}
+
+		err := control.Insert(base.Ctx, p.C, boil.Infer())
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// InsertExchanges inserts exchange data
+func (p *Postgres) InsertExchanges(e []string) error {
+	p.Lock()
+	defer p.Unlock()
+
+	for i := range e {
+		exchange := &models.Exchange{
+			ExchangeName: e[i],
+		}
+
+		err := exchange.Insert(base.Ctx, p.C, boil.Infer())
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
