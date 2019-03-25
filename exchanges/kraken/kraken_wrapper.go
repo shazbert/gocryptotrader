@@ -311,6 +311,8 @@ func (k *Kraken) GetPlatformHistory(p currency.Pair, assetType assets.AssetType,
 		return resp, err
 	}
 
+	// TODO: Add in UNIQUEID for order id
+
 	for i := range trades {
 		resp = append(resp, exchange.PlatformTrade{
 			Timestamp: time.Unix(int64(trades[i].Time), 0),

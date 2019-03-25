@@ -611,7 +611,7 @@ func TestGetDepositAddress(t *testing.T) {
 func TestGetPlatformHistory(t *testing.T) {
 	p := currency.NewPairDelimiter("BTC-USD", "-")
 	_, err := c.GetPlatformHistory(p, "SPOT", time.Time{}, "")
-	if err != nil {
+	if err == nil {
 		t.Error("Test failed - GetPlatformHistory() error", err)
 	}
 }

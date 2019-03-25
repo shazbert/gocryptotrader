@@ -541,17 +541,11 @@ func TestGetDepositAddress(t *testing.T) {
 }
 
 func TestGetPlatformHistory(t *testing.T) {
-
 	b.SetDefaults()
 	TestSetup(t)
-
-	b.Verbose = true
-	// t.Parallel()
 	p := currency.NewPair(currency.BTC, currency.USDT)
-	m, err := b.GetPlatformHistory(p, "SPOT", time.Now().AddDate(-1, 0, 0), "")
+	_, err := b.GetPlatformHistory(p, "SPOT", time.Now().AddDate(-1, 0, 0), "")
 	if err != nil {
 		t.Error("test failed - Binance GetPlatformHistory() error", err)
 	}
-
-	t.Error(m)
 }

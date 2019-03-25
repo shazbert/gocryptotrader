@@ -293,7 +293,7 @@ func (h *HitBTC) GetFundingHistory() ([]exchange.FundHistory, error) {
 func (h *HitBTC) GetPlatformHistory(p currency.Pair, assetType assets.AssetType, timestampStart time.Time, tradeID string) ([]exchange.PlatformTrade, error) {
 	var resp []exchange.PlatformTrade
 
-	if timestampStart.IsZero() {
+	if timestampStart.Unix() == 0 {
 		timestampStart = time.Now().AddDate(0, -3, 0) // 3 months prior to now
 	}
 	timestampEnd := timestampStart.AddDate(0, 0, 1) // add 24 hrs

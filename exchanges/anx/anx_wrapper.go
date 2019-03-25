@@ -343,7 +343,7 @@ func (a *ANX) GetFundingHistory() ([]exchange.FundHistory, error) {
 // initial operations
 func (a *ANX) GetPlatformHistory(p currency.Pair, assetType assets.AssetType, timestampStart time.Time, tradeID string) ([]exchange.PlatformTrade, error) {
 	var resp []exchange.PlatformTrade
-	return resp, common.ErrNotYetImplemented
+	return resp, common.ErrFunctionNotSupported
 }
 
 // SubmitOrder submits a new order

@@ -298,7 +298,7 @@ func (b *Bitfinex) GetPlatformHistory(p currency.Pair, assetType assets.AssetTyp
 
 	strippedPair := p.Base.String() + p.Quote.String()
 
-	if timestampStart.IsZero() {
+	if timestampStart.Unix() == 0 {
 		timestampStart = time.Now().AddDate(0, -3, 0) // Set three months prior
 	}
 	timeStampEnd := timestampStart.Add(1 * time.Hour) // add 1 hr

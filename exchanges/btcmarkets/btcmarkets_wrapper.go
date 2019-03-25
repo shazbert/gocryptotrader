@@ -277,13 +277,12 @@ func (b *BTCMarkets) GetFundingHistory() ([]exchange.FundHistory, error) {
 // initial operations
 func (b *BTCMarkets) GetPlatformHistory(p currency.Pair, assetType assets.AssetType, timestampStart time.Time, tradeID string) ([]exchange.PlatformTrade, error) {
 	var resp []exchange.PlatformTrade
-	ID, err := strconv.ParseInt(tradeID, 10, 64)
-	if err != nil {
-		return resp, err
-	}
-
 	v := url.Values{}
-	v.Set("since", strconv.FormatInt(ID, 10))
+	if tradeID == "" {
+		v.Set("since", "0")
+	} else {
+		v.Set("since", tradeID)
+	}
 
 	t, err := b.GetTrades(p.Base.String(), p.Quote.String(), v)
 	if err != nil {

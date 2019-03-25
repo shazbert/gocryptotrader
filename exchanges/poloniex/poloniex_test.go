@@ -41,14 +41,14 @@ func TestSetup(t *testing.T) {
 func TestGetTicker(t *testing.T) {
 	_, err := p.GetTicker()
 	if err != nil {
-		t.Error("Test faild - Poloniex GetTicker() error")
+		t.Error("Test faild - Poloniex GetTicker() error", err)
 	}
 }
 
 func TestGetVolume(t *testing.T) {
 	_, err := p.GetVolume()
 	if err != nil {
-		t.Error("Test faild - Poloniex GetVolume() error")
+		t.Error("Test faild - Poloniex GetVolume() error", err)
 	}
 }
 
@@ -392,8 +392,10 @@ func TestGetDepositAddress(t *testing.T) {
 }
 
 func TestGetPlatformHistory(t *testing.T) {
+	p.SetDefaults()
+	TestSetup(t)
 	pOne := currency.NewPairDelimiter("BTC_NXT", "_")
-	_, err := p.GetPlatformHistory(pOne, "SPOT", time.Time{}, "")
+	_, err := p.GetPlatformHistory(pOne, "SPOT", time.Unix(0, 0), "")
 	if err != nil {
 		t.Error("Test faild - Poloniex GetPlatformHistory() error", err)
 	}

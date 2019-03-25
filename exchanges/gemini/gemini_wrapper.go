@@ -268,7 +268,7 @@ func (g *Gemini) GetFundingHistory() ([]exchange.FundHistory, error) {
 func (g *Gemini) GetPlatformHistory(p currency.Pair, assetType assets.AssetType, timestampStart time.Time, tradeID string) ([]exchange.PlatformTrade, error) {
 	var resp []exchange.PlatformTrade
 
-	if timestampStart.IsZero() {
+	if timestampStart.Unix() == 0 {
 		timestampStart = time.Now().AddDate(0, 0, -6) // 6 days earlier, any
 		// longer and the exchange returns an error
 	}

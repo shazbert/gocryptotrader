@@ -660,6 +660,8 @@ func fetchHistory(exch exchange.IBotExchange, p currency.Pair, asset assets.Asse
 					p,
 					asset,
 					err)
+				log.Info("Up to date sleeping routine")
+				time.Sleep(5 * time.Minute)
 				continue
 			}
 			log.Errorf("%s %s %s error: %s",

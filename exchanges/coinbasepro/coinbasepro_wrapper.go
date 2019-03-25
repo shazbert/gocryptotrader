@@ -285,32 +285,36 @@ func (c *CoinbasePro) GetFundingHistory() ([]exchange.FundHistory, error) {
 func (c *CoinbasePro) GetPlatformHistory(p currency.Pair, assetType assets.AssetType, timestampStart time.Time, tradeID string) ([]exchange.PlatformTrade, error) {
 	var resp []exchange.PlatformTrade
 
-	if timestampStart.IsZero() {
-		timestampStart = time.Now().AddDate(0, -3, 0) // 3 months prior to now
-	}
-	timestampEnd := timestampStart.Add(5 * time.Hour)
+	// if timestampStart.Unix() == 0 {
+	// 	timestampStart = time.Now().AddDate(0, -3, 0) // 3 months prior to now
+	// }
+	// timestampEnd := timestampStart.Add(5 * time.Hour)
 
-	formattedPair := c.FormatExchangeCurrency(p, assetType)
+	// formattedPair := c.FormatExchangeCurrency(p, assetType)
 
-	t, err := c.GetHistoricRates(formattedPair.String(),
-		timestampStart.Format(time.RFC3339),
-		timestampEnd.Format(time.RFC3339),
-		60)
-	if err != nil {
-		return resp, err
-	}
+	// t, err := c.GetHistoricRates(formattedPair.String(),
+	// 	timestampStart.Format(time.RFC3339),
+	// 	timestampEnd.Format(time.RFC3339),
+	// 	60)
+	// if err != nil {
+	// 	return resp, err
+	// }
 
-	for i := range t {
-		resp = append(resp, exchange.PlatformTrade{
-			Timestamp: time.Unix(t[i].Time, 0),
-			TID:       "OrderID - Not Specified",
-			Price:     t[i].Close,
-			Amount:    t[i].Volume,
-			Exchange:  c.GetName(),
-			Type:      "Trading Type - Not Specified",
-		})
-	}
-	return resp, nil
+	// for i := range t {
+	// 	resp = append(resp, exchange.PlatformTrade{
+	// 		Timestamp: time.Unix(t[i].Time, 0),
+	// 		TID:       "OrderID - Not Specified",
+	// 		Price:     t[i].Close,
+	// 		Amount:    t[i].Volume,
+	// 		Exchange:  c.GetName(),
+	// 		Type:      "Trading Type - Not Specified",
+	// 	})
+	// }
+	// return resp, nil
+	// TODO: Need to implement a unique ID before we can implement this as this
+	// endpoint returns OHLC data and we are getting contraint errors.
+
+	return resp, common.ErrNotYetImplemented
 }
 
 // SubmitOrder submits a new order

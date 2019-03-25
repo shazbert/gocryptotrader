@@ -2,6 +2,7 @@ package poloniex
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -759,13 +760,25 @@ func (p *Poloniex) ToggleAutoRenew(orderNumber int64) (bool, error) {
 
 // SendHTTPRequest sends an unauthenticated HTTP request
 func (p *Poloniex) SendHTTPRequest(path string, result interface{}) error {
-	return p.SendPayload(http.MethodGet,
+	var intermediary json.RawMessage
+	err := p.SendPayload(http.MethodGet,
 		path,
 		nil,
 		nil,
-		result,
+		&intermediary,
 		false,
 		p.Verbose)
+
+	var newError struct {
+		Error string `json:"error"`
+	}
+
+	err = json.Unmarshal(intermediary, &newError)
+	if err == nil && newError.Error != "" {
+		return errors.New(newError.Error)
+	}
+
+	return json.Unmarshal(intermediary, result)
 }
 
 // SendAuthenticatedHTTPRequest sends an authenticated HTTP request

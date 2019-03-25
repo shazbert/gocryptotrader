@@ -286,6 +286,7 @@ func (l *LakeBTC) GetPlatformHistory(p currency.Pair, assetType assets.AssetType
 			Type:      "Not Specified",
 		})
 	}
+
 	return resp, nil
 }
 

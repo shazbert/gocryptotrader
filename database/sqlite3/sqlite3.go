@@ -289,6 +289,7 @@ func (s *SQLite3) InsertPlatformTrades(exchangeName string, trades []*base.Platf
 		return err
 	}
 
+	var statementErr error
 	for i := range trades {
 		newStatement := &models.ExchangePlatformTradeHistory{
 			FulfilledOn:  trades[i].FullfilledOn,
@@ -300,13 +301,18 @@ func (s *SQLite3) InsertPlatformTrades(exchangeName string, trades []*base.Platf
 			OrderID:      trades[i].OrderID,
 			ExchangeID:   e.ID,
 		}
-		stmErr := newStatement.Insert(base.Ctx, tx, boil.Infer())
-		if stmErr != nil {
-			return stmErr
+		statementErr = newStatement.Insert(base.Ctx, tx, boil.Infer())
+		if statementErr != nil {
+			break
 		}
 	}
 
-	return s.CommitTx(len(trades))
+	err = s.CommitTx(len(trades))
+	if err != nil {
+		return err
+	}
+
+	return statementErr
 }
 
 // InsertAndRetrieveExchange returns the pointer to an exchange model to
