@@ -1,10 +1,13 @@
 package sqlite3
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/thrasher-/gocryptotrader/access"
 
 	"github.com/thrasher-/gocryptotrader/common"
 	"github.com/thrasher-/gocryptotrader/database/base"
@@ -140,7 +143,7 @@ func (s *SQLite3) Connect() error {
 		}
 	}
 
-	err = s.InsertAccessControl(base.GetAccessLevels())
+	err = s.InsertClientRoles(access.ClientRoles)
 	if err != nil {
 		return err
 	}
@@ -252,11 +255,7 @@ func (s *SQLite3) InsertNewClientByPrompt() error {
 		Enabled:           true,
 	}
 
-	basicAccess := &models.AccessControl{
-		Level: int64(base.Basic),
-	}
-
-	err = basicAccess.AddAccessLevelClients(base.Ctx, s.C, true, newuser)
+	err = newuser.Insert(base.Ctx, s.C, boil.Infer())
 	if err != nil {
 		return err
 	}
@@ -460,18 +459,17 @@ func (s *SQLite3) GetClientDetails() (string, error) {
 	return s.Client.(*models.Client).UserName, nil
 }
 
-// InsertAccessControl inserts bot access list
-func (s *SQLite3) InsertAccessControl(m map[string]int) error {
+// InsertClientRoles inserts client roles to determine access control
+func (s *SQLite3) InsertClientRoles(roles []string) error {
 	s.Lock()
 	defer s.Unlock()
 
-	for k, v := range m {
-		control := &models.AccessControl{
-			Level: int64(v),
-			Name:  k,
+	for i := range roles {
+		r := &models.Role{
+			Name: roles[i],
 		}
 
-		err := control.Insert(base.Ctx, s.C, boil.Infer())
+		err := r.Insert(base.Ctx, s.C, boil.Infer())
 		if err != nil {
 			return err
 		}
@@ -493,6 +491,87 @@ func (s *SQLite3) InsertExchanges(e []string) error {
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// GetClientRPC returns client data
+func (s *SQLite3) GetClientRPC(ctx context.Context, username string) (*base.Client, error) {
+	s.Lock()
+	defer s.Unlock()
+
+	var bClient *base.Client
+	c, err := models.Clients(qm.Where("user_name = ?", username)).One(ctx, s.C)
+	if err != nil {
+		return nil, err
+	}
+
+	if !c.Enabled {
+		return nil, errors.New("user %s disabled, cannot continue")
+	}
+
+	clientRoles, err := c.ClientRoles().All(ctx, s.C)
+	if err != nil {
+		return nil, err
+	}
+
+	var permissionStr []string
+	for i := range clientRoles {
+		r, err := clientRoles[i].Role().One(ctx, s.C)
+		if err != nil {
+			return nil, err
+		}
+		permissionStr = append(permissionStr, r.Name)
+	}
+
+	bClient.UserName = c.UserName
+	bClient.UpdatedAt = c.UpdatedAt
+	bClient.PasswordCreatedAt = c.PasswordCreatedAt
+	bClient.Password = c.Password
+	bClient.OneTimePassword = c.OneTimePassword.String
+	bClient.LastLoggedIn = c.LastLoggedIn
+	bClient.ID = int(c.ID)
+	bClient.Email = c.Email.String
+	bClient.CreatedAt = c.CreatedAt
+	bClient.Roles = access.GetClientPermission(permissionStr)
+
+	return bClient, nil
+}
+
+// InsertClientRPC inserts a client via RPC with context
+func (s *SQLite3) InsertClientRPC(ctx context.Context, username, password string, roles []string) error {
+	s.Lock()
+	defer s.Unlock()
+
+	newClient := &models.Client{
+		UserName:          username,
+		Password:          password,
+		PasswordCreatedAt: time.Now(),
+		LastLoggedIn:      time.Now(),
+		Enabled:           true,
+	}
+
+	err := newClient.Insert(ctx, s.C, boil.Infer())
+	if err != nil {
+		return err
+	}
+
+	var clientRoles []*models.ClientRole
+	if len(roles) > 0 {
+		for i := range roles {
+			dbRole, err := models.Roles(qm.Where("name = ?", roles[i])).One(ctx, s.C)
+			if err != nil {
+				return err
+			}
+
+			clientRoles = append(clientRoles, &models.ClientRole{
+				RoleID: dbRole.ID,
+			})
+		}
+	}
+
+	if clientRoles != nil {
+		return newClient.AddClientRoles(ctx, s.C, true, clientRoles...)
 	}
 	return nil
 }

@@ -1,11 +1,13 @@
 package postgres
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/thrasher-/gocryptotrader/access"
 	"github.com/thrasher-/gocryptotrader/common"
 	"github.com/thrasher-/gocryptotrader/database/base"
 	"github.com/thrasher-/gocryptotrader/database/postgres/models"
@@ -178,7 +180,7 @@ func (p *Postgres) Connect() error {
 		}
 	}
 
-	err = p.InsertAccessControl(base.GetAccessLevels())
+	err = p.InsertClientRoles(access.ClientRoles)
 	if err != nil {
 		return err
 	}
@@ -290,11 +292,7 @@ func (p *Postgres) InsertNewClientByPrompt() error {
 		Enabled:           true,
 	}
 
-	basicAccess := &models.AccessControl{
-		Level: int(base.Basic),
-	}
-
-	err = basicAccess.AddAccessLevelClients(base.Ctx, p.C, true, newuser)
+	err = newuser.Insert(base.Ctx, p.C, boil.Infer())
 	if err != nil {
 		return err
 	}
@@ -498,18 +496,17 @@ func (p *Postgres) GetClientDetails() (string, error) {
 	return p.Client.(*models.Client).UserName, nil
 }
 
-// InsertAccessControl inserts bot access list
-func (p *Postgres) InsertAccessControl(m map[string]int) error {
+// InsertClientRoles inserts client roles to determine access control
+func (p *Postgres) InsertClientRoles(roles []string) error {
 	p.Lock()
 	defer p.Unlock()
 
-	for k, v := range m {
-		control := &models.AccessControl{
-			Level: v,
-			Name:  k,
+	for i := range roles {
+		r := &models.Role{
+			Name: roles[i],
 		}
 
-		err := control.Insert(base.Ctx, p.C, boil.Infer())
+		err := r.Insert(base.Ctx, p.C, boil.Infer())
 		if err != nil {
 			return err
 		}
@@ -531,6 +528,87 @@ func (p *Postgres) InsertExchanges(e []string) error {
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// GetClientRPC returns client data
+func (p *Postgres) GetClientRPC(ctx context.Context, username string) (*base.Client, error) {
+	p.Lock()
+	defer p.Unlock()
+
+	var bClient base.Client
+	c, err := models.Clients(qm.Where("user_name = ?", username)).One(ctx, p.C)
+	if err != nil {
+		return nil, err
+	}
+
+	if !c.Enabled {
+		return nil, errors.New("user %s disabled, cannot continue")
+	}
+
+	clientroles, err := c.ClientRoles().All(ctx, p.C)
+	if err != nil {
+		return nil, err
+	}
+
+	var permissionStrs []string
+	for i := range clientroles {
+		role, err := clientroles[i].Role().One(ctx, p.C)
+		if err != nil {
+			return nil, err
+		}
+		permissionStrs = append(permissionStrs, role.Name)
+	}
+
+	bClient.UserName = c.UserName
+	bClient.UpdatedAt = c.UpdatedAt
+	bClient.PasswordCreatedAt = c.PasswordCreatedAt
+	bClient.Password = c.Password
+	bClient.OneTimePassword = c.OneTimePassword.String
+	bClient.LastLoggedIn = c.LastLoggedIn
+	bClient.ID = c.ID
+	bClient.Email = c.Email.String
+	bClient.CreatedAt = c.CreatedAt
+	bClient.Roles = access.GetClientPermission(permissionStrs)
+
+	return &bClient, nil
+}
+
+// InsertClientRPC inserts a client via RPC with context
+func (p *Postgres) InsertClientRPC(ctx context.Context, username, password string, roles []string) error {
+	p.Lock()
+	defer p.Unlock()
+
+	newClient := &models.Client{
+		UserName:          username,
+		Password:          password,
+		PasswordCreatedAt: time.Now(),
+		LastLoggedIn:      time.Now(),
+		Enabled:           true,
+	}
+
+	err := newClient.Insert(ctx, p.C, boil.Infer())
+	if err != nil {
+		return err
+	}
+
+	var clientRoles []*models.ClientRole
+	if len(roles) > 0 {
+		for i := range roles {
+			dbRole, err := models.Roles(qm.Where("name = ?", roles[i])).One(ctx, p.C)
+			if err != nil {
+				return err
+			}
+
+			clientRoles = append(clientRoles, &models.ClientRole{
+				RoleID: dbRole.ID,
+			})
+		}
+	}
+
+	if clientRoles != nil {
+		return newClient.AddClientRoles(ctx, p.C, true, clientRoles...)
 	}
 	return nil
 }

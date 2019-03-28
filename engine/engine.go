@@ -394,26 +394,12 @@ func (e *Engine) Start() {
 				log.Error(disconnectErr)
 			}
 			log.Error("Database connection error", err)
-		} else {
-			err = e.DB.ClientLogin(e.Settings.InsertNewDatabaseClient)
-			if err != nil {
-				log.Fatal("Client login error", err)
-			}
 		}
 
 		if e.DB.IsConnected() {
 			if e.Settings.Verbose {
 				log.Debugf("Bot is now connected to a %s database",
 					e.DB.GetName())
-			}
-
-			var client string
-			client, err = e.DB.GetClientDetails()
-			if err != nil {
-				log.Error("Retrieving client data from database error",
-					err)
-			} else {
-				log.Debugf("Database credentials set for client %s", client)
 			}
 			databaseConnected = true
 		}

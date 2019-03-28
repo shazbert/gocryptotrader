@@ -1,6 +1,10 @@
 package base
 
-import "time"
+import (
+	"time"
+
+	"github.com/thrasher-/gocryptotrader/access"
+)
 
 // RelativeDbPaths defines a relative path structure for the SQlBoiler TOML file
 type RelativeDbPaths struct {
@@ -54,4 +58,19 @@ type PlatformTrades struct {
 	Amount       float64
 	Rate         float64
 	FullfilledOn time.Time
+}
+
+// Client defines client info that is from the database
+type Client struct {
+	ID                int
+	UserName          string
+	Password          string
+	Email             string
+	OneTimePassword   string
+	Roles             access.Permission
+	PasswordCreatedAt time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	LastLoggedIn      time.Time
+	Enabled           bool
 }

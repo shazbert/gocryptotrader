@@ -15,6 +15,32 @@
     "application/json"
   ],
   "paths": {
+    "/v1/addClient": {
+      "post": {
+        "operationId": "AddClient",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/gctrpcAddClientResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/gctrpcAddClientRequest"
+            }
+          }
+        ],
+        "tags": [
+          "GoCryptoTrader"
+        ]
+      }
+    },
     "/v1/addevent": {
       "post": {
         "operationId": "AddEvent",
@@ -119,6 +145,84 @@
         ]
       }
     },
+    "/v1/changeclientpassword": {
+      "post": {
+        "operationId": "ChangeClientPassword",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/gctrpcChangeClientPasswordResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/gctrpcChangeClientPasswordRequest"
+            }
+          }
+        ],
+        "tags": [
+          "GoCryptoTrader"
+        ]
+      }
+    },
+    "/v1/changeclientrole": {
+      "post": {
+        "operationId": "SetClientRole",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/gctrpcSetClientRoleResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/gctrpcSetClientRoleRequest"
+            }
+          }
+        ],
+        "tags": [
+          "GoCryptoTrader"
+        ]
+      }
+    },
+    "/v1/disableclient": {
+      "post": {
+        "operationId": "DisableClient",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/gctrpcDisableClientResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/gctrpcDisableClientRequest"
+            }
+          }
+        ],
+        "tags": [
+          "GoCryptoTrader"
+        ]
+      }
+    },
     "/v1/disableexchange": {
       "post": {
         "operationId": "DisableExchange",
@@ -137,6 +241,32 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/gctrpcGenericExchangeNameRequest"
+            }
+          }
+        ],
+        "tags": [
+          "GoCryptoTrader"
+        ]
+      }
+    },
+    "/v1/enableclient": {
+      "post": {
+        "operationId": "EnableClient",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/gctrpcEnableClientResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/gctrpcEnableClientRequest"
             }
           }
         ],
@@ -171,6 +301,32 @@
         ]
       }
     },
+    "/v1/generate2fa": {
+      "post": {
+        "operationId": "Generate2FA",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/gctrpcGenerate2FAResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/gctrpcGenerate2FARequest"
+            }
+          }
+        ],
+        "tags": [
+          "GoCryptoTrader"
+        ]
+      }
+    },
     "/v1/getaccountinfo": {
       "get": {
         "operationId": "GetAccountInfo",
@@ -188,6 +344,58 @@
             "in": "query",
             "required": false,
             "type": "string"
+          }
+        ],
+        "tags": [
+          "GoCryptoTrader"
+        ]
+      }
+    },
+    "/v1/getclientaudittrail": {
+      "post": {
+        "operationId": "GetClientAuditTrail",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/gctrpcGetClientAuditTrailResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/gctrpcGetClientAuditTrailRequest"
+            }
+          }
+        ],
+        "tags": [
+          "GoCryptoTrader"
+        ]
+      }
+    },
+    "/v1/getclientinfo": {
+      "post": {
+        "operationId": "GetClientInfo",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/gctrpcGetClientInfoResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/gctrpcGetClientInfoRequest"
+            }
           }
         ],
         "tags": [
@@ -263,6 +471,22 @@
         ]
       }
     },
+    "/v1/getdatabaseinfo": {
+      "get": {
+        "operationId": "GetDatabaseInfo",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/gctrpcGetDatabaseInfoResponse"
+            }
+          }
+        },
+        "tags": [
+          "GoCryptoTrader"
+        ]
+      }
+    },
     "/v1/getevents": {
       "get": {
         "operationId": "GetEvents",
@@ -293,6 +517,42 @@
         "parameters": [
           {
             "name": "exchange",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "GoCryptoTrader"
+        ]
+      }
+    },
+    "/v1/getexchangeplatformhistory": {
+      "get": {
+        "operationId": "GetExchangePlatformHistory",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/gctrpcGetExchangePlatformHistoryResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "exchange_name",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "pair",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "asset",
             "in": "query",
             "required": false,
             "type": "string"
@@ -528,6 +788,32 @@
         ]
       }
     },
+    "/v1/modifyclient": {
+      "post": {
+        "operationId": "ModifyClient",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/gctrpcModifyClientResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/gctrpcModifyClientRequest"
+            }
+          }
+        ],
+        "tags": [
+          "GoCryptoTrader"
+        ]
+      }
+    },
     "/v1/removeevent": {
       "post": {
         "operationId": "RemoveEvent",
@@ -572,6 +858,32 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/gctrpcRemovePortfolioAddressRequest"
+            }
+          }
+        ],
+        "tags": [
+          "GoCryptoTrader"
+        ]
+      }
+    },
+    "/v1/submit2fa": {
+      "post": {
+        "operationId": "Submit2FA",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/gctrpcSubmit2FAResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/gctrpcSubmit2FARequest"
             }
           }
         ],
@@ -704,6 +1016,31 @@
         }
       }
     },
+    "gctrpcAddClientRequest": {
+      "type": "object",
+      "properties": {
+        "user_name": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        },
+        "roles": {
+          "$ref": "#/definitions/gctrpcRoles"
+        }
+      }
+    },
+    "gctrpcAddClientResponse": {
+      "type": "object",
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      }
+    },
     "gctrpcAddEventRequest": {
       "type": "object",
       "properties": {
@@ -757,6 +1094,20 @@
     "gctrpcAddPortfolioAddressResponse": {
       "type": "object"
     },
+    "gctrpcAudit": {
+      "type": "object",
+      "properties": {
+        "change": {
+          "type": "string"
+        },
+        "role_used": {
+          "type": "string"
+        },
+        "date_time": {
+          "type": "string"
+        }
+      }
+    },
     "gctrpcCancelAllOrdersRequest": {
       "type": "object",
       "properties": {
@@ -804,6 +1155,25 @@
     },
     "gctrpcCancelOrderResponse": {
       "type": "object"
+    },
+    "gctrpcChangeClientPasswordRequest": {
+      "type": "object",
+      "properties": {
+        "user_name": {
+          "type": "string"
+        },
+        "new_password": {
+          "type": "string"
+        }
+      }
+    },
+    "gctrpcChangeClientPasswordResponse": {
+      "type": "object",
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      }
     },
     "gctrpcCoin": {
       "type": "object",
@@ -862,6 +1232,38 @@
         }
       }
     },
+    "gctrpcDisableClientRequest": {
+      "type": "object",
+      "properties": {
+        "user_name": {
+          "type": "string"
+        }
+      }
+    },
+    "gctrpcDisableClientResponse": {
+      "type": "object",
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      }
+    },
+    "gctrpcEnableClientRequest": {
+      "type": "object",
+      "properties": {
+        "user_name": {
+          "type": "string"
+        }
+      }
+    },
+    "gctrpcEnableClientResponse": {
+      "type": "object",
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      }
+    },
     "gctrpcForexRatesConversion": {
       "type": "object",
       "properties": {
@@ -878,6 +1280,25 @@
         "inverse_rate": {
           "type": "number",
           "format": "double"
+        }
+      }
+    },
+    "gctrpcGenerate2FARequest": {
+      "type": "object",
+      "properties": {
+        "user_name": {
+          "type": "string"
+        }
+      }
+    },
+    "gctrpcGenerate2FAResponse": {
+      "type": "object",
+      "properties": {
+        "result": {
+          "type": "string"
+        },
+        "private_key": {
+          "type": "string"
         }
       }
     },
@@ -903,6 +1324,44 @@
           "items": {
             "$ref": "#/definitions/gctrpcAccount"
           }
+        }
+      }
+    },
+    "gctrpcGetClientAuditTrailRequest": {
+      "type": "object",
+      "properties": {
+        "user_name": {
+          "type": "string"
+        }
+      }
+    },
+    "gctrpcGetClientAuditTrailResponse": {
+      "type": "object",
+      "properties": {
+        "audits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/gctrpcAudit"
+          }
+        }
+      }
+    },
+    "gctrpcGetClientInfoRequest": {
+      "type": "object",
+      "properties": {
+        "user_name": {
+          "type": "string"
+        }
+      }
+    },
+    "gctrpcGetClientInfoResponse": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string"
+        },
+        "current_profit_loss": {
+          "type": "string"
         }
       }
     },
@@ -950,6 +1409,21 @@
           "additionalProperties": {
             "type": "string"
           }
+        }
+      }
+    },
+    "gctrpcGetDatabaseInfoResponse": {
+      "type": "object",
+      "properties": {
+        "database_name": {
+          "type": "string"
+        },
+        "host_name": {
+          "type": "string"
+        },
+        "port": {
+          "type": "string",
+          "format": "int64"
         }
       }
     },
@@ -1023,6 +1497,17 @@
         "authenticated_api": {
           "type": "boolean",
           "format": "boolean"
+        }
+      }
+    },
+    "gctrpcGetExchangePlatformHistoryResponse": {
+      "type": "object",
+      "properties": {
+        "history": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/gctrpcPlatformHistory"
+          }
         }
       }
     },
@@ -1199,6 +1684,38 @@
         }
       }
     },
+    "gctrpcModifyClientRequest": {
+      "type": "object",
+      "properties": {
+        "user_name": {
+          "type": "string"
+        },
+        "first_name": {
+          "type": "string"
+        },
+        "last_name": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "date_of_birth": {
+          "type": "string"
+        },
+        "compliant": {
+          "type": "boolean",
+          "format": "boolean"
+        }
+      }
+    },
+    "gctrpcModifyClientResponse": {
+      "type": "object",
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      }
+    },
     "gctrpcOfflineCoinSummary": {
       "type": "object",
       "properties": {
@@ -1356,6 +1873,31 @@
         }
       }
     },
+    "gctrpcPlatformHistory": {
+      "type": "object",
+      "properties": {
+        "timestamp": {
+          "type": "string"
+        },
+        "trade_id": {
+          "type": "string"
+        },
+        "price": {
+          "type": "number",
+          "format": "double"
+        },
+        "amount": {
+          "type": "number",
+          "format": "double"
+        },
+        "exchange_name": {
+          "type": "string"
+        },
+        "trade_type": {
+          "type": "string"
+        }
+      }
+    },
     "gctrpcPortfolioAddress": {
       "type": "object",
       "properties": {
@@ -1402,6 +1944,117 @@
     },
     "gctrpcRemovePortfolioAddressResponse": {
       "type": "object"
+    },
+    "gctrpcRoles": {
+      "type": "object",
+      "properties": {
+        "financial_analyst": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "trader": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "regulatory_compliance_officer": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "quantitative_analyst": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "marketing": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "portfolio_manager": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "junior_software_developer": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "software_developer": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "senior_developer": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "chief_technical_officer": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "accounting": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "operations": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "sales": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "client": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "manager": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "team_lead": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "risk_officer": {
+          "type": "boolean",
+          "format": "boolean"
+        }
+      }
+    },
+    "gctrpcSetClientRoleRequest": {
+      "type": "object",
+      "properties": {
+        "user_name": {
+          "type": "string"
+        },
+        "roles": {
+          "$ref": "#/definitions/gctrpcRoles"
+        }
+      }
+    },
+    "gctrpcSetClientRoleResponse": {
+      "type": "object",
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      }
+    },
+    "gctrpcSubmit2FARequest": {
+      "type": "object",
+      "properties": {
+        "six_digit_code": {
+          "type": "string"
+        },
+        "user_name": {
+          "type": "string"
+        }
+      }
+    },
+    "gctrpcSubmit2FAResponse": {
+      "type": "object",
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      }
     },
     "gctrpcSubmitOrderRequest": {
       "type": "object",

@@ -9,10 +9,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/thrasher-/gocryptotrader/portfolio"
-
 	grpcauth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	grpcruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/thrasher-/gocryptotrader/access"
 	"github.com/thrasher-/gocryptotrader/common"
 	"github.com/thrasher-/gocryptotrader/currency"
 	"github.com/thrasher-/gocryptotrader/engine/events"
@@ -21,7 +20,9 @@ import (
 	"github.com/thrasher-/gocryptotrader/gctrpc"
 	"github.com/thrasher-/gocryptotrader/gctrpc/auth"
 	log "github.com/thrasher-/gocryptotrader/logger"
+	"github.com/thrasher-/gocryptotrader/portfolio"
 	"github.com/thrasher-/gocryptotrader/utils"
+	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -53,11 +54,26 @@ func authenticateClient(ctx context.Context) (context.Context, error) {
 	username := common.SplitStrings(string(decoded), ":")[0]
 	password := common.SplitStrings(string(decoded), ":")[1]
 
-	if username != Bot.Config.RemoteControl.Username || password != Bot.Config.RemoteControl.Password {
-		return ctx, fmt.Errorf("username/password mismatch")
+	if username == Bot.Config.RemoteControl.Username &&
+		password == Bot.Config.RemoteControl.Password {
+		// TODO: alert CTO
+		return context.WithValue(ctx, access.Role, access.RoleSuperUser), nil
 	}
 
-	return ctx, nil
+	if !Bot.DB.IsConnected() {
+		return ctx, errors.New("no database connection cannot authenticate user")
+	}
+
+	c, err := Bot.DB.GetClientRPC(ctx, username)
+	if err != nil {
+		return ctx, err
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(c.Password), []byte(password))
+	if err != nil {
+		return ctx, errors.New("database password mismatch")
+	}
+	return context.WithValue(ctx, access.Role, c.Roles), nil
 }
 
 // StartRPCServer starts a gRPC server with TLS auth
@@ -93,7 +109,6 @@ func StartRPCServer() {
 	go func() {
 		if err := server.Serve(lis); err != nil {
 			log.Errorf("gRPC server failed to serve: %s", err)
-			return
 		}
 	}()
 
@@ -133,27 +148,21 @@ func StartRPCRESTProxy() {
 	go func() {
 		if err := http.ListenAndServe(Bot.Config.RemoteControl.GRPC.GRPCProxyListenAddress, mux); err != nil {
 			log.Errorf("gRPC proxy failed to server: %s", err)
-			return
 		}
 	}()
 
 	log.Debugf("gRPC proxy server started!")
-	select {}
-
 }
 
 // GetInfo returns info about the current GoCryptoTrader session
 func (s *RPCServer) GetInfo(ctx context.Context, r *gctrpc.GetInfoRequest) (*gctrpc.GetInfoResponse, error) {
-	d := time.Since(Bot.Uptime)
-	resp := gctrpc.GetInfoResponse{
-		Uptime:               d.String(),
+	return &gctrpc.GetInfoResponse{
+		Uptime:               time.Since(Bot.Uptime).String(),
 		EnabledExchanges:     int64(Bot.Config.CountEnabledExchanges()),
 		AvailableExchanges:   int64(len(Bot.Config.Exchanges)),
 		DefaultFiatCurrency:  Bot.Config.Currency.FiatDisplayCurrency.String(),
 		DefaultForexProvider: Bot.Config.GetPrimaryForexProvider(),
-	}
-
-	return &resp, nil
+	}, nil
 }
 
 // GetExchanges returns a list of exchanges
@@ -651,4 +660,91 @@ func (s *RPCServer) WithdrawCryptocurrencyFunds(ctx context.Context, r *gctrpc.W
 // WithdrawFiatFunds withdraws fiat funds specified by exchange
 func (s *RPCServer) WithdrawFiatFunds(ctx context.Context, r *gctrpc.WithdrawCurrencyRequest) (*gctrpc.WithdrawResponse, error) {
 	return &gctrpc.WithdrawResponse{}, common.ErrNotYetImplemented
+}
+
+// AddClient adds a new client to a database
+func (s *RPCServer) AddClient(ctx context.Context, r *gctrpc.AddClientRequest) (*gctrpc.AddClientResponse, error) {
+	err := access.CheckPermission(ctx, access.PermissionAddClient)
+	if err != nil {
+		return nil, err
+	}
+
+	if r.UserName == "" {
+		return nil, errors.New("rpc server error client username undefined")
+	}
+
+	if r.Password == "" {
+		return nil, errors.New("rpc server error client password undefined")
+	}
+
+	hash, err := common.HashPassword([]byte(r.Password))
+	if err != nil {
+		return nil, err
+	}
+
+	err = Bot.DB.InsertClientRPC(ctx,
+		r.UserName,
+		hash,
+		access.GetClientDatabaseRoleStrings(r.Roles))
+	if err != nil {
+		return nil, err
+	}
+
+	return &gctrpc.AddClientResponse{Result: "Client inserted into database"},
+		nil
+}
+
+// ModifyClient modifys client details within a database
+func (s *RPCServer) ModifyClient(ctx context.Context, r *gctrpc.ModifyClientRequest) (*gctrpc.ModifyClientResponse, error) {
+	return &gctrpc.ModifyClientResponse{}, common.ErrNotYetImplemented
+}
+
+// ChangeClientPassword changes client password
+func (s *RPCServer) ChangeClientPassword(ctx context.Context, r *gctrpc.ChangeClientPasswordRequest) (*gctrpc.ChangeClientPasswordResponse, error) {
+	return &gctrpc.ChangeClientPasswordResponse{}, common.ErrNotYetImplemented
+}
+
+// SetClientRole sets client role
+func (s *RPCServer) SetClientRole(ctx context.Context, r *gctrpc.SetClientRoleRequest) (*gctrpc.SetClientRoleResponse, error) {
+	return &gctrpc.SetClientRoleResponse{}, common.ErrNotYetImplemented
+}
+
+// EnableClient enables a client
+func (s *RPCServer) EnableClient(ctx context.Context, r *gctrpc.EnableClientRequest) (*gctrpc.EnableClientResponse, error) {
+	return &gctrpc.EnableClientResponse{}, common.ErrNotYetImplemented
+}
+
+// DisableClient disables a client
+func (s *RPCServer) DisableClient(ctx context.Context, r *gctrpc.DisableClientRequest) (*gctrpc.DisableClientResponse, error) {
+	return &gctrpc.DisableClientResponse{}, common.ErrNotYetImplemented
+}
+
+// Generate2FA generates a new 2FA private key
+func (s *RPCServer) Generate2FA(ctx context.Context, r *gctrpc.Generate2FARequest) (*gctrpc.Generate2FAResponse, error) {
+	return &gctrpc.Generate2FAResponse{}, common.ErrNotYetImplemented
+}
+
+// Submit2FA submits a 6 digit 2FA code for authenticating or managing work flow
+func (s *RPCServer) Submit2FA(ctx context.Context, r *gctrpc.Submit2FARequest) (*gctrpc.Submit2FAResponse, error) {
+	return &gctrpc.Submit2FAResponse{}, common.ErrNotYetImplemented
+}
+
+// GetClientInfo returns basic client information
+func (s *RPCServer) GetClientInfo(ctx context.Context, r *gctrpc.GetClientInfoRequest) (*gctrpc.GetClientInfoResponse, error) {
+	return &gctrpc.GetClientInfoResponse{}, common.ErrNotYetImplemented
+}
+
+// GetClientAuditTrail returns audit trail for client
+func (s *RPCServer) GetClientAuditTrail(ctx context.Context, r *gctrpc.GetClientAuditTrailRequest) (*gctrpc.GetClientAuditTrailResponse, error) {
+	return &gctrpc.GetClientAuditTrailResponse{}, common.ErrNotYetImplemented
+}
+
+// GetDatabaseInfo returns connection information for database
+func (s *RPCServer) GetDatabaseInfo(ctx context.Context, r *gctrpc.GetDatabaseInfoRequest) (*gctrpc.GetDatabaseInfoResponse, error) {
+	return &gctrpc.GetDatabaseInfoResponse{}, common.ErrNotYetImplemented
+}
+
+// GetExchangePlatformHistory returns full exchange history for a currency pair
+func (s *RPCServer) GetExchangePlatformHistory(ctx context.Context, r *gctrpc.GetExchangePlatformHistoryRequest) (*gctrpc.GetExchangePlatformHistoryResponse, error) {
+	return &gctrpc.GetExchangePlatformHistoryResponse{}, common.ErrNotYetImplemented
 }

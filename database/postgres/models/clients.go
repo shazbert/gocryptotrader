@@ -29,7 +29,6 @@ type Client struct {
 	Password          string      `boil:"password" json:"password" toml:"password" yaml:"password"`
 	Email             null.String `boil:"email" json:"email,omitempty" toml:"email" yaml:"email,omitempty"`
 	OneTimePassword   null.String `boil:"one_time_password" json:"one_time_password,omitempty" toml:"one_time_password" yaml:"one_time_password,omitempty"`
-	AccessLevelID     int         `boil:"access_level_id" json:"access_level_id" toml:"access_level_id" yaml:"access_level_id"`
 	PasswordCreatedAt time.Time   `boil:"password_created_at" json:"password_created_at" toml:"password_created_at" yaml:"password_created_at"`
 	CreatedAt         time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 	UpdatedAt         time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
@@ -46,7 +45,6 @@ var ClientColumns = struct {
 	Password          string
 	Email             string
 	OneTimePassword   string
-	AccessLevelID     string
 	PasswordCreatedAt string
 	CreatedAt         string
 	UpdatedAt         string
@@ -58,7 +56,6 @@ var ClientColumns = struct {
 	Password:          "password",
 	Email:             "email",
 	OneTimePassword:   "one_time_password",
-	AccessLevelID:     "access_level_id",
 	PasswordCreatedAt: "password_created_at",
 	CreatedAt:         "created_at",
 	UpdatedAt:         "updated_at",
@@ -106,7 +103,6 @@ var ClientWhere = struct {
 	Password          whereHelperstring
 	Email             whereHelpernull_String
 	OneTimePassword   whereHelpernull_String
-	AccessLevelID     whereHelperint
 	PasswordCreatedAt whereHelpertime_Time
 	CreatedAt         whereHelpertime_Time
 	UpdatedAt         whereHelpertime_Time
@@ -118,7 +114,6 @@ var ClientWhere = struct {
 	Password:          whereHelperstring{field: `password`},
 	Email:             whereHelpernull_String{field: `email`},
 	OneTimePassword:   whereHelpernull_String{field: `one_time_password`},
-	AccessLevelID:     whereHelperint{field: `access_level_id`},
 	PasswordCreatedAt: whereHelpertime_Time{field: `password_created_at`},
 	CreatedAt:         whereHelpertime_Time{field: `created_at`},
 	UpdatedAt:         whereHelpertime_Time{field: `updated_at`},
@@ -128,23 +123,23 @@ var ClientWhere = struct {
 
 // ClientRels is where relationship names are stored.
 var ClientRels = struct {
-	AccessLevel          string
 	AuditTrails          string
+	ClientKeys           string
 	ClientOrderHistories string
-	Keys                 string
+	ClientRoles          string
 }{
-	AccessLevel:          "AccessLevel",
 	AuditTrails:          "AuditTrails",
+	ClientKeys:           "ClientKeys",
 	ClientOrderHistories: "ClientOrderHistories",
-	Keys:                 "Keys",
+	ClientRoles:          "ClientRoles",
 }
 
 // clientR is where relationships are stored.
 type clientR struct {
-	AccessLevel          *AccessControl
 	AuditTrails          AuditTrailSlice
+	ClientKeys           ClientKeySlice
 	ClientOrderHistories ClientOrderHistorySlice
-	Keys                 KeySlice
+	ClientRoles          ClientRoleSlice
 }
 
 // NewStruct creates a new relationship struct
@@ -156,8 +151,8 @@ func (*clientR) NewStruct() *clientR {
 type clientL struct{}
 
 var (
-	clientColumns               = []string{"id", "user_name", "password", "email", "one_time_password", "access_level_id", "password_created_at", "created_at", "updated_at", "last_logged_in", "enabled"}
-	clientColumnsWithoutDefault = []string{"user_name", "password", "email", "one_time_password", "access_level_id", "password_created_at", "created_at", "updated_at", "last_logged_in", "enabled"}
+	clientColumns               = []string{"id", "user_name", "password", "email", "one_time_password", "password_created_at", "created_at", "updated_at", "last_logged_in", "enabled"}
+	clientColumnsWithoutDefault = []string{"user_name", "password", "email", "one_time_password", "password_created_at", "created_at", "updated_at", "last_logged_in", "enabled"}
 	clientColumnsWithDefault    = []string{"id"}
 	clientPrimaryKeyColumns     = []string{"id"}
 )
@@ -437,20 +432,6 @@ func (q clientQuery) Exists(ctx context.Context, exec boil.ContextExecutor) (boo
 	return count > 0, nil
 }
 
-// AccessLevel pointed to by the foreign key.
-func (o *Client) AccessLevel(mods ...qm.QueryMod) accessControlQuery {
-	queryMods := []qm.QueryMod{
-		qm.Where("level=?", o.AccessLevelID),
-	}
-
-	queryMods = append(queryMods, mods...)
-
-	query := AccessControls(queryMods...)
-	queries.SetFrom(query.Query, "\"access_controls\"")
-
-	return query
-}
-
 // AuditTrails retrieves all the audit_trail's AuditTrails with an executor.
 func (o *Client) AuditTrails(mods ...qm.QueryMod) auditTrailQuery {
 	var queryMods []qm.QueryMod
@@ -467,6 +448,27 @@ func (o *Client) AuditTrails(mods ...qm.QueryMod) auditTrailQuery {
 
 	if len(queries.GetSelect(query.Query)) == 0 {
 		queries.SetSelect(query.Query, []string{"\"audit_trails\".*"})
+	}
+
+	return query
+}
+
+// ClientKeys retrieves all the client_key's ClientKeys with an executor.
+func (o *Client) ClientKeys(mods ...qm.QueryMod) clientKeyQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"client_keys\".\"client_id\"=?", o.ID),
+	)
+
+	query := ClientKeys(queryMods...)
+	queries.SetFrom(query.Query, "\"client_keys\"")
+
+	if len(queries.GetSelect(query.Query)) == 0 {
+		queries.SetSelect(query.Query, []string{"\"client_keys\".*"})
 	}
 
 	return query
@@ -493,126 +495,25 @@ func (o *Client) ClientOrderHistories(mods ...qm.QueryMod) clientOrderHistoryQue
 	return query
 }
 
-// Keys retrieves all the key's Keys with an executor.
-func (o *Client) Keys(mods ...qm.QueryMod) keyQuery {
+// ClientRoles retrieves all the client_role's ClientRoles with an executor.
+func (o *Client) ClientRoles(mods ...qm.QueryMod) clientRoleQuery {
 	var queryMods []qm.QueryMod
 	if len(mods) != 0 {
 		queryMods = append(queryMods, mods...)
 	}
 
 	queryMods = append(queryMods,
-		qm.Where("\"keys\".\"client_id\"=?", o.ID),
+		qm.Where("\"client_roles\".\"client_id\"=?", o.ID),
 	)
 
-	query := Keys(queryMods...)
-	queries.SetFrom(query.Query, "\"keys\"")
+	query := ClientRoles(queryMods...)
+	queries.SetFrom(query.Query, "\"client_roles\"")
 
 	if len(queries.GetSelect(query.Query)) == 0 {
-		queries.SetSelect(query.Query, []string{"\"keys\".*"})
+		queries.SetSelect(query.Query, []string{"\"client_roles\".*"})
 	}
 
 	return query
-}
-
-// LoadAccessLevel allows an eager lookup of values, cached into the
-// loaded structs of the objects. This is for an N-1 relationship.
-func (clientL) LoadAccessLevel(ctx context.Context, e boil.ContextExecutor, singular bool, maybeClient interface{}, mods queries.Applicator) error {
-	var slice []*Client
-	var object *Client
-
-	if singular {
-		object = maybeClient.(*Client)
-	} else {
-		slice = *maybeClient.(*[]*Client)
-	}
-
-	args := make([]interface{}, 0, 1)
-	if singular {
-		if object.R == nil {
-			object.R = &clientR{}
-		}
-		args = append(args, object.AccessLevelID)
-
-	} else {
-	Outer:
-		for _, obj := range slice {
-			if obj.R == nil {
-				obj.R = &clientR{}
-			}
-
-			for _, a := range args {
-				if a == obj.AccessLevelID {
-					continue Outer
-				}
-			}
-
-			args = append(args, obj.AccessLevelID)
-
-		}
-	}
-
-	if len(args) == 0 {
-		return nil
-	}
-
-	query := NewQuery(qm.From(`access_controls`), qm.WhereIn(`level in ?`, args...))
-	if mods != nil {
-		mods.Apply(query)
-	}
-
-	results, err := query.QueryContext(ctx, e)
-	if err != nil {
-		return errors.Wrap(err, "failed to eager load AccessControl")
-	}
-
-	var resultSlice []*AccessControl
-	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice AccessControl")
-	}
-
-	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for access_controls")
-	}
-	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for access_controls")
-	}
-
-	if len(clientAfterSelectHooks) != 0 {
-		for _, obj := range resultSlice {
-			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
-				return err
-			}
-		}
-	}
-
-	if len(resultSlice) == 0 {
-		return nil
-	}
-
-	if singular {
-		foreign := resultSlice[0]
-		object.R.AccessLevel = foreign
-		if foreign.R == nil {
-			foreign.R = &accessControlR{}
-		}
-		foreign.R.AccessLevelClients = append(foreign.R.AccessLevelClients, object)
-		return nil
-	}
-
-	for _, local := range slice {
-		for _, foreign := range resultSlice {
-			if local.AccessLevelID == foreign.Level {
-				local.R.AccessLevel = foreign
-				if foreign.R == nil {
-					foreign.R = &accessControlR{}
-				}
-				foreign.R.AccessLevelClients = append(foreign.R.AccessLevelClients, local)
-				break
-			}
-		}
-	}
-
-	return nil
 }
 
 // LoadAuditTrails allows an eager lookup of values, cached into the
@@ -700,6 +601,101 @@ func (clientL) LoadAuditTrails(ctx context.Context, e boil.ContextExecutor, sing
 				local.R.AuditTrails = append(local.R.AuditTrails, foreign)
 				if foreign.R == nil {
 					foreign.R = &auditTrailR{}
+				}
+				foreign.R.Client = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadClientKeys allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (clientL) LoadClientKeys(ctx context.Context, e boil.ContextExecutor, singular bool, maybeClient interface{}, mods queries.Applicator) error {
+	var slice []*Client
+	var object *Client
+
+	if singular {
+		object = maybeClient.(*Client)
+	} else {
+		slice = *maybeClient.(*[]*Client)
+	}
+
+	args := make([]interface{}, 0, 1)
+	if singular {
+		if object.R == nil {
+			object.R = &clientR{}
+		}
+		args = append(args, object.ID)
+	} else {
+	Outer:
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &clientR{}
+			}
+
+			for _, a := range args {
+				if a == obj.ID {
+					continue Outer
+				}
+			}
+
+			args = append(args, obj.ID)
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	query := NewQuery(qm.From(`client_keys`), qm.WhereIn(`client_id in ?`, args...))
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load client_keys")
+	}
+
+	var resultSlice []*ClientKey
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice client_keys")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on client_keys")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for client_keys")
+	}
+
+	if len(clientKeyAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+	if singular {
+		object.R.ClientKeys = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &clientKeyR{}
+			}
+			foreign.R.Client = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.ClientID {
+				local.R.ClientKeys = append(local.R.ClientKeys, foreign)
+				if foreign.R == nil {
+					foreign.R = &clientKeyR{}
 				}
 				foreign.R.Client = local
 				break
@@ -805,9 +801,9 @@ func (clientL) LoadClientOrderHistories(ctx context.Context, e boil.ContextExecu
 	return nil
 }
 
-// LoadKeys allows an eager lookup of values, cached into the
+// LoadClientRoles allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for a 1-M or N-M relationship.
-func (clientL) LoadKeys(ctx context.Context, e boil.ContextExecutor, singular bool, maybeClient interface{}, mods queries.Applicator) error {
+func (clientL) LoadClientRoles(ctx context.Context, e boil.ContextExecutor, singular bool, maybeClient interface{}, mods queries.Applicator) error {
 	var slice []*Client
 	var object *Client
 
@@ -844,29 +840,29 @@ func (clientL) LoadKeys(ctx context.Context, e boil.ContextExecutor, singular bo
 		return nil
 	}
 
-	query := NewQuery(qm.From(`keys`), qm.WhereIn(`client_id in ?`, args...))
+	query := NewQuery(qm.From(`client_roles`), qm.WhereIn(`client_id in ?`, args...))
 	if mods != nil {
 		mods.Apply(query)
 	}
 
 	results, err := query.QueryContext(ctx, e)
 	if err != nil {
-		return errors.Wrap(err, "failed to eager load keys")
+		return errors.Wrap(err, "failed to eager load client_roles")
 	}
 
-	var resultSlice []*Key
+	var resultSlice []*ClientRole
 	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice keys")
+		return errors.Wrap(err, "failed to bind eager loaded slice client_roles")
 	}
 
 	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results in eager load on keys")
+		return errors.Wrap(err, "failed to close results in eager load on client_roles")
 	}
 	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for keys")
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for client_roles")
 	}
 
-	if len(keyAfterSelectHooks) != 0 {
+	if len(clientRoleAfterSelectHooks) != 0 {
 		for _, obj := range resultSlice {
 			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
 				return err
@@ -874,10 +870,10 @@ func (clientL) LoadKeys(ctx context.Context, e boil.ContextExecutor, singular bo
 		}
 	}
 	if singular {
-		object.R.Keys = resultSlice
+		object.R.ClientRoles = resultSlice
 		for _, foreign := range resultSlice {
 			if foreign.R == nil {
-				foreign.R = &keyR{}
+				foreign.R = &clientRoleR{}
 			}
 			foreign.R.Client = object
 		}
@@ -887,61 +883,14 @@ func (clientL) LoadKeys(ctx context.Context, e boil.ContextExecutor, singular bo
 	for _, foreign := range resultSlice {
 		for _, local := range slice {
 			if local.ID == foreign.ClientID {
-				local.R.Keys = append(local.R.Keys, foreign)
+				local.R.ClientRoles = append(local.R.ClientRoles, foreign)
 				if foreign.R == nil {
-					foreign.R = &keyR{}
+					foreign.R = &clientRoleR{}
 				}
 				foreign.R.Client = local
 				break
 			}
 		}
-	}
-
-	return nil
-}
-
-// SetAccessLevel of the client to the related item.
-// Sets o.R.AccessLevel to related.
-// Adds o to related.R.AccessLevelClients.
-func (o *Client) SetAccessLevel(ctx context.Context, exec boil.ContextExecutor, insert bool, related *AccessControl) error {
-	var err error
-	if insert {
-		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
-			return errors.Wrap(err, "failed to insert into foreign table")
-		}
-	}
-
-	updateQuery := fmt.Sprintf(
-		"UPDATE \"clients\" SET %s WHERE %s",
-		strmangle.SetParamNames("\"", "\"", 1, []string{"access_level_id"}),
-		strmangle.WhereClause("\"", "\"", 2, clientPrimaryKeyColumns),
-	)
-	values := []interface{}{related.Level, o.ID}
-
-	if boil.DebugMode {
-		fmt.Fprintln(boil.DebugWriter, updateQuery)
-		fmt.Fprintln(boil.DebugWriter, values)
-	}
-
-	if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
-		return errors.Wrap(err, "failed to update local table")
-	}
-
-	o.AccessLevelID = related.Level
-	if o.R == nil {
-		o.R = &clientR{
-			AccessLevel: related,
-		}
-	} else {
-		o.R.AccessLevel = related
-	}
-
-	if related.R == nil {
-		related.R = &accessControlR{
-			AccessLevelClients: ClientSlice{o},
-		}
-	} else {
-		related.R.AccessLevelClients = append(related.R.AccessLevelClients, o)
 	}
 
 	return nil
@@ -991,6 +940,59 @@ func (o *Client) AddAuditTrails(ctx context.Context, exec boil.ContextExecutor, 
 	for _, rel := range related {
 		if rel.R == nil {
 			rel.R = &auditTrailR{
+				Client: o,
+			}
+		} else {
+			rel.R.Client = o
+		}
+	}
+	return nil
+}
+
+// AddClientKeys adds the given related objects to the existing relationships
+// of the client, optionally inserting them as new records.
+// Appends related to o.R.ClientKeys.
+// Sets related.R.Client appropriately.
+func (o *Client) AddClientKeys(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*ClientKey) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.ClientID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"client_keys\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"client_id"}),
+				strmangle.WhereClause("\"", "\"", 2, clientKeyPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.DebugMode {
+				fmt.Fprintln(boil.DebugWriter, updateQuery)
+				fmt.Fprintln(boil.DebugWriter, values)
+			}
+
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.ClientID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &clientR{
+			ClientKeys: related,
+		}
+	} else {
+		o.R.ClientKeys = append(o.R.ClientKeys, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &clientKeyR{
 				Client: o,
 			}
 		} else {
@@ -1053,11 +1055,11 @@ func (o *Client) AddClientOrderHistories(ctx context.Context, exec boil.ContextE
 	return nil
 }
 
-// AddKeys adds the given related objects to the existing relationships
+// AddClientRoles adds the given related objects to the existing relationships
 // of the client, optionally inserting them as new records.
-// Appends related to o.R.Keys.
+// Appends related to o.R.ClientRoles.
 // Sets related.R.Client appropriately.
-func (o *Client) AddKeys(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Key) error {
+func (o *Client) AddClientRoles(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*ClientRole) error {
 	var err error
 	for _, rel := range related {
 		if insert {
@@ -1067,9 +1069,9 @@ func (o *Client) AddKeys(ctx context.Context, exec boil.ContextExecutor, insert 
 			}
 		} else {
 			updateQuery := fmt.Sprintf(
-				"UPDATE \"keys\" SET %s WHERE %s",
+				"UPDATE \"client_roles\" SET %s WHERE %s",
 				strmangle.SetParamNames("\"", "\"", 1, []string{"client_id"}),
-				strmangle.WhereClause("\"", "\"", 2, keyPrimaryKeyColumns),
+				strmangle.WhereClause("\"", "\"", 2, clientRolePrimaryKeyColumns),
 			)
 			values := []interface{}{o.ID, rel.ID}
 
@@ -1088,15 +1090,15 @@ func (o *Client) AddKeys(ctx context.Context, exec boil.ContextExecutor, insert 
 
 	if o.R == nil {
 		o.R = &clientR{
-			Keys: related,
+			ClientRoles: related,
 		}
 	} else {
-		o.R.Keys = append(o.R.Keys, related...)
+		o.R.ClientRoles = append(o.R.ClientRoles, related...)
 	}
 
 	for _, rel := range related {
 		if rel.R == nil {
-			rel.R = &keyR{
+			rel.R = &clientRoleR{
 				Client: o,
 			}
 		} else {

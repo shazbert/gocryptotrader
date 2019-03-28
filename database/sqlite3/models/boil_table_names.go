@@ -4,19 +4,25 @@
 package models
 
 var TableNames = struct {
-	AccessControls               string
 	AuditTrails                  string
+	ClientKeys                   string
 	ClientOrderHistory           string
+	ClientRoles                  string
 	Clients                      string
 	ExchangePlatformTradeHistory string
 	Exchanges                    string
 	Keys                         string
+	RoleKeys                     string
+	Roles                        string
 }{
-	AccessControls:               "access_controls",
 	AuditTrails:                  "audit_trails",
+	ClientKeys:                   "client_keys",
 	ClientOrderHistory:           "client_order_history",
+	ClientRoles:                  "client_roles",
 	Clients:                      "clients",
 	ExchangePlatformTradeHistory: "exchange_platform_trade_history",
 	Exchanges:                    "exchanges",
 	Keys:                         "keys",
+	RoleKeys:                     "role_keys",
+	Roles:                        "roles",
 }

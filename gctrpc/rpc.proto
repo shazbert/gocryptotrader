@@ -370,6 +370,152 @@ message WithdrawResponse {
     string result = 1;
 }
 
+message Roles {
+    bool financial_analyst = 1;
+	bool trader = 2;
+	bool regulatory_compliance_officer = 3;
+	bool quantitative_analyst = 4;
+	bool marketing = 5;
+	bool portfolio_manager = 6;
+	bool junior_software_developer = 7;
+	bool software_developer = 8;
+	bool senior_developer = 9;
+	bool chief_technical_officer = 10;
+	bool accounting = 11;
+	bool operations = 12;
+	bool sales = 13;
+	bool client = 14;
+	bool manager = 15;
+    bool team_lead = 16;
+    bool risk_officer = 17;
+}
+
+message AddClientRequest {
+    string user_name = 1;
+    string email = 2;
+    string password = 3;
+    Roles roles = 4;
+}
+
+message AddClientResponse {
+    string result = 1;
+}
+
+message ModifyClientRequest {
+    string user_name = 1;
+    string first_name = 2;
+    string last_name = 3;
+    string address = 4;
+    string date_of_birth = 5;
+    bool compliant = 6;
+}
+
+message ModifyClientResponse {
+    string result = 1;
+}
+
+message ChangeClientPasswordRequest {
+    string user_name = 1;
+    string new_password = 2;
+}
+
+message ChangeClientPasswordResponse {
+    string result = 1;
+}
+
+message SetClientRoleRequest {
+    string user_name = 1;
+    Roles roles = 2;
+}
+
+message SetClientRoleResponse {
+    string result = 1;
+}
+
+message DisableClientRequest {
+   string user_name = 1; 
+}
+
+message DisableClientResponse {
+    string result = 1;
+}
+
+message EnableClientRequest {
+    string user_name = 1;
+}
+
+message EnableClientResponse {
+    string result = 1;
+}
+
+message Generate2FARequest {
+    string user_name = 1;
+}
+
+message Generate2FAResponse {
+    string result = 1;
+    string private_key = 2;
+}
+
+message Submit2FARequest {
+    string six_digit_code = 1;
+    string user_name = 2;
+}
+
+message Submit2FAResponse {
+    string result = 1;
+}
+
+message GetClientInfoRequest {
+    string user_name = 1;
+}
+
+message GetClientInfoResponse {
+    string email = 1;
+    string current_profit_loss = 2;
+}
+
+message GetClientAuditTrailRequest {
+    string user_name = 1;
+}
+
+message Audit {
+    string change = 1;
+    string role_used = 2;
+    string date_time = 3;
+}
+
+message GetClientAuditTrailResponse {
+    repeated Audit audits = 1;
+}
+
+message GetDatabaseInfoRequest {}
+
+message GetDatabaseInfoResponse {
+    string database_name = 2;
+    string host_name = 3;
+    int64 port = 4;
+}
+
+message PlatformHistory {
+    string timestamp = 1;
+	string trade_id = 2;       
+	double price = 3;
+	double amount = 4;
+	string exchange_name = 5;
+	string trade_type = 6;
+}
+
+message GetExchangePlatformHistoryRequest {
+    string exchange_name = 1;
+    string pair = 2;
+    string asset = 3;
+}
+
+message GetExchangePlatformHistoryResponse {
+    repeated PlatformHistory history = 1;
+}
+
 service GoCryptoTrader {
     rpc GetInfo (GetInfoRequest) returns (GetInfoResponse) {
         option (google.api.http) = {
@@ -554,6 +700,88 @@ service GoCryptoTrader {
         option (google.api.http) = {
             post: "/v1/withdrawfiatfunds"
             body: "*"
+        };
+    }
+
+    rpc AddClient(AddClientRequest) returns (AddClientResponse) {
+        option (google.api.http) = {
+            post: "/v1/addClient"
+            body: "*"
+        };
+    }
+
+    rpc ModifyClient(ModifyClientRequest) returns (ModifyClientResponse) {
+        option (google.api.http) = {
+            post: "/v1/modifyclient"
+            body: "*"
+        };
+    }
+
+    rpc ChangeClientPassword(ChangeClientPasswordRequest) returns (ChangeClientPasswordResponse) {
+        option (google.api.http) = {
+            post: "/v1/changeclientpassword"
+            body: "*"
+        };
+    }
+
+    rpc SetClientRole(SetClientRoleRequest) returns (SetClientRoleResponse) {
+        option (google.api.http) = {
+            post: "/v1/changeclientrole"
+            body: "*"
+        };
+    }
+
+    rpc EnableClient(EnableClientRequest) returns (EnableClientResponse) {
+        option (google.api.http) = {
+            post: "/v1/enableclient"
+            body: "*"
+        };
+    }
+
+    rpc DisableClient(DisableClientRequest) returns (DisableClientResponse) {
+        option (google.api.http) = {
+            post: "/v1/disableclient"
+            body: "*"
+        };
+    }
+
+    rpc Generate2FA(Generate2FARequest) returns (Generate2FAResponse) {
+        option (google.api.http) = {
+            post: "/v1/generate2fa"
+            body: "*"
+        };
+    }
+
+    rpc Submit2FA(Submit2FARequest) returns (Submit2FAResponse) {
+        option (google.api.http) = {
+            post: "/v1/submit2fa"
+            body: "*"
+        };
+    }
+
+    rpc GetClientInfo(GetClientInfoRequest) returns (GetClientInfoResponse) {
+        option (google.api.http) = {
+            post: "/v1/getclientinfo"
+            body: "*"
+        };
+    }
+    
+    rpc GetClientAuditTrail(GetClientAuditTrailRequest) returns (GetClientAuditTrailResponse) {
+        option (google.api.http) = {
+            post: "/v1/getclientaudittrail"
+            body: "*"
+        };
+    }
+
+    rpc GetDatabaseInfo(GetDatabaseInfoRequest) returns (GetDatabaseInfoResponse) {
+        option (google.api.http) = {
+            get: "/v1/getdatabaseinfo"
+        };
+    }
+
+    rpc GetExchangePlatformHistory(GetExchangePlatformHistoryRequest) returns (GetExchangePlatformHistoryResponse) {
+        option (google.api.http) = {
+            get: "/v1/getexchangeplatformhistory"
         };
     }
 }

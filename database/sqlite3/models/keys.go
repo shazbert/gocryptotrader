@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/volatiletech/null"
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries"
 	"github.com/volatiletech/sqlboiler/queries/qm"
@@ -25,9 +26,8 @@ type Key struct {
 	ID         int64     `boil:"id" json:"id" toml:"id" yaml:"id"`
 	APIKey     string    `boil:"api_key" json:"api_key" toml:"api_key" yaml:"api_key"`
 	APISecret  string    `boil:"api_secret" json:"api_secret" toml:"api_secret" yaml:"api_secret"`
-	Roles      string    `boil:"roles" json:"roles" toml:"roles" yaml:"roles"`
-	ClientID   int64     `boil:"client_id" json:"client_id" toml:"client_id" yaml:"client_id"`
 	ExchangeID int64     `boil:"exchange_id" json:"exchange_id" toml:"exchange_id" yaml:"exchange_id"`
+	ExpiresAt  null.Time `boil:"expires_at" json:"expires_at,omitempty" toml:"expires_at" yaml:"expires_at,omitempty"`
 	CreatedAt  time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 	UpdatedAt  time.Time `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 	Enabled    bool      `boil:"enabled" json:"enabled" toml:"enabled" yaml:"enabled"`
@@ -40,9 +40,8 @@ var KeyColumns = struct {
 	ID         string
 	APIKey     string
 	APISecret  string
-	Roles      string
-	ClientID   string
 	ExchangeID string
+	ExpiresAt  string
 	CreatedAt  string
 	UpdatedAt  string
 	Enabled    string
@@ -50,9 +49,8 @@ var KeyColumns = struct {
 	ID:         "id",
 	APIKey:     "api_key",
 	APISecret:  "api_secret",
-	Roles:      "roles",
-	ClientID:   "client_id",
 	ExchangeID: "exchange_id",
+	ExpiresAt:  "expires_at",
 	CreatedAt:  "created_at",
 	UpdatedAt:  "updated_at",
 	Enabled:    "enabled",
@@ -60,13 +58,35 @@ var KeyColumns = struct {
 
 // Generated where
 
+type whereHelpernull_Time struct{ field string }
+
+func (w whereHelpernull_Time) EQ(x null.Time) qm.QueryMod {
+	return qmhelper.WhereNullEQ(w.field, false, x)
+}
+func (w whereHelpernull_Time) NEQ(x null.Time) qm.QueryMod {
+	return qmhelper.WhereNullEQ(w.field, true, x)
+}
+func (w whereHelpernull_Time) IsNull() qm.QueryMod    { return qmhelper.WhereIsNull(w.field) }
+func (w whereHelpernull_Time) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
+func (w whereHelpernull_Time) LT(x null.Time) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LT, x)
+}
+func (w whereHelpernull_Time) LTE(x null.Time) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LTE, x)
+}
+func (w whereHelpernull_Time) GT(x null.Time) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GT, x)
+}
+func (w whereHelpernull_Time) GTE(x null.Time) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GTE, x)
+}
+
 var KeyWhere = struct {
 	ID         whereHelperint64
 	APIKey     whereHelperstring
 	APISecret  whereHelperstring
-	Roles      whereHelperstring
-	ClientID   whereHelperint64
 	ExchangeID whereHelperint64
+	ExpiresAt  whereHelpernull_Time
 	CreatedAt  whereHelpertime_Time
 	UpdatedAt  whereHelpertime_Time
 	Enabled    whereHelperbool
@@ -74,9 +94,8 @@ var KeyWhere = struct {
 	ID:         whereHelperint64{field: `id`},
 	APIKey:     whereHelperstring{field: `api_key`},
 	APISecret:  whereHelperstring{field: `api_secret`},
-	Roles:      whereHelperstring{field: `roles`},
-	ClientID:   whereHelperint64{field: `client_id`},
 	ExchangeID: whereHelperint64{field: `exchange_id`},
+	ExpiresAt:  whereHelpernull_Time{field: `expires_at`},
 	CreatedAt:  whereHelpertime_Time{field: `created_at`},
 	UpdatedAt:  whereHelpertime_Time{field: `updated_at`},
 	Enabled:    whereHelperbool{field: `enabled`},
@@ -84,17 +103,20 @@ var KeyWhere = struct {
 
 // KeyRels is where relationship names are stored.
 var KeyRels = struct {
-	Exchange string
-	Client   string
+	Exchange   string
+	ClientKeys string
+	RoleKeys   string
 }{
-	Exchange: "Exchange",
-	Client:   "Client",
+	Exchange:   "Exchange",
+	ClientKeys: "ClientKeys",
+	RoleKeys:   "RoleKeys",
 }
 
 // keyR is where relationships are stored.
 type keyR struct {
-	Exchange *Exchange
-	Client   *Client
+	Exchange   *Exchange
+	ClientKeys ClientKeySlice
+	RoleKeys   RoleKeySlice
 }
 
 // NewStruct creates a new relationship struct
@@ -106,9 +128,9 @@ func (*keyR) NewStruct() *keyR {
 type keyL struct{}
 
 var (
-	keyColumns               = []string{"id", "api_key", "api_secret", "roles", "client_id", "exchange_id", "created_at", "updated_at", "enabled"}
+	keyColumns               = []string{"id", "api_key", "api_secret", "exchange_id", "expires_at", "created_at", "updated_at", "enabled"}
 	keyColumnsWithoutDefault = []string{}
-	keyColumnsWithDefault    = []string{"id", "api_key", "api_secret", "roles", "client_id", "exchange_id", "created_at", "updated_at", "enabled"}
+	keyColumnsWithDefault    = []string{"id", "api_key", "api_secret", "exchange_id", "expires_at", "created_at", "updated_at", "enabled"}
 	keyPrimaryKeyColumns     = []string{"id"}
 )
 
@@ -401,16 +423,44 @@ func (o *Key) Exchange(mods ...qm.QueryMod) exchangeQuery {
 	return query
 }
 
-// Client pointed to by the foreign key.
-func (o *Key) Client(mods ...qm.QueryMod) clientQuery {
-	queryMods := []qm.QueryMod{
-		qm.Where("id=?", o.ClientID),
+// ClientKeys retrieves all the client_key's ClientKeys with an executor.
+func (o *Key) ClientKeys(mods ...qm.QueryMod) clientKeyQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
 	}
 
-	queryMods = append(queryMods, mods...)
+	queryMods = append(queryMods,
+		qm.Where("\"client_keys\".\"key_id\"=?", o.ID),
+	)
 
-	query := Clients(queryMods...)
-	queries.SetFrom(query.Query, "\"clients\"")
+	query := ClientKeys(queryMods...)
+	queries.SetFrom(query.Query, "\"client_keys\"")
+
+	if len(queries.GetSelect(query.Query)) == 0 {
+		queries.SetSelect(query.Query, []string{"\"client_keys\".*"})
+	}
+
+	return query
+}
+
+// RoleKeys retrieves all the role_key's RoleKeys with an executor.
+func (o *Key) RoleKeys(mods ...qm.QueryMod) roleKeyQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"role_keys\".\"key_id\"=?", o.ID),
+	)
+
+	query := RoleKeys(queryMods...)
+	queries.SetFrom(query.Query, "\"role_keys\"")
+
+	if len(queries.GetSelect(query.Query)) == 0 {
+		queries.SetSelect(query.Query, []string{"\"role_keys\".*"})
+	}
 
 	return query
 }
@@ -516,9 +566,9 @@ func (keyL) LoadExchange(ctx context.Context, e boil.ContextExecutor, singular b
 	return nil
 }
 
-// LoadClient allows an eager lookup of values, cached into the
-// loaded structs of the objects. This is for an N-1 relationship.
-func (keyL) LoadClient(ctx context.Context, e boil.ContextExecutor, singular bool, maybeKey interface{}, mods queries.Applicator) error {
+// LoadClientKeys allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (keyL) LoadClientKeys(ctx context.Context, e boil.ContextExecutor, singular bool, maybeKey interface{}, mods queries.Applicator) error {
 	var slice []*Key
 	var object *Key
 
@@ -533,8 +583,7 @@ func (keyL) LoadClient(ctx context.Context, e boil.ContextExecutor, singular boo
 		if object.R == nil {
 			object.R = &keyR{}
 		}
-		args = append(args, object.ClientID)
-
+		args = append(args, object.ID)
 	} else {
 	Outer:
 		for _, obj := range slice {
@@ -543,13 +592,12 @@ func (keyL) LoadClient(ctx context.Context, e boil.ContextExecutor, singular boo
 			}
 
 			for _, a := range args {
-				if a == obj.ClientID {
+				if a == obj.ID {
 					continue Outer
 				}
 			}
 
-			args = append(args, obj.ClientID)
-
+			args = append(args, obj.ID)
 		}
 	}
 
@@ -557,58 +605,149 @@ func (keyL) LoadClient(ctx context.Context, e boil.ContextExecutor, singular boo
 		return nil
 	}
 
-	query := NewQuery(qm.From(`clients`), qm.WhereIn(`id in ?`, args...))
+	query := NewQuery(qm.From(`client_keys`), qm.WhereIn(`key_id in ?`, args...))
 	if mods != nil {
 		mods.Apply(query)
 	}
 
 	results, err := query.QueryContext(ctx, e)
 	if err != nil {
-		return errors.Wrap(err, "failed to eager load Client")
+		return errors.Wrap(err, "failed to eager load client_keys")
 	}
 
-	var resultSlice []*Client
+	var resultSlice []*ClientKey
 	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice Client")
+		return errors.Wrap(err, "failed to bind eager loaded slice client_keys")
 	}
 
 	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for clients")
+		return errors.Wrap(err, "failed to close results in eager load on client_keys")
 	}
 	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for clients")
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for client_keys")
 	}
 
-	if len(keyAfterSelectHooks) != 0 {
+	if len(clientKeyAfterSelectHooks) != 0 {
 		for _, obj := range resultSlice {
 			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
 				return err
 			}
 		}
 	}
-
-	if len(resultSlice) == 0 {
+	if singular {
+		object.R.ClientKeys = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &clientKeyR{}
+			}
+			foreign.R.Key = object
+		}
 		return nil
 	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.KeyID {
+				local.R.ClientKeys = append(local.R.ClientKeys, foreign)
+				if foreign.R == nil {
+					foreign.R = &clientKeyR{}
+				}
+				foreign.R.Key = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadRoleKeys allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (keyL) LoadRoleKeys(ctx context.Context, e boil.ContextExecutor, singular bool, maybeKey interface{}, mods queries.Applicator) error {
+	var slice []*Key
+	var object *Key
 
 	if singular {
-		foreign := resultSlice[0]
-		object.R.Client = foreign
-		if foreign.R == nil {
-			foreign.R = &clientR{}
+		object = maybeKey.(*Key)
+	} else {
+		slice = *maybeKey.(*[]*Key)
+	}
+
+	args := make([]interface{}, 0, 1)
+	if singular {
+		if object.R == nil {
+			object.R = &keyR{}
 		}
-		foreign.R.Keys = append(foreign.R.Keys, object)
+		args = append(args, object.ID)
+	} else {
+	Outer:
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &keyR{}
+			}
+
+			for _, a := range args {
+				if a == obj.ID {
+					continue Outer
+				}
+			}
+
+			args = append(args, obj.ID)
+		}
+	}
+
+	if len(args) == 0 {
 		return nil
 	}
 
-	for _, local := range slice {
+	query := NewQuery(qm.From(`role_keys`), qm.WhereIn(`key_id in ?`, args...))
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load role_keys")
+	}
+
+	var resultSlice []*RoleKey
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice role_keys")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on role_keys")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for role_keys")
+	}
+
+	if len(roleKeyAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+	if singular {
+		object.R.RoleKeys = resultSlice
 		for _, foreign := range resultSlice {
-			if local.ClientID == foreign.ID {
-				local.R.Client = foreign
+			if foreign.R == nil {
+				foreign.R = &roleKeyR{}
+			}
+			foreign.R.Key = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.KeyID {
+				local.R.RoleKeys = append(local.R.RoleKeys, foreign)
 				if foreign.R == nil {
-					foreign.R = &clientR{}
+					foreign.R = &roleKeyR{}
 				}
-				foreign.R.Keys = append(foreign.R.Keys, local)
+				foreign.R.Key = local
 				break
 			}
 		}
@@ -664,50 +803,109 @@ func (o *Key) SetExchange(ctx context.Context, exec boil.ContextExecutor, insert
 	return nil
 }
 
-// SetClient of the key to the related item.
-// Sets o.R.Client to related.
-// Adds o to related.R.Keys.
-func (o *Key) SetClient(ctx context.Context, exec boil.ContextExecutor, insert bool, related *Client) error {
+// AddClientKeys adds the given related objects to the existing relationships
+// of the key, optionally inserting them as new records.
+// Appends related to o.R.ClientKeys.
+// Sets related.R.Key appropriately.
+func (o *Key) AddClientKeys(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*ClientKey) error {
 	var err error
-	if insert {
-		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
-			return errors.Wrap(err, "failed to insert into foreign table")
+	for _, rel := range related {
+		if insert {
+			rel.KeyID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"client_keys\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 0, []string{"key_id"}),
+				strmangle.WhereClause("\"", "\"", 0, clientKeyPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.DebugMode {
+				fmt.Fprintln(boil.DebugWriter, updateQuery)
+				fmt.Fprintln(boil.DebugWriter, values)
+			}
+
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.KeyID = o.ID
 		}
 	}
 
-	updateQuery := fmt.Sprintf(
-		"UPDATE \"keys\" SET %s WHERE %s",
-		strmangle.SetParamNames("\"", "\"", 0, []string{"client_id"}),
-		strmangle.WhereClause("\"", "\"", 0, keyPrimaryKeyColumns),
-	)
-	values := []interface{}{related.ID, o.ID}
-
-	if boil.DebugMode {
-		fmt.Fprintln(boil.DebugWriter, updateQuery)
-		fmt.Fprintln(boil.DebugWriter, values)
-	}
-
-	if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
-		return errors.Wrap(err, "failed to update local table")
-	}
-
-	o.ClientID = related.ID
 	if o.R == nil {
 		o.R = &keyR{
-			Client: related,
+			ClientKeys: related,
 		}
 	} else {
-		o.R.Client = related
+		o.R.ClientKeys = append(o.R.ClientKeys, related...)
 	}
 
-	if related.R == nil {
-		related.R = &clientR{
-			Keys: KeySlice{o},
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &clientKeyR{
+				Key: o,
+			}
+		} else {
+			rel.R.Key = o
+		}
+	}
+	return nil
+}
+
+// AddRoleKeys adds the given related objects to the existing relationships
+// of the key, optionally inserting them as new records.
+// Appends related to o.R.RoleKeys.
+// Sets related.R.Key appropriately.
+func (o *Key) AddRoleKeys(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*RoleKey) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.KeyID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"role_keys\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 0, []string{"key_id"}),
+				strmangle.WhereClause("\"", "\"", 0, roleKeyPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.DebugMode {
+				fmt.Fprintln(boil.DebugWriter, updateQuery)
+				fmt.Fprintln(boil.DebugWriter, values)
+			}
+
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.KeyID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &keyR{
+			RoleKeys: related,
 		}
 	} else {
-		related.R.Keys = append(related.R.Keys, o)
+		o.R.RoleKeys = append(o.R.RoleKeys, related...)
 	}
 
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &roleKeyR{
+				Key: o,
+			}
+		} else {
+			rel.R.Key = o
+		}
+	}
 	return nil
 }
 

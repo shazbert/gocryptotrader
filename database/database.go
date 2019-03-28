@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"time"
 
 	"github.com/thrasher-/gocryptotrader/database/base"
@@ -28,6 +29,10 @@ type Databaser interface {
 		currencyPair,
 		assetType string) ([]exchange.PlatformTrade, error)
 	Disconnect() error
+
+	// RPC specific  functions
+	GetClientRPC(ctx context.Context, username string) (*base.Client, error)
+	InsertClientRPC(ctx context.Context, username, password string, roles []string) error
 }
 
 // GetSQLite3Instance returns a connection to a SQLite3 database

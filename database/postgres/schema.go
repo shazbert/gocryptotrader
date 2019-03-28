@@ -1,9 +1,8 @@
 package postgres
 
 var postgresSchema = []string{
-	`CREATE TABLE access_controls (
+	`CREATE TABLE roles (
 		id SERIAL PRIMARY KEY,
-		level INT NOT NULL UNIQUE,
 		name TEXT NOT NULL UNIQUE,
 		created_at TIMESTAMP NOT NULL,
 		updated_at TIMESTAMP NOT NULL
@@ -15,14 +14,22 @@ var postgresSchema = []string{
 		password TEXT NOT NULL,
 		email TEXT UNIQUE,
 		one_time_password TEXT,
-		access_level_id INT NOT NULL,
 		password_created_at TIMESTAMP NOT NULL,
 		created_at TIMESTAMP NOT NULL,
 		updated_at TIMESTAMP NOT NULL,
 		last_logged_in TIMESTAMP NOT NULL,
-		enabled BOOLEAN NOT NULL,
-		FOREIGN KEY(access_level_id) REFERENCES access_controls(level)
+		enabled BOOLEAN NOT NULL
 	  );`,
+
+	`CREATE TABLE client_roles (
+		id SERIAL PRIMARY KEY,
+		client_id INT NOT NULL,
+		role_id INT NOT NULL,
+		created_at TIMESTAMP NOT NULL,
+		updated_at TIMESTAMP NOT NULL,
+		FOREIGN KEY(client_id) REFERENCES clients(id),
+		FOREIGN KEY(role_id) REFERENCES roles(id)
+	);`,
 
 	`CREATE TABLE exchanges (
 		id SERIAL PRIMARY KEY,
@@ -35,21 +42,38 @@ var postgresSchema = []string{
 		id SERIAL PRIMARY KEY,
 		api_key TEXT NOT NULL,
 		api_secret TEXT NOT NULL,
-		roles TEXT NOT NULL,
-		client_id INT NOT NULL,
 		exchange_id INT NOT NULL,
+		expires_at TIMESTAMP,
 		created_at TIMESTAMP NOT NULL,
 		updated_at TIMESTAMP NOT NULL,
-		enabled BOOLEAN NOT NULL, 
-		FOREIGN KEY(client_id) REFERENCES clients(id),
+		enabled BOOLEAN NOT NULL,
 		FOREIGN KEY(exchange_id) REFERENCES exchanges(id)
+	);`,
+
+	`CREATE TABLE client_keys (
+		id SERIAL PRIMARY KEY,
+		key_id INT NOT NULL,
+		client_id INT NOT NULL,
+		created_at TIMESTAMP NOT NULL,
+		updated_at TIMESTAMP NOT NULL,
+		FOREIGN KEY(client_id) REFERENCES clients(id),
+		FOREIGN KEY(key_id) REFERENCES keys(id)
+	);`,
+
+	`CREATE TABLE role_keys (
+		id SERIAL PRIMARY KEY,
+		key_id INT NOT NULL,
+		role_id INT NOT NULL,
+		created_at TIMESTAMP NOT NULL,
+		updated_at TIMESTAMP NOT NULL,
+		FOREIGN KEY(role_id) REFERENCES roles(id),
+		FOREIGN KEY(key_id) REFERENCES keys(id)
 	);`,
 
 	`CREATE TABLE audit_trails (
 		id BIGSERIAL PRIMARY KEY,
 		client_id INT NOT NULL,
 		change TEXT NOT NULL,
-		role_used TEXT NOT NULL,
 		created_at TIMESTAMP NOT NULL,
 		FOREIGN KEY(client_id) REFERENCES clients(id)
 	);`,
