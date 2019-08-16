@@ -185,100 +185,100 @@ func relayWebsocketEvent(result interface{}, event, assetType, exchangeName stri
 	}
 }
 
-// TickerUpdaterRoutine fetches and updates the ticker for all enabled
-// currency pairs and exchanges
-func TickerUpdaterRoutine() {
-	log.Debugln(log.Ticker, "Starting ticker updater routine.")
-	var wg sync.WaitGroup
-	for {
-		wg.Add(len(Bot.Exchanges))
-		for x := range Bot.Exchanges {
-			go func(x int, wg *sync.WaitGroup) {
-				defer wg.Done()
+// // TickerUpdaterRoutine fetches and updates the ticker for all enabled
+// // currency pairs and exchanges
+// func TickerUpdaterRoutine() {
+// 	log.Debugln(log.Ticker, "Starting ticker updater routine.")
+// 	var wg sync.WaitGroup
+// 	for {
+// 		wg.Add(len(Bot.Exchanges))
+// 		for x := range Bot.Exchanges {
+// 			go func(x int, wg *sync.WaitGroup) {
+// 				defer wg.Done()
 
-				if Bot.Exchanges[x] == nil || !Bot.Exchanges[x].SupportsREST() {
-					return
-				}
+// 				if Bot.Exchanges[x] == nil || !Bot.Exchanges[x].SupportsREST() {
+// 					return
+// 				}
 
-				exchangeName := Bot.Exchanges[x].GetName()
-				supportsBatching := Bot.Exchanges[x].SupportsRESTTickerBatchUpdates()
-				assetTypes := Bot.Exchanges[x].GetAssetTypes()
+// 				exchangeName := Bot.Exchanges[x].GetName()
+// 				supportsBatching := Bot.Exchanges[x].SupportsRESTTickerBatchUpdates()
+// 				assetTypes := Bot.Exchanges[x].GetAssetTypes()
 
-				processTicker := func(exch exchange.IBotExchange, update bool, c currency.Pair, assetType asset.Item) {
-					var result ticker.Price
-					var err error
-					if update {
-						result, err = exch.UpdateTicker(c, assetType)
-					} else {
-						result, err = exch.FetchTicker(c, assetType)
-					}
-					printTickerSummary(&result, c, assetType, exchangeName, err)
-					if err == nil {
-						if Bot.Config.RemoteControl.WebsocketRPC.Enabled {
-							relayWebsocketEvent(result, "ticker_update", assetType.String(), exchangeName)
-						}
-					}
-				}
+// 				processTicker := func(exch exchange.IBotExchange, update bool, c currency.Pair, assetType asset.Item) {
+// 					var result ticker.Price
+// 					var err error
+// 					if update {
+// 						result, err = exch.UpdateTicker(c, assetType)
+// 					} else {
+// 						result, err = exch.FetchTicker(c, assetType)
+// 					}
+// 					printTickerSummary(&result, c, assetType, exchangeName, err)
+// 					if err == nil {
+// 						if Bot.Config.RemoteControl.WebsocketRPC.Enabled {
+// 							relayWebsocketEvent(result, "ticker_update", assetType.String(), exchangeName)
+// 						}
+// 					}
+// 				}
 
-				for y := range assetTypes {
-					enabledCurrencies := Bot.Exchanges[x].GetEnabledPairs(assetTypes[y])
-					for z := range enabledCurrencies {
-						if supportsBatching && z > 0 {
-							processTicker(Bot.Exchanges[x], false, enabledCurrencies[z], assetTypes[y])
-							continue
-						}
-						processTicker(Bot.Exchanges[x], true, enabledCurrencies[z], assetTypes[y])
-					}
-				}
-			}(x, &wg)
-		}
-		wg.Wait()
-		log.Debugln(log.Ticker, "All enabled currency tickers fetched.")
-		time.Sleep(time.Second * 10)
-	}
-}
+// 				for y := range assetTypes {
+// 					enabledCurrencies := Bot.Exchanges[x].GetEnabledPairs(assetTypes[y])
+// 					for z := range enabledCurrencies {
+// 						if supportsBatching && z > 0 {
+// 							processTicker(Bot.Exchanges[x], false, enabledCurrencies[z], assetTypes[y])
+// 							continue
+// 						}
+// 						processTicker(Bot.Exchanges[x], true, enabledCurrencies[z], assetTypes[y])
+// 					}
+// 				}
+// 			}(x, &wg)
+// 		}
+// 		wg.Wait()
+// 		log.Debugln(log.Ticker, "All enabled currency tickers fetched.")
+// 		time.Sleep(time.Second * 10)
+// 	}
+// }
 
-// OrderbookUpdaterRoutine fetches and updates the orderbooks for all enabled
-// currency pairs and exchanges
-func OrderbookUpdaterRoutine() {
-	log.Debugln(log.OrderBook, "Starting orderbook updater routine.")
-	var wg sync.WaitGroup
-	for {
-		wg.Add(len(Bot.Exchanges))
-		for x := range Bot.Exchanges {
-			go func(x int, wg *sync.WaitGroup) {
-				defer wg.Done()
+// // OrderbookUpdaterRoutine fetches and updates the orderbooks for all enabled
+// // currency pairs and exchanges
+// func OrderbookUpdaterRoutine() {
+// 	log.Debugln(log.OrderBook, "Starting orderbook updater routine.")
+// 	var wg sync.WaitGroup
+// 	for {
+// 		wg.Add(len(Bot.Exchanges))
+// 		for x := range Bot.Exchanges {
+// 			go func(x int, wg *sync.WaitGroup) {
+// 				defer wg.Done()
 
-				if Bot.Exchanges[x] == nil || !Bot.Exchanges[x].SupportsREST() {
-					return
-				}
+// 				if Bot.Exchanges[x] == nil || !Bot.Exchanges[x].SupportsREST() {
+// 					return
+// 				}
 
-				exchangeName := Bot.Exchanges[x].GetName()
-				assetTypes := Bot.Exchanges[x].GetAssetTypes()
+// 				exchangeName := Bot.Exchanges[x].GetName()
+// 				assetTypes := Bot.Exchanges[x].GetAssetTypes()
 
-				processOrderbook := func(exch exchange.IBotExchange, c currency.Pair, assetType asset.Item) {
-					result, err := exch.UpdateOrderbook(c, assetType)
-					printOrderbookSummary(&result, c, assetType, exchangeName, err)
-					if err == nil {
-						if Bot.Config.RemoteControl.WebsocketRPC.Enabled {
-							relayWebsocketEvent(result, "orderbook_update", assetType.String(), exchangeName)
-						}
-					}
-				}
+// 				processOrderbook := func(exch exchange.IBotExchange, c currency.Pair, assetType asset.Item) {
+// 					result, err := exch.UpdateOrderbook(c, assetType)
+// 					printOrderbookSummary(&result, c, assetType, exchangeName, err)
+// 					if err == nil {
+// 						if Bot.Config.RemoteControl.WebsocketRPC.Enabled {
+// 							relayWebsocketEvent(result, "orderbook_update", assetType.String(), exchangeName)
+// 						}
+// 					}
+// 				}
 
-				for y := range assetTypes {
-					enabledCurrencies := Bot.Exchanges[x].GetEnabledPairs(assetTypes[y])
-					for z := range enabledCurrencies {
-						processOrderbook(Bot.Exchanges[x], enabledCurrencies[z], assetTypes[y])
-					}
-				}
-			}(x, &wg)
-		}
-		wg.Wait()
-		log.Debugln(log.OrderBook, "All enabled currency orderbooks fetched.")
-		time.Sleep(time.Second * 10)
-	}
-}
+// 				for y := range assetTypes {
+// 					enabledCurrencies := Bot.Exchanges[x].GetEnabledPairs(assetTypes[y])
+// 					for z := range enabledCurrencies {
+// 						processOrderbook(Bot.Exchanges[x], enabledCurrencies[z], assetTypes[y])
+// 					}
+// 				}
+// 			}(x, &wg)
+// 		}
+// 		wg.Wait()
+// 		log.Debugln(log.OrderBook, "All enabled currency orderbooks fetched.")
+// 		time.Sleep(time.Second * 10)
+// 	}
+// }
 
 // WebsocketRoutine Initial routine management system for websocket
 func WebsocketRoutine() {
@@ -429,7 +429,7 @@ func WebsocketDataHandler(ws *exchange.Websocket) {
 						d.Pair, d.AssetType, SyncItemTicker, nil)
 				}
 				ticker.ProcessTicker(ws.GetName(), &tickerNew, d.AssetType)
-				printTickerSummary(&tickerNew, tickerNew.Pair, d.AssetType, ws.GetName(), nil)
+				// printTickerSummary(&tickerNew, tickerNew.Pair, d.AssetType, ws.GetName(), nil)
 			case exchange.KlineData:
 				// Kline data
 				if Bot.Settings.Verbose {

@@ -14,6 +14,7 @@ import (
 	"github.com/thrasher-/gocryptotrader/config"
 	"github.com/thrasher-/gocryptotrader/currency"
 	"github.com/thrasher-/gocryptotrader/currency/coinmarketcap"
+	"github.com/thrasher-/gocryptotrader/engine/service/bot"
 	exchange "github.com/thrasher-/gocryptotrader/exchanges"
 	"github.com/thrasher-/gocryptotrader/exchanges/request"
 	log "github.com/thrasher-/gocryptotrader/logger"
@@ -38,6 +39,7 @@ type Engine struct {
 	Settings                    Settings
 	Uptime                      time.Time
 	ServicesWG                  sync.WaitGroup
+	bot.Swarm
 }
 
 // Vars for engine
@@ -365,6 +367,7 @@ func (e *Engine) Start() {
 			SyncOrderbook:    e.Settings.EnableOrderbookSyncing,
 			SyncContinuously: true,
 			NumWorkers:       15,
+			Verbose:          e.Settings.Verbose,
 		}
 
 		e.ExchangeCurrencyPairManager, err = NewCurrencyPairSyncer(exchangeSyncCfg)
@@ -377,6 +380,24 @@ func (e *Engine) Start() {
 
 	if e.Settings.EnableEventManager {
 		go EventManger()
+	}
+
+	e.Swarm = bot.New()
+
+	err = e.Swarm.StartInstance(bot.Config{
+		ExchangeCurrencies: map[string]currency.Pairs{
+			"btcMarkets": currency.Pairs{},
+		},
+	}, nil)
+	if err != nil {
+		log.Warnln(log.Global, err)
+	}
+
+	meow, err := GetAccountSyncer()
+	if err != nil {
+
+	} else {
+		_ = meow.Start()
 	}
 
 	<-e.Shutdown

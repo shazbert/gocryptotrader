@@ -360,3 +360,8 @@ type HTTPRateLimitConfig struct {
 	Unauthenticated HTTPRateConfig `json:"unauthenticated"`
 	Authenticated   HTTPRateConfig `json:"authenticated"`
 }
+
+type Account struct {
+	Name string
+	// Access []Credentials
+}
