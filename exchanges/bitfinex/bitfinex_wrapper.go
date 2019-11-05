@@ -353,8 +353,40 @@ func (b *Bitfinex) GetFundingHistory() ([]exchange.FundHistory, error) {
 }
 
 // GetExchangeHistory returns historic trade data since exchange opening.
-func (b *Bitfinex) GetExchangeHistory(p currency.Pair, assetType asset.Item) ([]exchange.TradeHistory, error) {
-	return nil, common.ErrNotYetImplemented
+func (b *Bitfinex) GetExchangeHistory(p *exchange.TradeHistoryRequest) ([]exchange.TradeHistory, error) {
+	var resp []exchange.TradeHistory
+	if p.TimestampStart.Unix() == 0 {
+		p.TimestampStart = time.Now().AddDate(0, -3, 0)
+	}
+	timeStampEnd := p.TimestampStart.Add(1 * time.Hour)
+
+	trades, err := b.GetTradesV2("t"+b.FormatExchangeCurrency(p.Pair, p.Asset).String(),
+		5000,
+		common.UnixMillis(p.TimestampStart),
+		common.UnixMillis(timeStampEnd),
+		false)
+	if err != nil {
+		return resp, err
+	}
+
+	for i := range trades {
+		side := order.Sell
+		if trades[i].Buy {
+			side = order.Buy
+		}
+
+		resp = append(resp, exchange.TradeHistory{
+			Timestamp: time.Unix(0, common.UnixMillisToNano(trades[i].Timestamp)),
+			TID:       strconv.FormatInt(trades[i].TID, 10),
+			Price:     trades[i].Price,
+			Amount:    trades[i].Amount,
+			Exchange:  b.Name,
+			Side:      side,
+			Asset:     p.Asset,
+		})
+	}
+
+	return resp, nil
 }
 
 // SubmitOrder submits a new order

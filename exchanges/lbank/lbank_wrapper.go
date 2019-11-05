@@ -289,7 +289,7 @@ func (l *Lbank) GetFundingHistory() ([]exchange.FundHistory, error) {
 }
 
 // GetExchangeHistory returns historic trade data since exchange opening.
-func (l *Lbank) GetExchangeHistory(p currency.Pair, assetType asset.Item) ([]exchange.TradeHistory, error) {
+func (l *Lbank) GetExchangeHistory(p *exchange.TradeHistoryRequest) ([]exchange.TradeHistory, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 

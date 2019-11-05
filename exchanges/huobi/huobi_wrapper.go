@@ -459,8 +459,34 @@ func (h *HUOBI) GetFundingHistory() ([]exchange.FundHistory, error) {
 }
 
 // GetExchangeHistory returns historic trade data since exchange opening.
-func (h *HUOBI) GetExchangeHistory(p currency.Pair, assetType asset.Item) ([]exchange.TradeHistory, error) {
-	return nil, common.ErrNotYetImplemented
+func (h *HUOBI) GetExchangeHistory(p *exchange.TradeHistoryRequest) ([]exchange.TradeHistory, error) {
+	var resp []exchange.TradeHistory
+	formattedPair := h.FormatExchangeCurrency(p.Pair, p.Asset)
+	trades, err := h.GetTradeHistory(formattedPair.String(), "2000")
+	if err != nil {
+		return resp, err
+	}
+
+	for x := range trades {
+		for y := range trades[x].Trades {
+			t := common.UnixMillisToNano(trades[x].Trades[y].Timestamp)
+
+			side := order.Sell
+			if trades[x].Trades[y].Direction == "buy" {
+				side = order.Buy
+			}
+
+			resp = append(resp, exchange.TradeHistory{
+				Timestamp: time.Unix(0, t),
+				TID:       strconv.FormatInt(int64(trades[x].Trades[y].ID), 10),
+				Price:     trades[x].Trades[y].Price,
+				Amount:    trades[x].Trades[y].Amount,
+				Exchange:  h.GetName(),
+				Side:      side,
+			})
+		}
+	}
+	return resp, nil
 }
 
 // SubmitOrder submits a new order

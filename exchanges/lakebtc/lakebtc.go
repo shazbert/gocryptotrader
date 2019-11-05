@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -141,8 +142,13 @@ func (l *LakeBTC) GetOrderBook(currency string) (Orderbook, error) {
 }
 
 // GetTradeHistory returns the trade history for a given currency pair
-func (l *LakeBTC) GetTradeHistory(currency string) ([]TradeHistory, error) {
-	path := fmt.Sprintf("%s/%s?symbol=%s", l.API.Endpoints.URL, lakeBTCTrades, strings.ToLower(currency))
+func (l *LakeBTC) GetTradeHistory(currencyPair string, tsStart int64) ([]TradeHistory, error) {
+	v := url.Values{}
+	v.Set("symbol", strings.ToLower(currencyPair))
+	if tsStart != 0 {
+		v.Set("at", strconv.FormatInt(tsStart, 10))
+	}
+	path := fmt.Sprintf("%s/%s?%s", l.API.Endpoints.URL, lakeBTCTrades, v.Encode())
 	var resp []TradeHistory
 	return resp, l.SendHTTPRequest(path, &resp)
 }

@@ -85,12 +85,13 @@ type TradeStructure struct {
 
 // TradeStructureV2 holds resp information
 type TradeStructureV2 struct {
-	Timestamp int64
 	TID       int64
-	Price     float64
+	Timestamp int64
 	Amount    float64
-	Exchange  string
-	Type      string
+	Price     float64 // Trading only
+	Rate      float64 // Funding only
+	Period    int64   // Funding only
+	Buy       bool
 }
 
 // Lendbook holds most recent funding data for a relevant currency

@@ -21,19 +21,19 @@ type IBotExchange interface {
 	GetName() string
 	IsEnabled() bool
 	SetEnabled(bool)
-	FetchTicker(currency currency.Pair, assetType asset.Item) (ticker.Price, error)
-	UpdateTicker(currency currency.Pair, assetType asset.Item) (ticker.Price, error)
-	FetchOrderbook(currency currency.Pair, assetType asset.Item) (orderbook.Base, error)
-	UpdateOrderbook(currency currency.Pair, assetType asset.Item) (orderbook.Base, error)
-	FetchTradablePairs(assetType asset.Item) ([]string, error)
+	FetchTicker(p currency.Pair, a asset.Item) (ticker.Price, error)
+	UpdateTicker(p currency.Pair, a asset.Item) (ticker.Price, error)
+	FetchOrderbook(p currency.Pair, a asset.Item) (orderbook.Base, error)
+	UpdateOrderbook(p currency.Pair, a asset.Item) (orderbook.Base, error)
+	FetchTradablePairs(a asset.Item) ([]string, error)
 	UpdateTradablePairs(forceUpdate bool) error
-	GetEnabledPairs(assetType asset.Item) currency.Pairs
-	GetAvailablePairs(assetType asset.Item) currency.Pairs
+	GetEnabledPairs(a asset.Item) currency.Pairs
+	GetAvailablePairs(a asset.Item) currency.Pairs
 	GetAccountInfo() (AccountInfo, error)
 	GetAuthenticatedAPISupport(endpoint uint8) bool
-	SetPairs(pairs currency.Pairs, assetType asset.Item, enabled bool) error
+	SetPairs(pairs currency.Pairs, a asset.Item, enabled bool) error
 	GetAssetTypes() asset.Items
-	GetExchangeHistory(currencyPair currency.Pair, assetType asset.Item) ([]TradeHistory, error)
+	GetExchangeHistory(r *TradeHistoryRequest) ([]TradeHistory, error)
 	SupportsAutoPairUpdates() bool
 	SupportsRESTTickerBatchUpdates() bool
 	GetFeeByType(feeBuilder *FeeBuilder) (float64, error)
@@ -51,8 +51,8 @@ type IBotExchange interface {
 	GetOrderHistory(getOrdersRequest *order.GetOrdersRequest) ([]order.Detail, error)
 	GetActiveOrders(getOrdersRequest *order.GetOrdersRequest) ([]order.Detail, error)
 	WithdrawCryptocurrencyFunds(withdrawRequest *CryptoWithdrawRequest) (string, error)
-	WithdrawFiatFunds(withdrawRequest *FiatWithdrawRequest) (string, error)
-	WithdrawFiatFundsToInternationalBank(withdrawRequest *FiatWithdrawRequest) (string, error)
+	WithdrawFiatFunds(w *FiatWithdrawRequest) (string, error)
+	WithdrawFiatFundsToInternationalBank(w *FiatWithdrawRequest) (string, error)
 	SetHTTPClientUserAgent(ua string)
 	GetHTTPClientUserAgent() string
 	SetClientProxyAddress(addr string) error

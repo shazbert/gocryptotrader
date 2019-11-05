@@ -3,6 +3,7 @@ package btcmarkets
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -339,8 +340,31 @@ func (b *BTCMarkets) GetFundingHistory() ([]exchange.FundHistory, error) {
 }
 
 // GetExchangeHistory returns historic trade data since exchange opening.
-func (b *BTCMarkets) GetExchangeHistory(p currency.Pair, assetType asset.Item) ([]exchange.TradeHistory, error) {
-	return nil, common.ErrNotYetImplemented
+func (b *BTCMarkets) GetExchangeHistory(p *exchange.TradeHistoryRequest) ([]exchange.TradeHistory, error) {
+	var resp []exchange.TradeHistory
+	v := url.Values{}
+	if p.TradeID != "" {
+		v.Set("since", p.TradeID)
+	}
+
+	t, err := b.GetTrades(p.Pair.Base.String(), p.Pair.Quote.String(), v)
+	if err != nil {
+		return resp, err
+	}
+
+	if len(t) == 0 {
+		return resp, errors.New("no history returned")
+	}
+
+	for i := range t {
+		resp = append(resp, exchange.TradeHistory{
+			Amount:    t[i].Amount,
+			Exchange:  b.Name,
+			Price:     t[i].Price,
+			TID:       strconv.FormatInt(t[i].TradeID, 10),
+			Timestamp: time.Unix(t[i].Date, 0)})
+	}
+	return resp, nil
 }
 
 // SubmitOrder submits a new order
@@ -550,11 +574,11 @@ func (b *BTCMarkets) GetActiveOrders(req *order.GetOrdersRequest) ([]order.Detai
 
 		for j := range resp[i].Trades {
 			tradeDate := time.Unix(int64(resp[i].Trades[j].CreationTime), 0)
-			openOrder.Trades = append(openOrder.Trades, order.TradeHistory{
+			openOrder.Trades = append(openOrder.Trades, order.Trade{
 				Amount:      resp[i].Trades[j].Volume,
 				Exchange:    b.Name,
 				Price:       resp[i].Trades[j].Price,
-				TID:         resp[i].Trades[j].ID,
+				TID:         strconv.FormatInt(resp[i].Trades[j].ID, 10),
 				Timestamp:   tradeDate,
 				Fee:         resp[i].Trades[j].Fee,
 				Description: resp[i].Trades[j].Description,
@@ -618,11 +642,11 @@ func (b *BTCMarkets) GetOrderHistory(req *order.GetOrdersRequest) ([]order.Detai
 
 		for j := range respOrders[i].Trades {
 			tradeDate := time.Unix(int64(respOrders[i].Trades[j].CreationTime), 0)
-			openOrder.Trades = append(openOrder.Trades, order.TradeHistory{
+			openOrder.Trades = append(openOrder.Trades, order.Trade{
 				Amount:      respOrders[i].Trades[j].Volume,
 				Exchange:    b.Name,
 				Price:       respOrders[i].Trades[j].Price,
-				TID:         respOrders[i].Trades[j].ID,
+				TID:         strconv.FormatInt(respOrders[i].Trades[j].ID, 10),
 				Timestamp:   tradeDate,
 				Fee:         respOrders[i].Trades[j].Fee,
 				Description: respOrders[i].Trades[j].Description,

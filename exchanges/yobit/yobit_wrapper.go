@@ -2,6 +2,7 @@ package yobit
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -303,8 +304,30 @@ func (y *Yobit) GetFundingHistory() ([]exchange.FundHistory, error) {
 }
 
 // GetExchangeHistory returns historic trade data since exchange opening.
-func (y *Yobit) GetExchangeHistory(p currency.Pair, assetType asset.Item) ([]exchange.TradeHistory, error) {
-	return nil, common.ErrNotYetImplemented
+func (y *Yobit) GetExchangeHistory(p *exchange.TradeHistoryRequest) ([]exchange.TradeHistory, error) {
+	formattedPair := y.FormatExchangeCurrency(p.Pair, p.Asset)
+	t, err := y.GetTrades(formattedPair.String(), p.TimestampStart.Unix(), true)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp []exchange.TradeHistory
+	for i := range t {
+		side := order.Sell
+		if t[i].Type == "buy" {
+			side = order.Buy
+		}
+
+		resp = append(resp, exchange.TradeHistory{
+			Timestamp: time.Unix(t[i].TID, 0),
+			TID:       strconv.FormatInt(t[i].TID, 10),
+			Price:     t[i].Price,
+			Amount:    t[i].Amount,
+			Exchange:  y.Name,
+			Side:      side,
+		})
+	}
+	return resp, nil
 }
 
 // SubmitOrder submits a new order
@@ -356,6 +379,7 @@ func (y *Yobit) CancelAllOrders(_ *order.Cancel) (order.CancelAllResponse, error
 
 	var allActiveOrders []map[string]ActiveOrders
 	enabledPairs := y.GetEnabledPairs(asset.Spot)
+	fmt.Println(enabledPairs)
 	for i := range enabledPairs {
 		fCurr := y.FormatExchangeCurrency(enabledPairs[i], asset.Spot).String()
 		activeOrdersForPair, err := y.GetOpenOrders(fCurr)

@@ -87,7 +87,7 @@ type Orderbook struct {
 
 // Trade stores the trade data
 type Trade struct {
-	ID        float64 `json:"id"`
+	ID        float64 `json:"trade-id"`
 	Price     float64 `json:"price"`
 	Amount    float64 `json:"amount"`
 	Direction string  `json:"direction"`

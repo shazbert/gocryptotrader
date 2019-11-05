@@ -45,7 +45,10 @@ type Yobit struct {
 // GetInfo returns the Yobit info
 func (y *Yobit) GetInfo() (Info, error) {
 	resp := Info{}
-	path := fmt.Sprintf("%s/%s/%s/", y.API.Endpoints.URL, apiPublicVersion, publicInfo)
+	path := fmt.Sprintf("%s/%s/%s/",
+		y.API.Endpoints.URL,
+		apiPublicVersion,
+		publicInfo)
 
 	return resp, y.SendHTTPRequest(path, &resp)
 }
@@ -57,7 +60,11 @@ func (y *Yobit) GetTicker(symbol string) (map[string]Ticker, error) {
 	}
 
 	response := Response{}
-	path := fmt.Sprintf("%s/%s/%s/%s", y.API.Endpoints.URL, apiPublicVersion, publicTicker, symbol)
+	path := fmt.Sprintf("%s/%s/%s/%s",
+		y.API.Endpoints.URL,
+		apiPublicVersion,
+		publicTicker,
+		symbol)
 
 	return response.Data, y.SendHTTPRequest(path, &response.Data)
 }
@@ -69,20 +76,40 @@ func (y *Yobit) GetDepth(symbol string) (Orderbook, error) {
 	}
 
 	response := Response{}
-	path := fmt.Sprintf("%s/%s/%s/%s", y.API.Endpoints.URL, apiPublicVersion, publicDepth, symbol)
+	path := fmt.Sprintf("%s/%s/%s/%s",
+		y.API.Endpoints.URL,
+		apiPublicVersion,
+		publicDepth,
+		symbol)
 
 	return response.Data[symbol],
 		y.SendHTTPRequest(path, &response.Data)
 }
 
 // GetTrades returns the trades for a specific currency
-func (y *Yobit) GetTrades(symbol string) ([]Trades, error) {
+func (y *Yobit) GetTrades(symbol string, tsStart int64, sortAsc bool) ([]Trades, error) {
 	type Response struct {
 		Data map[string][]Trades
 	}
 
-	response := Response{}
-	path := fmt.Sprintf("%s/%s/%s/%s", y.API.Endpoints.URL, apiPublicVersion, publicTrades, symbol)
+	v := url.Values{}
+	if sortAsc {
+		v.Set("order", "ASC")
+	} else {
+		v.Set("order", "DESC")
+	}
+
+	if tsStart != 0 {
+		v.Set("since", strconv.FormatInt(tsStart, 10))
+	}
+
+	var response Response
+	path := fmt.Sprintf("%s/%s/%s/%s?%s",
+		y.API.Endpoints.URL,
+		apiPublicVersion,
+		publicTrades,
+		symbol,
+		v.Encode())
 
 	return response.Data[symbol], y.SendHTTPRequest(path, &response.Data)
 }
@@ -91,7 +118,9 @@ func (y *Yobit) GetTrades(symbol string) ([]Trades, error) {
 func (y *Yobit) GetAccountInformation() (AccountInfo, error) {
 	result := AccountInfo{}
 
-	err := y.SendAuthenticatedHTTPRequest(privateAccountInfo, url.Values{}, &result)
+	err := y.SendAuthenticatedHTTPRequest(privateAccountInfo,
+		url.Values{},
+		&result)
 	if err != nil {
 		return result, err
 	}
@@ -138,7 +167,8 @@ func (y *Yobit) GetOrderInformation(orderID int64) (map[string]OrderInfo, error)
 
 	result := map[string]OrderInfo{}
 
-	return result, y.SendAuthenticatedHTTPRequest(privateOrderInfo, req, &result)
+	return result,
+		y.SendAuthenticatedHTTPRequest(privateOrderInfo, req, &result)
 }
 
 // CancelExistingOrder cancels an order for a specific order ID
@@ -209,7 +239,9 @@ func (y *Yobit) WithdrawCoinsToAddress(coin string, amount float64, address stri
 
 	result := WithdrawCoinsToAddress{}
 
-	err := y.SendAuthenticatedHTTPRequest(privateWithdrawCoinsToAddress, req, &result)
+	err := y.SendAuthenticatedHTTPRequest(privateWithdrawCoinsToAddress,
+		req,
+		&result)
 	if err != nil {
 		return result, err
 	}
@@ -284,10 +316,13 @@ func (y *Yobit) SendAuthenticatedHTTPRequest(path string, params url.Values, res
 	params.Set("method", path)
 
 	encoded := params.Encode()
-	hmac := crypto.GetHMAC(crypto.HashSHA512, []byte(encoded), []byte(y.API.Credentials.Secret))
+	hmac := crypto.GetHMAC(crypto.HashSHA512,
+		[]byte(encoded),
+		[]byte(y.API.Credentials.Secret))
 
 	if y.Verbose {
-		log.Debugf(log.ExchangeSys, "Sending POST request to %s calling path %s with params %s\n",
+		log.Debugf(log.ExchangeSys,
+			"Sending POST request to %s calling path %s with params %s\n",
 			apiPrivateURL,
 			path,
 			encoded)

@@ -119,13 +119,13 @@ type Detail struct {
 	ExecutedAmount  float64
 	RemainingAmount float64
 	Fee             float64
-	Trades          []TradeHistory
+	Trades          []Trade
 }
 
-// TradeHistory holds exchange history data
-type TradeHistory struct {
+// Trade holds a singular trade item
+type Trade struct {
 	Timestamp   time.Time
-	TID         int64
+	TID         string
 	Price       float64
 	Amount      float64
 	Exchange    string
