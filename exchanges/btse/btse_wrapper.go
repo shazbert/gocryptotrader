@@ -3,6 +3,7 @@ package btse
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -332,7 +333,7 @@ func (b *BTSE) GetFundingHistory() ([]exchange.FundHistory, error) {
 }
 
 // GetExchangeHistory returns historic trade data since exchange opening.
-func (b *BTSE) GetExchangeHistory(p currency.Pair, assetType asset.Item) ([]exchange.TradeHistory, error) {
+func (b *BTSE) GetExchangeHistory(p *exchange.TradeHistoryRequest) ([]exchange.TradeHistory, error) {
 	return nil, common.ErrNotYetImplemented
 }
 
@@ -465,14 +466,25 @@ func (b *BTSE) GetOrderInfo(orderID string) (order.Detail, error) {
 		}
 
 		for i := range fills {
-			createdAt, _ := time.Parse(time.RFC3339, fills[i].CreatedAt)
-			od.Trades = append(od.Trades, order.TradeHistory{
+			createdAt, err := time.Parse(time.RFC3339, fills[i].CreatedAt)
+			if err != nil {
+				return order.Detail{}, err
+			}
+
+			var side order.Side
+			if fills[i].Side == "buy" {
+				side = order.Buy
+			} else {
+				side = order.Sell
+			}
+
+			od.Trades = append(od.Trades, order.Trade{
 				Timestamp: createdAt,
-				TID:       fills[i].ID,
+				TID:       strconv.FormatInt(fills[i].ID, 10),
 				Price:     fills[i].Price,
 				Amount:    fills[i].Amount,
 				Exchange:  b.Name,
-				Side:      order.Side(fills[i].Side),
+				Side:      side,
 				Fee:       fills[i].Fee,
 			})
 		}
@@ -545,14 +557,23 @@ func (b *BTSE) GetActiveOrders(req *order.GetOrdersRequest) ([]order.Detail, err
 		}
 
 		for i := range fills {
-			createdAt, _ := time.Parse(time.RFC3339, fills[i].CreatedAt)
-			openOrder.Trades = append(openOrder.Trades, order.TradeHistory{
+			createdAt, err := time.Parse(time.RFC3339, fills[i].CreatedAt)
+			if err != nil {
+				return nil, err
+			}
+
+			side := order.Sell
+			if fills[i].Side == "buy" {
+				side = order.Buy
+			}
+
+			openOrder.Trades = append(openOrder.Trades, order.Trade{
 				Timestamp: createdAt,
-				TID:       fills[i].ID,
+				TID:       strconv.FormatInt(fills[i].ID, 10),
 				Price:     fills[i].Price,
 				Amount:    fills[i].Amount,
 				Exchange:  b.Name,
-				Side:      order.Side(fills[i].Side),
+				Side:      side,
 				Fee:       fills[i].Fee,
 			})
 		}

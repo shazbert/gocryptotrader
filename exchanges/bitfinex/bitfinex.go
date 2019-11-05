@@ -29,7 +29,7 @@ const (
 	bitfinexOrderbookV2        = "book"
 	bitfinexOrderbook          = "book/"
 	bitfinexTrades             = "trades/"
-	bitfinexTradesV2           = "https://api.bitfinex.com/v2/trades/%s/hist?limit=1000&start=%s&end=%s"
+	bitfinexTradesV2           = "https://api.bitfinex.com/v2/trades/%s/hist?%s"
 	bitfinexKeyPermissions     = "key_info"
 	bitfinexLends              = "lends/"
 	bitfinexSymbols            = "symbols/"
@@ -341,47 +341,51 @@ func (b *Bitfinex) GetTrades(currencyPair string, values url.Values) ([]TradeStr
 // timestampStart is an int64 unix epoch time
 // timestampEnd is an int64 unix epoch time, make sure this is always there or
 // you will get the most recent trades.
-// reOrderResp reorders the returned data.
-func (b *Bitfinex) GetTradesV2(currencyPair string, timestampStart, timestampEnd int64, reOrderResp bool) ([]TradeStructureV2, error) {
-	var resp [][]interface{}
-	var actualHistory []TradeStructureV2
+// reOrderResp reorders the returned data (-1 == new > old) (1 == old > new).
+func (b *Bitfinex) GetTradesV2(currencyPair string, limit, tsStart, tsEnd int64, reOrderResp bool) ([]TradeStructureV2, error) {
+	vals := url.Values{}
+	if limit > 0 {
+		vals.Set("limit", strconv.FormatInt(limit, 10))
+	}
+	if limit > 0 {
+		vals.Set("start", strconv.FormatInt(tsStart, 10))
+	}
+	if limit > 0 {
+		vals.Set("end", strconv.FormatInt(tsEnd, 10))
+	}
+	if reOrderResp {
+		vals.Set("sort", "1")
+	} else {
+		vals.Set("sort", "-1")
+	}
 
-	path := fmt.Sprintf(bitfinexTradesV2,
-		currencyPair,
-		strconv.FormatInt(timestampStart, 10),
-		strconv.FormatInt(timestampEnd, 10))
-
+	var resp [][6]interface{}
+	path := fmt.Sprintf(bitfinexTradesV2, currencyPair, vals.Encode())
 	err := b.SendHTTPRequest(path, &resp, b.Verbose)
 	if err != nil {
-		return actualHistory, err
+		return nil, err
 	}
 
-	var tempHistory TradeStructureV2
-	for _, data := range resp {
-		tempHistory.TID = int64(data[0].(float64))
-		tempHistory.Timestamp = int64(data[1].(float64))
-		tempHistory.Amount = data[2].(float64)
-		tempHistory.Price = data[3].(float64)
-		tempHistory.Exchange = b.Name
-		tempHistory.Type = order.Buy.String()
+	var history []TradeStructureV2
+	for i := range resp {
+		var temp TradeStructureV2
+		temp.TID = int64(resp[i][0].(float64))
+		temp.Timestamp = int64(resp[i][1].(float64))
+		temp.Price, _ = resp[i][3].(float64)
+		temp.Rate, _ = resp[i][4].(float64)
+		period, _ := resp[i][5].(float64)
+		temp.Period = int64(period)
 
-		if tempHistory.Amount < 0 {
-			tempHistory.Type = order.Sell.String()
-			tempHistory.Amount *= -1
+		amount := resp[i][2].(float64)
+		temp.Buy = amount > 0
+		temp.Amount = amount
+		if !temp.Buy {
+			temp.Amount *= -1
 		}
 
-		actualHistory = append(actualHistory, tempHistory)
+		history = append(history, temp)
 	}
-
-	// re-order index
-	if reOrderResp {
-		orderedHistory := make([]TradeStructureV2, len(actualHistory))
-		for i, quickRange := range actualHistory {
-			orderedHistory[len(actualHistory)-i-1] = quickRange
-		}
-		return orderedHistory, nil
-	}
-	return actualHistory, nil
+	return history, nil
 }
 
 // GetLendbook returns a list of the most recent funding data for the given

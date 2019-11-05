@@ -388,8 +388,41 @@ func (b *Binance) GetFundingHistory() ([]exchange.FundHistory, error) {
 }
 
 // GetExchangeHistory returns historic trade data since exchange opening.
-func (b *Binance) GetExchangeHistory(p currency.Pair, assetType asset.Item) ([]exchange.TradeHistory, error) {
-	return nil, common.ErrNotYetImplemented
+func (b *Binance) GetExchangeHistory(p *exchange.TradeHistoryRequest) ([]exchange.TradeHistory, error) {
+	var resp []exchange.TradeHistory
+
+	// If not timestamp is passed in it will default to 3 months prior.
+	if p.TimestampStart.Unix() == 0 {
+		p.TimestampStart = time.Now().AddDate(0, -3, 0)
+	}
+	timestampEnd := p.TimestampStart.Add(1 * time.Hour)
+
+	formattedPair := b.FormatExchangeCurrency(p.Pair, p.Asset)
+
+	// Aggregated trades has compression when trades are executed at the same
+	// time thus reducing request data.
+	trades, err := b.GetAggregatedTrades(formattedPair.String(),
+		1000,
+		common.UnixMillis(p.TimestampStart),
+		common.UnixMillis(timestampEnd))
+	if err != nil {
+		return resp, err
+	}
+
+	for i := range trades {
+		resp = append(resp, exchange.TradeHistory{
+			Timestamp:    time.Unix(0, common.UnixMillisToNano(trades[i].TimeStamp)),
+			TID:          strconv.FormatInt(trades[i].ATradeID, 10),
+			FirstTradeID: strconv.FormatInt(trades[i].FirstTradeID, 10),
+			LastTradeID:  strconv.FormatInt(trades[i].LastTradeID, 10),
+			Price:        trades[i].Price,
+			Amount:       trades[i].Quantity,
+			Maker:        trades[i].Maker,
+			Exchange:     b.Name,
+			Asset:        p.Asset,
+		})
+	}
+	return resp, nil
 }
 
 // SubmitOrder submits a new order

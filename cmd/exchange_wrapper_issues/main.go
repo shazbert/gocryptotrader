@@ -413,7 +413,10 @@ func testWrappers(e exchange.IBotExchange, base *exchange.Base, config *Config) 
 		})
 
 		var r8 []exchange.TradeHistory
-		r8, err = e.GetExchangeHistory(p, assetTypes[i])
+
+		r8, err = e.GetExchangeHistory(&exchange.TradeHistoryRequest{
+			Pair:  p,
+			Asset: assetTypes[i]})
 		msg = ""
 		if err != nil {
 			msg = err.Error()

@@ -169,18 +169,28 @@ func (b *Binance) GetHistoricalTrades(symbol string, limit int, fromID int64) ([
 //
 // symbol: string of currency pair
 // limit: Optional. Default 500; max 1000.
-func (b *Binance) GetAggregatedTrades(symbol string, limit int) ([]AggregatedTrade, error) {
+func (b *Binance) GetAggregatedTrades(symbol string, limit int, tsStart, tsEnd int64) ([]AggregatedTrade, error) {
 	var resp []AggregatedTrade
-
 	if err := b.CheckLimit(limit); err != nil {
 		return resp, err
 	}
 
 	params := url.Values{}
 	params.Set("symbol", strings.ToUpper(symbol))
-	params.Set("limit", strconv.Itoa(limit))
+	if limit > 0 {
+		params.Set("limit", strconv.Itoa(limit))
+	}
+	if tsStart > 0 {
+		params.Set("startTime", strconv.FormatInt(tsStart, 10))
+	}
+	if tsEnd > 0 {
+		params.Set("endTime", strconv.FormatInt(tsEnd, 10))
+	}
 
-	path := fmt.Sprintf("%s%s?%s", b.API.Endpoints.URL, aggregatedTrades, params.Encode())
+	path := fmt.Sprintf("%s%s?%s",
+		b.API.Endpoints.URL,
+		aggregatedTrades,
+		params.Encode())
 
 	return resp, b.SendHTTPRequest(path, &resp)
 }

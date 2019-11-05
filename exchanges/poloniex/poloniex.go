@@ -156,20 +156,22 @@ func (p *Poloniex) GetOrderbook(currencyPair string, depth int) (OrderbookAll, e
 }
 
 // GetTradeHistory returns trades history from poloniex
-func (p *Poloniex) GetTradeHistory(currencyPair, start, end string) ([]TradeHistory, error) {
+func (p *Poloniex) GetTradeHistory(currencyPair string, tsStart, tsEnd int64) ([]TradeHistory, error) {
 	vals := url.Values{}
 	vals.Set("currencyPair", currencyPair)
 
-	if start != "" {
-		vals.Set("start", start)
+	if tsStart != 0 {
+		vals.Set("start", strconv.FormatInt(tsStart, 10))
 	}
 
-	if end != "" {
-		vals.Set("end", end)
+	if tsEnd != 0 {
+		vals.Set("end", strconv.FormatInt(tsEnd, 10))
 	}
 
 	var resp []TradeHistory
-	path := fmt.Sprintf("%s/public?command=returnTradeHistory&%s", p.API.Endpoints.URL, vals.Encode())
+	path := fmt.Sprintf("%s/public?command=returnTradeHistory&%s",
+		p.API.Endpoints.URL,
+		vals.Encode())
 
 	return resp, p.SendHTTPRequest(path, &resp)
 }

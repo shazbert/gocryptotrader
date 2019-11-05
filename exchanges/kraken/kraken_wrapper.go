@@ -391,8 +391,35 @@ func (k *Kraken) GetFundingHistory() ([]exchange.FundHistory, error) {
 }
 
 // GetExchangeHistory returns historic trade data since exchange opening.
-func (k *Kraken) GetExchangeHistory(p currency.Pair, assetType asset.Item) ([]exchange.TradeHistory, error) {
-	return nil, common.ErrNotYetImplemented
+func (k *Kraken) GetExchangeHistory(p *exchange.TradeHistoryRequest) ([]exchange.TradeHistory, error) {
+	var resp []exchange.TradeHistory
+	formattedPair := k.FormatExchangeCurrency(p.Pair, p.Asset)
+	trades, err := k.GetTrades(formattedPair.String(), p.TradeID)
+	if err != nil {
+		return resp, err
+	}
+
+	for i := range trades {
+		side := order.Sell
+		if trades[i].BuyOrSell == "b" {
+			side = order.Buy
+		}
+
+		oType := order.Market
+		if trades[i].MarketOrLimit == "l" {
+			oType = order.Limit
+		}
+
+		resp = append(resp, exchange.TradeHistory{
+			Timestamp: time.Unix(int64(trades[i].Time), 0),
+			Price:     trades[i].Price,
+			Amount:    trades[i].Volume,
+			Exchange:  k.GetName(),
+			Side:      side,
+			Type:      oType,
+		})
+	}
+	return resp, nil
 }
 
 // SubmitOrder submits a new order

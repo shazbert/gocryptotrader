@@ -307,42 +307,56 @@ func (k *Kraken) GetDepth(symbol string) (Orderbook, error) {
 	return orderBook, err
 }
 
+type TradesResponse struct {
+	Error  interface{}            `json:"error"`
+	Result map[string]interface{} `json:"result"`
+}
+
 // GetTrades returns current trades on Kraken
-func (k *Kraken) GetTrades(symbol string) ([]RecentTrades, error) {
+func (k *Kraken) GetTrades(symbol, tradeID string) ([]RecentTrades, error) {
 	values := url.Values{}
 	values.Set("pair", symbol)
-
-	var recentTrades []RecentTrades
-	var result interface{}
-
-	path := fmt.Sprintf("%s/%s/public/%s?%s", k.API.Endpoints.URL, krakenAPIVersion, krakenTrades, values.Encode())
-
-	err := k.SendHTTPRequest(path, &result)
-	if err != nil {
-		return recentTrades, err
+	if tradeID != "" {
+		values.Set("since", tradeID)
 	}
 
-	data := result.(map[string]interface{})
-	tradeInfo := data["result"].(map[string]interface{})
+	var resp TradesResponse
+	path := fmt.Sprintf("%s/%s/public/%s?%s",
+		k.API.Endpoints.URL,
+		krakenAPIVersion,
+		krakenTrades,
+		values.Encode())
 
-	for _, x := range tradeInfo[symbol].([]interface{}) {
-		r := RecentTrades{}
-		for i, y := range x.([]interface{}) {
-			switch i {
-			case 0:
-				r.Price, _ = strconv.ParseFloat(y.(string), 64)
-			case 1:
-				r.Volume, _ = strconv.ParseFloat(y.(string), 64)
-			case 2:
-				r.Time = y.(float64)
-			case 3:
-				r.BuyOrSell = y.(string)
-			case 4:
-				r.MarketOrLimit = y.(string)
-			case 5:
-				r.Miscellaneous = y.(string)
-			}
+	err := k.SendHTTPRequest(path, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	data, ok := resp.Result[symbol].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("no trading info returned for symbol %s",
+			symbol)
+	}
+
+	var recentTrades []RecentTrades
+	for i := range data {
+		info := data[i].([]interface{})
+		var r RecentTrades
+		r.Price, err = strconv.ParseFloat(info[0].(string), 64)
+		if err != nil {
+			return nil, err
 		}
+
+		r.Volume, err = strconv.ParseFloat(info[1].(string), 64)
+		if err != nil {
+			return nil, err
+		}
+
+		r.Time = info[2].(float64)
+		r.BuyOrSell = info[3].(string)
+		r.MarketOrLimit = info[4].(string)
+		r.Miscellaneous = info[5].(string)
+
 		recentTrades = append(recentTrades, r)
 	}
 	return recentTrades, nil

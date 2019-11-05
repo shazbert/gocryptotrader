@@ -1,8 +1,10 @@
 package bitfinex
 
 import (
+	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -26,26 +28,26 @@ const (
 
 var b Bitfinex
 
-func TestSetup(t *testing.T) {
+func TestMain(m *testing.M) {
 	b.SetDefaults()
 	cfg := config.GetConfig()
 	err := cfg.LoadConfig("../../testdata/configtest.json", true)
 	if err != nil {
-		t.Fatal("Bitfinex load config error", err)
+		log.Fatal("Bitfinex load config error", err)
 	}
 	bfxConfig, err := cfg.GetExchangeConfig("Bitfinex")
 	if err != nil {
-		t.Error("Bitfinex Setup() init error")
+		log.Fatal("Bitfinex Setup() init error", err)
 	}
 	err = b.Setup(bfxConfig)
 	if err != nil {
-		t.Fatal("Bitfinex setup error", err)
+		log.Fatal("Bitfinex setup error", err)
 	}
 	b.API.Credentials.Key = apiKey
 	b.API.Credentials.Secret = apiSecret
 	if !b.Enabled || b.API.AuthenticatedSupport ||
 		b.Verbose || b.Websocket.IsEnabled() || len(b.BaseCurrencies) < 1 {
-		t.Error("Bitfinex Setup values not set correctly")
+		log.Fatal("Bitfinex Setup values not set correctly")
 	}
 
 	b.API.AuthenticatedSupport = true
@@ -53,6 +55,7 @@ func TestSetup(t *testing.T) {
 	// custom rate limit for testing
 	b.Requester.SetRateLimit(true, time.Millisecond*300, 1)
 	b.Requester.SetRateLimit(false, time.Millisecond*300, 1)
+	os.Exit(m.Run())
 }
 
 func TestAppendOptionalDelimiter(t *testing.T) {
@@ -193,7 +196,7 @@ func TestGetTrades(t *testing.T) {
 func TestGetTradesv2(t *testing.T) {
 	t.Parallel()
 
-	_, err := b.GetTradesV2("tBTCUSD", 0, 0, true)
+	_, err := b.GetTradesV2("tBTCUSD", 5000, 0, 0, true)
 	if err != nil {
 		t.Error("BitfinexGetTrades init error: ", err)
 	}
@@ -666,8 +669,6 @@ func TestGetFeeByTypeOfflineTradeFee(t *testing.T) {
 }
 
 func TestGetFee(t *testing.T) {
-	b.SetDefaults()
-	TestSetup(t)
 	var feeBuilder = setFeeBuilder()
 
 	if apiKey != "" || apiSecret != "" {
@@ -750,9 +751,6 @@ func TestFormatWithdrawPermissions(t *testing.T) {
 }
 
 func TestGetActiveOrders(t *testing.T) {
-	b.SetDefaults()
-	TestSetup(t)
-
 	var getOrdersRequest = order.GetOrdersRequest{
 		OrderType: order.AnyType,
 	}
@@ -766,9 +764,6 @@ func TestGetActiveOrders(t *testing.T) {
 }
 
 func TestGetOrderHistory(t *testing.T) {
-	b.SetDefaults()
-	TestSetup(t)
-
 	var getOrdersRequest = order.GetOrdersRequest{
 		OrderType: order.AnyType,
 	}
@@ -788,9 +783,6 @@ func areTestAPIKeysSet() bool {
 }
 
 func TestSubmitOrder(t *testing.T) {
-	b.SetDefaults()
-	TestSetup(t)
-
 	if areTestAPIKeysSet() && !canManipulateRealOrders {
 		t.Skip("API keys set, canManipulateRealOrders false, skipping test")
 	}
@@ -815,9 +807,6 @@ func TestSubmitOrder(t *testing.T) {
 }
 
 func TestCancelExchangeOrder(t *testing.T) {
-	b.SetDefaults()
-	TestSetup(t)
-
 	if areTestAPIKeysSet() && !canManipulateRealOrders {
 		t.Skip("API keys set, canManipulateRealOrders false, skipping test")
 	}
@@ -841,9 +830,6 @@ func TestCancelExchangeOrder(t *testing.T) {
 }
 
 func TestCancelAllExchangeOrdera(t *testing.T) {
-	b.SetDefaults()
-	TestSetup(t)
-
 	if areTestAPIKeysSet() && !canManipulateRealOrders {
 		t.Skip("API keys set, canManipulateRealOrders false, skipping test")
 	}
@@ -879,8 +865,6 @@ func TestModifyOrder(t *testing.T) {
 }
 
 func TestWithdraw(t *testing.T) {
-	b.SetDefaults()
-	TestSetup(t)
 	if areTestAPIKeysSet() && !canManipulateRealOrders {
 		t.Skip("API keys set, canManipulateRealOrders false, skipping test")
 	}
@@ -904,9 +888,6 @@ func TestWithdraw(t *testing.T) {
 }
 
 func TestWithdrawFiat(t *testing.T) {
-	b.SetDefaults()
-	TestSetup(t)
-
 	if areTestAPIKeysSet() && !canManipulateRealOrders {
 		t.Skip("API keys set, canManipulateRealOrders false, skipping test")
 	}
@@ -939,9 +920,6 @@ func TestWithdrawFiat(t *testing.T) {
 }
 
 func TestWithdrawInternationalBank(t *testing.T) {
-	b.SetDefaults()
-	TestSetup(t)
-
 	if areTestAPIKeysSet() && !canManipulateRealOrders {
 		t.Skip("API keys set, canManipulateRealOrders false, skipping test")
 	}
@@ -995,8 +973,6 @@ func TestGetDepositAddress(t *testing.T) {
 
 // TestWsAuth dials websocket, sends login request.
 func TestWsAuth(t *testing.T) {
-	b.SetDefaults()
-	TestSetup(t)
 	if !b.Websocket.IsEnabled() && !b.API.AuthenticatedWebsocketSupport || !areTestAPIKeysSet() {
 		t.Skip(wshandler.WebsocketNotEnabled)
 	}

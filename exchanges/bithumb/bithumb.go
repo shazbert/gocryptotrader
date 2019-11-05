@@ -142,9 +142,12 @@ func (b *Bithumb) GetOrderBook(symbol string) (Orderbook, error) {
 //
 // symbol e.g. "btc"
 func (b *Bithumb) GetTransactionHistory(symbol string) (TransactionHistory, error) {
-	response := TransactionHistory{}
-	path := fmt.Sprintf("%s%s%s", b.API.Endpoints.URL, publicTransactionHistory, strings.ToUpper(symbol))
+	path := fmt.Sprintf("%s%s%s",
+		b.API.Endpoints.URL,
+		publicTransactionHistory,
+		strings.ToUpper(symbol))
 
+	var response TransactionHistory
 	err := b.SendHTTPRequest(path, &response)
 	if err != nil {
 		return response, err

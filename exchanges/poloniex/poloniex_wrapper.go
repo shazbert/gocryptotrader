@@ -355,8 +355,42 @@ func (p *Poloniex) GetFundingHistory() ([]exchange.FundHistory, error) {
 }
 
 // GetExchangeHistory returns historic trade data since exchange opening.
-func (p *Poloniex) GetExchangeHistory(currencyPair currency.Pair, assetType asset.Item) ([]exchange.TradeHistory, error) {
-	return nil, common.ErrNotYetImplemented
+func (p *Poloniex) GetExchangeHistory(params *exchange.TradeHistoryRequest) ([]exchange.TradeHistory, error) {
+	if params.TimestampStart.Unix() == 0 {
+		params.TimestampStart = time.Now().AddDate(0, -3, 0) // 3 months prior to now
+	}
+	timestampEnd := params.TimestampStart.AddDate(0, 0, 1) // add 24 hours
+
+	fPair := p.FormatExchangeCurrency(params.Pair, params.Asset)
+	t, err := p.GetTradeHistory(fPair.String(),
+		params.TimestampStart.Unix(),
+		timestampEnd.Unix())
+	if err != nil {
+		return nil, err
+	}
+
+	var resp []exchange.TradeHistory
+	for i := range t {
+		cTime, err := common.ConvertTimeStringToRFC3339(t[i].Date)
+		if err != nil {
+			return resp, err
+		}
+
+		side := order.Sell
+		if t[i].Type == "buy" {
+			side = order.Buy
+		}
+
+		resp = append(resp, exchange.TradeHistory{
+			Timestamp: cTime,
+			TID:       strconv.FormatInt(t[i].TradeID, 10),
+			Price:     t[i].Rate,
+			Amount:    t[i].Amount,
+			Exchange:  p.GetName(),
+			Side:      side,
+		})
+	}
+	return resp, nil
 }
 
 // SubmitOrder submits a new order

@@ -318,8 +318,34 @@ func (e *EXMO) GetFundingHistory() ([]exchange.FundHistory, error) {
 }
 
 // GetExchangeHistory returns historic trade data since exchange opening.
-func (e *EXMO) GetExchangeHistory(p currency.Pair, assetType asset.Item) ([]exchange.TradeHistory, error) {
-	return nil, common.ErrNotYetImplemented
+func (e *EXMO) GetExchangeHistory(p *exchange.TradeHistoryRequest) ([]exchange.TradeHistory, error) {
+	var resp []exchange.TradeHistory
+	tradesMap, err := e.GetTrades(e.FormatExchangeCurrency(p.Pair, p.Asset).String())
+	if err != nil {
+		return resp, err
+	}
+
+	t, ok := tradesMap[p.Pair.String()]
+	if !ok {
+		return resp, errors.New("could not find data in tradesMap")
+	}
+
+	for i := range t {
+		side := order.Sell
+		if t[i].Type != "sell" {
+			side = order.Buy
+		}
+
+		resp = append(resp, exchange.TradeHistory{
+			Timestamp: time.Unix(t[i].Date, 0),
+			TID:       strconv.FormatInt(t[i].TradeID, 10),
+			Price:     t[i].Price,
+			Amount:    t[i].Quantity,
+			Exchange:  e.GetName(),
+			Side:      side,
+		})
+	}
+	return resp, nil
 }
 
 // SubmitOrder submits a new order
