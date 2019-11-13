@@ -127,7 +127,7 @@ type ExchangeConfig struct {
 	BaseCurrencies                currency.Currencies    `json:"baseCurrencies"`
 	CurrencyPairs                 *currency.PairsManager `json:"currencyPairs"`
 	API                           APIConfig              `json:"api"`
-	Features                      *FeaturesConfig        `json:"features"`
+	Features                      *protocol.Features     `json:"features"`
 	BankAccounts                  []BankAccount          `json:"bankAccounts,omitempty"`
 
 	// Deprecated settings which will be removed in a future update
@@ -375,24 +375,10 @@ type TelegramConfig struct {
 	VerificationToken string `json:"verificationToken"`
 }
 
-// FeaturesSupportedConfig stores the exchanges supported features
-type FeaturesSupportedConfig struct {
-	REST                  bool              `json:"restAPI"`
-	RESTCapabilities      protocol.Features `json:"restCapabilities,omitempty"`
-	Websocket             bool              `json:"websocketAPI"`
-	WebsocketCapabilities protocol.Features `json:"websocketCapabilities,omitempty"`
-}
-
 // FeaturesEnabledConfig stores the exchanges enabled features
 type FeaturesEnabledConfig struct {
 	AutoPairUpdates bool `json:"autoPairUpdates"`
 	Websocket       bool `json:"websocketAPI"`
-}
-
-// FeaturesConfig stores the exchanges supported and enabled features
-type FeaturesConfig struct {
-	Supports FeaturesSupportedConfig `json:"supports"`
-	Enabled  FeaturesEnabledConfig   `json:"enabled"`
 }
 
 // APIEndpointsConfig stores the API endpoint addresses

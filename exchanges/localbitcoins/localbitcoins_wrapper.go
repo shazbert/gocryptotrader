@@ -37,7 +37,7 @@ func (l *LocalBitcoins) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if l.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if l.Features.REST.AutoPairUpdatesEnabled() {
 		err = l.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -69,29 +69,25 @@ func (l *LocalBitcoins) SetDefaults() {
 		},
 	}
 
-	l.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: false,
-			RESTCapabilities: protocol.Features{
-				TickerBatching:    true,
-				TickerFetching:    true,
-				AutoPairUpdates:   true,
-				AccountInfo:       true,
-				GetOrder:          true,
-				CancelOrder:       true,
-				SubmitOrder:       true,
-				DepositHistory:    true,
-				WithdrawalHistory: true,
-				UserTradeHistory:  true,
-				CryptoDeposit:     true,
-				CryptoWithdrawal:  true,
-			},
-			WithdrawPermissions: exchange.AutoWithdrawCrypto |
-				exchange.WithdrawFiatViaWebsiteOnly,
-		},
-		Enabled: exchange.FeaturesEnabled{
-			AutoPairUpdates: true,
+	withdrawPermissions := exchange.AutoWithdrawCrypto |
+		exchange.WithdrawFiatViaWebsiteOnly
+
+	l.Features = &protocol.Features{
+		REST: &protocol.Components{
+			Enabled:           true,
+			TickerBatching:    protocol.On,
+			TickerFetching:    protocol.On,
+			AutoPairUpdates:   protocol.On,
+			AccountInfo:       protocol.On,
+			GetOrder:          protocol.On,
+			CancelOrder:       protocol.On,
+			SubmitOrder:       protocol.On,
+			DepositHistory:    protocol.On,
+			WithdrawalHistory: protocol.On,
+			UserTradeHistory:  protocol.On,
+			CryptoDeposit:     protocol.On,
+			CryptoWithdrawal:  protocol.On,
+			Withdraw:          &withdrawPermissions,
 		},
 	}
 
@@ -129,7 +125,7 @@ func (l *LocalBitcoins) Run() {
 		l.PrintEnabledPairs()
 	}
 
-	if !l.GetEnabledFeatures().AutoPairUpdates {
+	if !l.Features.REST.AutoPairUpdatesEnabled() {
 		return
 	}
 

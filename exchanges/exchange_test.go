@@ -25,12 +25,10 @@ func TestSupportsRESTTickerBatchUpdates(t *testing.T) {
 
 	b := Base{
 		Name: "RAWR",
-		Features: Features{
-			Supports: FeaturesSupported{
-				REST: true,
-				RESTCapabilities: protocol.Features{
-					TickerBatching: true,
-				},
+		Features: &protocol.Features{
+			REST: &protocol.Components{
+				Enabled:        true,
+				TickerBatching: protocol.On,
 			},
 		},
 	}
@@ -135,18 +133,19 @@ func TestSetFeatureDefaults(t *testing.T) {
 		Config: &config.ExchangeConfig{
 			CurrencyPairs: &currency.PairsManager{},
 		},
-		Features: Features{
-			Supports: FeaturesSupported{
-				REST: true,
-				RESTCapabilities: protocol.Features{
-					TickerBatching: true,
-				},
-				Websocket: true,
+		Features: &protocol.Features{
+			REST: &protocol.Components{
+				Enabled:        true,
+				TickerBatching: protocol.On,
+			},
+			Websocket: &protocol.Components{
+				Enabled: true,
 			},
 		},
 	}
+
 	b.SetFeatureDefaults()
-	if !b.Config.Features.Supports.REST && b.Config.CurrencyPairs.LastUpdated == 0 {
+	if b.Config.Features.REST == nil && b.Config.CurrencyPairs.LastUpdated == 0 {
 		t.Error("incorrect values")
 	}
 
@@ -155,20 +154,18 @@ func TestSetFeatureDefaults(t *testing.T) {
 	b.Config.Features = nil
 	b.Config.SupportsAutoPairUpdates = bptr(true)
 	b.SetFeatureDefaults()
-	if !b.Config.Features.Supports.RESTCapabilities.AutoPairUpdates &&
-		!b.Features.Enabled.AutoPairUpdates {
+	if !b.Config.Features.REST.AutoPairUpdatesEnabled() {
 		t.Error("incorrect values")
 	}
 
 	// Test non migrated features config
-	b.Config.Features.Supports.REST = false
-	b.Config.Features.Supports.RESTCapabilities.TickerBatching = false
-	b.Config.Features.Supports.Websocket = false
+	b.Config.Features.REST.Enabled = false
+	b.Config.Features.REST.TickerBatching = protocol.Off
+	b.Config.Features.Websocket.Enabled = false
 	b.SetFeatureDefaults()
 
-	if !b.Features.Supports.REST ||
-		!b.Features.Supports.RESTCapabilities.TickerBatching ||
-		!b.Features.Supports.Websocket {
+	if !b.Features.REST.Enabled || !*b.Features.REST.TickerBatching ||
+		!b.Features.Websocket.Enabled {
 		t.Error("incorrect values")
 	}
 }
@@ -244,7 +241,7 @@ func TestSetAutoPairDefaults(t *testing.T) {
 		t.Fatalf("TestSetAutoPairDefaults load config failed. Error %s", err)
 	}
 
-	if !exch.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if !exch.Features.REST.AutoPairUpdatesEnabled() {
 		t.Fatalf("TestSetAutoPairDefaults Incorrect value")
 	}
 
@@ -252,7 +249,7 @@ func TestSetAutoPairDefaults(t *testing.T) {
 		t.Fatalf("TestSetAutoPairDefaults Incorrect value")
 	}
 
-	exch.Features.Supports.RESTCapabilities.AutoPairUpdates = false
+	exch.Features.REST.AutoPairUpdates = protocol.Off
 	cfg.UpdateExchangeConfig(exch)
 
 	exch, err = cfg.GetExchangeConfig("Bitstamp")
@@ -260,7 +257,7 @@ func TestSetAutoPairDefaults(t *testing.T) {
 		t.Fatalf("TestSetAutoPairDefaults load config failed. Error %s", err)
 	}
 
-	if exch.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if exch.Features.REST.AutoPairUpdatesEnabled() {
 		t.Fatal("TestSetAutoPairDefaults Incorrect value")
 	}
 }
@@ -269,14 +266,15 @@ func TestSupportsAutoPairUpdates(t *testing.T) {
 	t.Parallel()
 
 	b := Base{
-		Name: "TESTNAME",
+		Name:     "TESTNAME",
+		Features: &protocol.Features{REST: &protocol.Components{}},
 	}
 
 	if b.SupportsAutoPairUpdates() {
 		t.Error("exchange shouldn't support auto pair updates")
 	}
 
-	b.Features.Supports.RESTCapabilities.AutoPairUpdates = true
+	b.Features.REST.AutoPairUpdates = protocol.On
 	if !b.SupportsAutoPairUpdates() {
 		t.Error("exchange should support auto pair updates")
 	}
@@ -484,21 +482,13 @@ func TestGetFeatures(t *testing.T) {
 
 	// Test GetEnabledFeatures
 	var b Base
-	if b.GetEnabledFeatures().AutoPairUpdates {
+	b.Features = &protocol.Features{REST: &protocol.Components{}}
+	if b.GetFeatures().REST.AutoPairUpdates != nil {
 		t.Error("auto pair updates should be disabled")
 	}
-	b.Features.Enabled.AutoPairUpdates = true
-	if !b.GetEnabledFeatures().AutoPairUpdates {
+	b.Features.REST.AutoPairUpdates = protocol.On
+	if !b.GetFeatures().REST.AutoPairUpdatesEnabled() {
 		t.Error("auto pair updates should be enabled")
-	}
-
-	// Test GetSupportedFeatures
-	b.Features.Supports.RESTCapabilities.AutoPairUpdates = true
-	if !b.GetSupportedFeatures().RESTCapabilities.AutoPairUpdates {
-		t.Error("auto pair updates should be supported")
-	}
-	if b.GetSupportedFeatures().RESTCapabilities.TickerBatching {
-		t.Error("ticker batching shouldn't be supported")
 	}
 }
 
@@ -857,6 +847,7 @@ func TestSetupDefaults(t *testing.T) {
 	t.Parallel()
 
 	var b Base
+	b.Features = &protocol.Features{REST: &protocol.Components{}, Websocket: &protocol.Components{}}
 	cfg := config.ExchangeConfig{
 		HTTPTimeout: time.Duration(-1),
 		API: config.APIConfig{
@@ -898,12 +889,12 @@ func TestSetupDefaults(t *testing.T) {
 
 	// Test websocket support
 	b.Websocket = wshandler.New()
-	b.Features.Supports.Websocket = true
+	b.Features.Websocket.Enabled = true
 	if err := b.SetupDefaults(&cfg); err != nil {
 		t.Error(err)
 	}
 	b.Websocket.Setup(&wshandler.WebsocketSetup{
-		Enabled: true,
+		Features: b.Features.Websocket,
 	})
 	if !b.IsWebsocketEnabled() {
 		t.Error("websocket should be enabled")
@@ -1210,11 +1201,12 @@ func TestSupportsWebsocket(t *testing.T) {
 	t.Parallel()
 
 	var b Base
+	b.Features = &protocol.Features{REST: &protocol.Components{}}
 	if b.SupportsWebsocket() {
 		t.Error("exchange doesn't support websocket")
 	}
 
-	b.Features.Supports.Websocket = true
+	b.Features.Websocket = &protocol.Components{}
 	if !b.SupportsWebsocket() {
 		t.Error("exchange supports websocket")
 	}
@@ -1224,11 +1216,12 @@ func TestSupportsREST(t *testing.T) {
 	t.Parallel()
 
 	var b Base
+	b.Features = &protocol.Features{REST: &protocol.Components{}}
 	if b.SupportsREST() {
 		t.Error("exchange doesn't support REST")
 	}
 
-	b.Features.Supports.REST = true
+	b.Features.REST = &protocol.Components{}
 	if !b.SupportsREST() {
 		t.Error("exchange supports REST")
 	}
@@ -1243,7 +1236,7 @@ func TestIsWebsocketEnabled(t *testing.T) {
 	}
 
 	b.Websocket = wshandler.New()
-	err := b.Websocket.Setup(&wshandler.WebsocketSetup{Enabled: true})
+	err := b.Websocket.Setup(&wshandler.WebsocketSetup{Features: &protocol.Components{Enabled: true}})
 	if err != nil {
 		t.Error(err)
 	}
@@ -1255,8 +1248,9 @@ func TestIsWebsocketEnabled(t *testing.T) {
 func TestSupportsWithdrawPermissions(t *testing.T) {
 	t.Parallel()
 
-	UAC := Base{Name: defaultTestExchange}
-	UAC.Features.Supports.WithdrawPermissions = AutoWithdrawCrypto | AutoWithdrawCryptoWithAPIPermission
+	UAC := Base{Name: defaultTestExchange, Features: &protocol.Features{REST: &protocol.Components{}}}
+	perm := AutoWithdrawCrypto | AutoWithdrawCryptoWithAPIPermission
+	UAC.Features.REST.Withdraw = &perm
 	withdrawPermissions := UAC.SupportsWithdrawPermissions(AutoWithdrawCrypto)
 
 	if !withdrawPermissions {
@@ -1287,8 +1281,9 @@ func TestSupportsWithdrawPermissions(t *testing.T) {
 func TestFormatWithdrawPermissions(t *testing.T) {
 	t.Parallel()
 
-	UAC := Base{Name: defaultTestExchange}
-	UAC.Features.Supports.WithdrawPermissions = AutoWithdrawCrypto |
+	UAC := Base{Name: defaultTestExchange,
+		Features: &protocol.Features{REST: &protocol.Components{}}}
+	perm := AutoWithdrawCrypto |
 		AutoWithdrawCryptoWithAPIPermission |
 		AutoWithdrawCryptoWithSetup |
 		WithdrawCryptoWith2FA |
@@ -1308,12 +1303,13 @@ func TestFormatWithdrawPermissions(t *testing.T) {
 		WithdrawFiatViaWebsiteOnly |
 		NoFiatWithdrawals |
 		1<<19
+	UAC.Features.REST.Withdraw = &perm
 	withdrawPermissions := UAC.FormatWithdrawPermissions()
 	if withdrawPermissions != "AUTO WITHDRAW CRYPTO & AUTO WITHDRAW CRYPTO WITH API PERMISSION & AUTO WITHDRAW CRYPTO WITH SETUP & WITHDRAW CRYPTO WITH 2FA & WITHDRAW CRYPTO WITH SMS & WITHDRAW CRYPTO WITH EMAIL & WITHDRAW CRYPTO WITH WEBSITE APPROVAL & WITHDRAW CRYPTO WITH API PERMISSION & AUTO WITHDRAW FIAT & AUTO WITHDRAW FIAT WITH API PERMISSION & AUTO WITHDRAW FIAT WITH SETUP & WITHDRAW FIAT WITH 2FA & WITHDRAW FIAT WITH SMS & WITHDRAW FIAT WITH EMAIL & WITHDRAW FIAT WITH WEBSITE APPROVAL & WITHDRAW FIAT WITH API PERMISSION & WITHDRAW CRYPTO VIA WEBSITE ONLY & WITHDRAW FIAT VIA WEBSITE ONLY & NO FIAT WITHDRAWAL & UNKNOWN[1<<19]" {
 		t.Errorf("Expected: %s, Received: %s", AutoWithdrawCryptoText+" & "+AutoWithdrawCryptoWithAPIPermissionText, withdrawPermissions)
 	}
-
-	UAC.Features.Supports.WithdrawPermissions = NoAPIWithdrawalMethods
+	perm = NoAPIWithdrawalMethods
+	UAC.Features.REST.Withdraw = &perm
 	withdrawPermissions = UAC.FormatWithdrawPermissions()
 
 	if withdrawPermissions != NoAPIWithdrawalMethodsText {

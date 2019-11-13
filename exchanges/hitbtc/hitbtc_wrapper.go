@@ -35,7 +35,7 @@ func (h *HitBTC) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if h.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if h.Features.REST.AutoPairUpdatesEnabled() {
 		err = h.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -67,46 +67,43 @@ func (h *HitBTC) SetDefaults() {
 		},
 	}
 
-	h.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
-				TickerBatching:      true,
-				TickerFetching:      true,
-				KlineFetching:       true,
-				TradeFetching:       true,
-				OrderbookFetching:   true,
-				AutoPairUpdates:     true,
-				AccountInfo:         true,
-				GetOrder:            true,
-				GetOrders:           true,
-				CancelOrders:        true,
-				CancelOrder:         true,
-				SubmitOrder:         true,
-				ModifyOrder:         true,
-				UserTradeHistory:    true,
-				CryptoDeposit:       true,
-				CryptoWithdrawal:    true,
-				TradeFee:            true,
-				CryptoDepositFee:    true,
-				CryptoWithdrawalFee: true,
-			},
-			WebsocketCapabilities: protocol.Features{
-				TickerFetching:         true,
-				OrderbookFetching:      true,
-				Subscribe:              true,
-				Unsubscribe:            true,
-				AuthenticatedEndpoints: true,
-				SubmitOrder:            true,
-				CancelOrder:            true,
-				MessageSequenceNumbers: true,
-			},
-			WithdrawPermissions: exchange.AutoWithdrawCrypto |
-				exchange.NoFiatWithdrawals,
+	withdrawPermissions := exchange.AutoWithdrawCrypto |
+		exchange.NoFiatWithdrawals
+
+	h.Features = &protocol.Features{
+		REST: &protocol.Components{
+			Enabled:             true,
+			TickerBatching:      protocol.On,
+			TickerFetching:      protocol.On,
+			KlineFetching:       protocol.On,
+			TradeFetching:       protocol.On,
+			OrderbookFetching:   protocol.On,
+			AutoPairUpdates:     protocol.On,
+			AccountInfo:         protocol.On,
+			GetOrder:            protocol.On,
+			GetOrders:           protocol.On,
+			CancelOrders:        protocol.On,
+			CancelOrder:         protocol.On,
+			SubmitOrder:         protocol.On,
+			ModifyOrder:         protocol.On,
+			UserTradeHistory:    protocol.On,
+			CryptoDeposit:       protocol.On,
+			CryptoWithdrawal:    protocol.On,
+			TradeFee:            protocol.On,
+			CryptoDepositFee:    protocol.On,
+			CryptoWithdrawalFee: protocol.On,
+			Withdraw:            &withdrawPermissions,
 		},
-		Enabled: exchange.FeaturesEnabled{
-			AutoPairUpdates: true,
+		Websocket: &protocol.Components{
+			Enabled:                true,
+			TickerFetching:         protocol.On,
+			OrderbookFetching:      protocol.On,
+			Subscribe:              protocol.On,
+			Unsubscribe:            protocol.On,
+			AuthenticatedEndpoints: protocol.On,
+			SubmitOrder:            protocol.On,
+			CancelOrder:            protocol.On,
+			MessageSequenceNumbers: protocol.On,
 		},
 	}
 
@@ -138,7 +135,6 @@ func (h *HitBTC) Setup(exch *config.ExchangeConfig) error {
 
 	err = h.Websocket.Setup(
 		&wshandler.WebsocketSetup{
-			Enabled:                          exch.Features.Enabled.Websocket,
 			Verbose:                          exch.Verbose,
 			AuthenticatedWebsocketAPISupport: exch.API.AuthenticatedWebsocketSupport,
 			WebsocketTimeout:                 exch.WebsocketTrafficTimeout,
@@ -148,7 +144,7 @@ func (h *HitBTC) Setup(exch *config.ExchangeConfig) error {
 			Connector:                        h.WsConnect,
 			Subscriber:                       h.Subscribe,
 			UnSubscriber:                     h.Unsubscribe,
-			Features:                         &h.Features.Supports.WebsocketCapabilities,
+			Features:                         h.Features.Websocket,
 		})
 	if err != nil {
 		return err
@@ -203,7 +199,7 @@ func (h *HitBTC) Run() {
 		}
 	}
 
-	if !h.GetEnabledFeatures().AutoPairUpdates && !forceUpdate {
+	if !h.Features.REST.AutoPairUpdatesEnabled() && !forceUpdate {
 		return
 	}
 

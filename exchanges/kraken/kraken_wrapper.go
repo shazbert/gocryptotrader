@@ -35,7 +35,7 @@ func (k *Kraken) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if k.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if k.Features.REST.AutoPairUpdatesEnabled() {
 		err = k.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -71,49 +71,46 @@ func (k *Kraken) SetDefaults() {
 		},
 	}
 
-	k.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
-				TickerBatching:      true,
-				TickerFetching:      true,
-				KlineFetching:       true,
-				TradeFetching:       true,
-				OrderbookFetching:   true,
-				AutoPairUpdates:     true,
-				AccountInfo:         true,
-				GetOrder:            true,
-				GetOrders:           true,
-				CancelOrder:         true,
-				SubmitOrder:         true,
-				UserTradeHistory:    true,
-				CryptoDeposit:       true,
-				CryptoWithdrawal:    true,
-				FiatDeposit:         true,
-				FiatWithdraw:        true,
-				TradeFee:            true,
-				FiatDepositFee:      true,
-				FiatWithdrawalFee:   true,
-				CryptoDepositFee:    true,
-				CryptoWithdrawalFee: true,
-			},
-			WebsocketCapabilities: protocol.Features{
-				TickerFetching:     true,
-				TradeFetching:      true,
-				KlineFetching:      true,
-				OrderbookFetching:  true,
-				Subscribe:          true,
-				Unsubscribe:        true,
-				MessageCorrelation: true,
-			},
-			WithdrawPermissions: exchange.AutoWithdrawCryptoWithSetup |
-				exchange.WithdrawCryptoWith2FA |
-				exchange.AutoWithdrawFiatWithSetup |
-				exchange.WithdrawFiatWith2FA,
+	withdrawPermissions := exchange.AutoWithdrawCryptoWithSetup |
+		exchange.WithdrawCryptoWith2FA |
+		exchange.AutoWithdrawFiatWithSetup |
+		exchange.WithdrawFiatWith2FA
+
+	k.Features = &protocol.Features{
+		REST: &protocol.Components{
+			Enabled:             true,
+			TickerBatching:      protocol.On,
+			TickerFetching:      protocol.On,
+			KlineFetching:       protocol.On,
+			TradeFetching:       protocol.On,
+			OrderbookFetching:   protocol.On,
+			AutoPairUpdates:     protocol.On,
+			AccountInfo:         protocol.On,
+			GetOrder:            protocol.On,
+			GetOrders:           protocol.On,
+			CancelOrder:         protocol.On,
+			SubmitOrder:         protocol.On,
+			UserTradeHistory:    protocol.On,
+			CryptoDeposit:       protocol.On,
+			CryptoWithdrawal:    protocol.On,
+			FiatDeposit:         protocol.On,
+			FiatWithdraw:        protocol.On,
+			TradeFee:            protocol.On,
+			FiatDepositFee:      protocol.On,
+			FiatWithdrawalFee:   protocol.On,
+			CryptoDepositFee:    protocol.On,
+			CryptoWithdrawalFee: protocol.On,
+			Withdraw:            &withdrawPermissions,
 		},
-		Enabled: exchange.FeaturesEnabled{
-			AutoPairUpdates: true,
+		Websocket: &protocol.Components{
+			Enabled:            true,
+			TickerFetching:     protocol.On,
+			TradeFetching:      protocol.On,
+			KlineFetching:      protocol.On,
+			OrderbookFetching:  protocol.On,
+			Subscribe:          protocol.On,
+			Unsubscribe:        protocol.On,
+			MessageCorrelation: protocol.On,
 		},
 	}
 
@@ -145,7 +142,6 @@ func (k *Kraken) Setup(exch *config.ExchangeConfig) error {
 
 	err = k.Websocket.Setup(
 		&wshandler.WebsocketSetup{
-			Enabled:                          exch.Features.Enabled.Websocket,
 			Verbose:                          exch.Verbose,
 			AuthenticatedWebsocketAPISupport: exch.API.AuthenticatedWebsocketSupport,
 			WebsocketTimeout:                 exch.WebsocketTrafficTimeout,
@@ -155,7 +151,7 @@ func (k *Kraken) Setup(exch *config.ExchangeConfig) error {
 			Connector:                        k.WsConnect,
 			Subscriber:                       k.Subscribe,
 			UnSubscriber:                     k.Unsubscribe,
-			Features:                         &k.Features.Supports.WebsocketCapabilities,
+			Features:                         k.Features.Websocket,
 		})
 	if err != nil {
 		return err
@@ -212,7 +208,7 @@ func (k *Kraken) Run() {
 		}
 	}
 
-	if !k.GetEnabledFeatures().AutoPairUpdates && !forceUpdate {
+	if !k.Features.REST.AutoPairUpdatesEnabled() && !forceUpdate {
 		return
 	}
 

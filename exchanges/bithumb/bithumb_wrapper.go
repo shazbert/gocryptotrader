@@ -35,7 +35,7 @@ func (b *Bithumb) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if b.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if b.Features.REST.AutoPairUpdatesEnabled() {
 		err = b.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -68,36 +68,33 @@ func (b *Bithumb) SetDefaults() {
 		},
 	}
 
-	b.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST: true,
-			RESTCapabilities: protocol.Features{
-				TickerBatching:      true,
-				TickerFetching:      true,
-				TradeFetching:       true,
-				OrderbookFetching:   true,
-				AutoPairUpdates:     true,
-				AccountInfo:         true,
-				CryptoWithdrawal:    true,
-				FiatDeposit:         true,
-				FiatWithdraw:        true,
-				GetOrder:            true,
-				CancelOrder:         true,
-				SubmitOrder:         true,
-				ModifyOrder:         true,
-				DepositHistory:      true,
-				WithdrawalHistory:   true,
-				UserTradeHistory:    true,
-				TradeFee:            true,
-				FiatWithdrawalFee:   true,
-				CryptoDepositFee:    true,
-				CryptoWithdrawalFee: true,
-			},
-			WithdrawPermissions: exchange.AutoWithdrawCrypto |
-				exchange.AutoWithdrawFiat,
-		},
-		Enabled: exchange.FeaturesEnabled{
-			AutoPairUpdates: true,
+	withdrawPermissions := exchange.AutoWithdrawCrypto |
+		exchange.AutoWithdrawFiat
+
+	b.Features = &protocol.Features{
+		REST: &protocol.Components{
+			Enabled:             true,
+			TickerBatching:      protocol.On,
+			TickerFetching:      protocol.On,
+			TradeFetching:       protocol.On,
+			OrderbookFetching:   protocol.On,
+			AutoPairUpdates:     protocol.On,
+			AccountInfo:         protocol.On,
+			CryptoWithdrawal:    protocol.On,
+			FiatDeposit:         protocol.On,
+			FiatWithdraw:        protocol.On,
+			GetOrder:            protocol.On,
+			CancelOrder:         protocol.On,
+			SubmitOrder:         protocol.On,
+			ModifyOrder:         protocol.On,
+			DepositHistory:      protocol.On,
+			WithdrawalHistory:   protocol.On,
+			UserTradeHistory:    protocol.On,
+			TradeFee:            protocol.On,
+			FiatWithdrawalFee:   protocol.On,
+			CryptoDepositFee:    protocol.On,
+			CryptoWithdrawalFee: protocol.On,
+			Withdraw:            &withdrawPermissions,
 		},
 	}
 
@@ -135,7 +132,7 @@ func (b *Bithumb) Run() {
 		b.PrintEnabledPairs()
 	}
 
-	if !b.GetEnabledFeatures().AutoPairUpdates {
+	if !b.Features.REST.AutoPairUpdatesEnabled() {
 		return
 	}
 

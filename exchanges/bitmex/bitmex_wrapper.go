@@ -34,7 +34,7 @@ func (b *Bitmex) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if b.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if b.Features.REST.AutoPairUpdatesEnabled() {
 		err = b.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -88,48 +88,45 @@ func (b *Bitmex) SetDefaults() {
 	b.CurrencyPairs.Store(asset.DownsideProfitContract, fmt2)
 	b.CurrencyPairs.Store(asset.UpsideProfitContract, fmt2)
 
-	b.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
-				TickerBatching:      true,
-				TickerFetching:      true,
-				TradeFetching:       true,
-				OrderbookFetching:   true,
-				AutoPairUpdates:     true,
-				AccountInfo:         true,
-				GetOrder:            true,
-				GetOrders:           true,
-				CancelOrders:        true,
-				CancelOrder:         true,
-				SubmitOrder:         true,
-				SubmitOrders:        true,
-				ModifyOrder:         true,
-				DepositHistory:      true,
-				WithdrawalHistory:   true,
-				UserTradeHistory:    true,
-				CryptoDeposit:       true,
-				CryptoWithdrawal:    true,
-				TradeFee:            true,
-				CryptoWithdrawalFee: true,
-			},
-			WebsocketCapabilities: protocol.Features{
-				TradeFetching:          true,
-				OrderbookFetching:      true,
-				Subscribe:              true,
-				Unsubscribe:            true,
-				AuthenticatedEndpoints: true,
-				AccountInfo:            true,
-				DeadMansSwitch:         true,
-			},
-			WithdrawPermissions: exchange.AutoWithdrawCryptoWithAPIPermission |
-				exchange.WithdrawCryptoWithEmail |
-				exchange.WithdrawCryptoWith2FA |
-				exchange.NoFiatWithdrawals,
+	withdrawPermissions := exchange.AutoWithdrawCryptoWithAPIPermission |
+		exchange.WithdrawCryptoWithEmail |
+		exchange.WithdrawCryptoWith2FA |
+		exchange.NoFiatWithdrawals
+
+	b.Features = &protocol.Features{
+		REST: &protocol.Components{
+			Enabled:             true,
+			TickerBatching:      protocol.On,
+			TickerFetching:      protocol.On,
+			TradeFetching:       protocol.On,
+			OrderbookFetching:   protocol.On,
+			AutoPairUpdates:     protocol.On,
+			AccountInfo:         protocol.On,
+			GetOrder:            protocol.On,
+			GetOrders:           protocol.On,
+			CancelOrders:        protocol.On,
+			CancelOrder:         protocol.On,
+			SubmitOrder:         protocol.On,
+			SubmitOrders:        protocol.On,
+			ModifyOrder:         protocol.On,
+			DepositHistory:      protocol.On,
+			WithdrawalHistory:   protocol.On,
+			UserTradeHistory:    protocol.On,
+			CryptoDeposit:       protocol.On,
+			CryptoWithdrawal:    protocol.On,
+			TradeFee:            protocol.On,
+			CryptoWithdrawalFee: protocol.On,
+			Withdraw:            &withdrawPermissions,
 		},
-		Enabled: exchange.FeaturesEnabled{
-			AutoPairUpdates: true,
+		Websocket: &protocol.Components{
+			Enabled:                true,
+			TradeFetching:          protocol.On,
+			OrderbookFetching:      protocol.On,
+			Subscribe:              protocol.On,
+			Unsubscribe:            protocol.On,
+			AuthenticatedEndpoints: protocol.On,
+			AccountInfo:            protocol.On,
+			DeadMansSwitch:         protocol.On,
 		},
 	}
 
@@ -161,7 +158,6 @@ func (b *Bitmex) Setup(exch *config.ExchangeConfig) error {
 
 	err = b.Websocket.Setup(
 		&wshandler.WebsocketSetup{
-			Enabled:                          exch.Features.Enabled.Websocket,
 			Verbose:                          exch.Verbose,
 			AuthenticatedWebsocketAPISupport: exch.API.AuthenticatedWebsocketSupport,
 			WebsocketTimeout:                 exch.WebsocketTrafficTimeout,
@@ -171,7 +167,7 @@ func (b *Bitmex) Setup(exch *config.ExchangeConfig) error {
 			Connector:                        b.WsConnect,
 			Subscriber:                       b.Subscribe,
 			UnSubscriber:                     b.Unsubscribe,
-			Features:                         &b.Features.Supports.WebsocketCapabilities,
+			Features:                         b.Features.Websocket,
 		})
 	if err != nil {
 		return err
@@ -212,7 +208,7 @@ func (b *Bitmex) Run() {
 		b.PrintEnabledPairs()
 	}
 
-	if !b.GetEnabledFeatures().AutoPairUpdates {
+	if !b.Features.REST.AutoPairUpdatesEnabled() {
 		return
 	}
 

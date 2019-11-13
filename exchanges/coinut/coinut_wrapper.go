@@ -35,7 +35,7 @@ func (c *COINUT) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if c.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if c.Features.REST.AutoPairUpdatesEnabled() {
 		err = c.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -67,43 +67,40 @@ func (c *COINUT) SetDefaults() {
 		},
 	}
 
-	c.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
-				TickerFetching:    true,
-				TradeFetching:     true,
-				OrderbookFetching: true,
-				AutoPairUpdates:   true,
-				AccountInfo:       true,
-				GetOrders:         true,
-				CancelOrders:      true,
-				CancelOrder:       true,
-				SubmitOrder:       true,
-				SubmitOrders:      true,
-				UserTradeHistory:  true,
-				TradeFee:          true,
-				FiatDepositFee:    true,
-				FiatWithdrawalFee: true,
-			},
-			WebsocketCapabilities: protocol.Features{
-				TickerFetching:         true,
-				OrderbookFetching:      true,
-				TradeFetching:          true,
-				Subscribe:              true,
-				Unsubscribe:            true,
-				AuthenticatedEndpoints: true,
-				SubmitOrder:            true,
-				SubmitOrders:           true,
-				CancelOrder:            true,
-				MessageCorrelation:     true,
-			},
-			WithdrawPermissions: exchange.WithdrawCryptoViaWebsiteOnly |
-				exchange.WithdrawFiatViaWebsiteOnly,
+	withdrawPermissions := exchange.WithdrawCryptoViaWebsiteOnly |
+		exchange.WithdrawFiatViaWebsiteOnly
+
+	c.Features = &protocol.Features{
+		REST: &protocol.Components{
+			Enabled:           true,
+			TickerFetching:    protocol.On,
+			TradeFetching:     protocol.On,
+			OrderbookFetching: protocol.On,
+			AutoPairUpdates:   protocol.On,
+			AccountInfo:       protocol.On,
+			GetOrders:         protocol.On,
+			CancelOrders:      protocol.On,
+			CancelOrder:       protocol.On,
+			SubmitOrder:       protocol.On,
+			SubmitOrders:      protocol.On,
+			UserTradeHistory:  protocol.On,
+			TradeFee:          protocol.On,
+			FiatDepositFee:    protocol.On,
+			FiatWithdrawalFee: protocol.On,
+			Withdraw:          &withdrawPermissions,
 		},
-		Enabled: exchange.FeaturesEnabled{
-			AutoPairUpdates: true,
+		Websocket: &protocol.Components{
+			Enabled:                true,
+			TickerFetching:         protocol.On,
+			OrderbookFetching:      protocol.On,
+			TradeFetching:          protocol.On,
+			Subscribe:              protocol.On,
+			Unsubscribe:            protocol.On,
+			AuthenticatedEndpoints: protocol.On,
+			SubmitOrder:            protocol.On,
+			SubmitOrders:           protocol.On,
+			CancelOrder:            protocol.On,
+			MessageCorrelation:     protocol.On,
 		},
 	}
 
@@ -135,7 +132,6 @@ func (c *COINUT) Setup(exch *config.ExchangeConfig) error {
 
 	err = c.Websocket.Setup(
 		&wshandler.WebsocketSetup{
-			Enabled:                          exch.Features.Enabled.Websocket,
 			Verbose:                          exch.Verbose,
 			AuthenticatedWebsocketAPISupport: exch.API.AuthenticatedWebsocketSupport,
 			WebsocketTimeout:                 exch.WebsocketTrafficTimeout,
@@ -145,7 +141,7 @@ func (c *COINUT) Setup(exch *config.ExchangeConfig) error {
 			Connector:                        c.WsConnect,
 			Subscriber:                       c.Subscribe,
 			UnSubscriber:                     c.Unsubscribe,
-			Features:                         &c.Features.Supports.WebsocketCapabilities,
+			Features:                         c.Features.Websocket,
 		})
 	if err != nil {
 		return err
@@ -205,7 +201,7 @@ func (c *COINUT) Run() {
 		}
 	}
 
-	if !c.GetEnabledFeatures().AutoPairUpdates && !forceUpdate {
+	if !c.Features.REST.AutoPairUpdatesEnabled() && !forceUpdate {
 		return
 	}
 

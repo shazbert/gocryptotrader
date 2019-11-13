@@ -36,7 +36,7 @@ func (b *BTCMarkets) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if b.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if b.Features.REST.AutoPairUpdatesEnabled() {
 		err = b.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -71,40 +71,38 @@ func (b *BTCMarkets) SetDefaults() {
 		},
 	}
 
-	b.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
-				TickerFetching:      true,
-				TradeFetching:       true,
-				OrderbookFetching:   true,
-				AutoPairUpdates:     true,
-				AccountInfo:         true,
-				GetOrder:            true,
-				GetOrders:           true,
-				CancelOrder:         true,
-				SubmitOrder:         true,
-				UserTradeHistory:    true,
-				CryptoWithdrawal:    true,
-				FiatWithdraw:        true,
-				TradeFee:            true,
-				FiatWithdrawalFee:   true,
-				CryptoWithdrawalFee: true,
-			},
-			WebsocketCapabilities: protocol.Features{
-				TickerFetching:         true,
-				TradeFetching:          true,
-				OrderbookFetching:      true,
-				AccountInfo:            true,
-				Subscribe:              true,
-				AuthenticatedEndpoints: true,
-			},
-			WithdrawPermissions: exchange.AutoWithdrawCrypto |
-				exchange.AutoWithdrawFiat,
+	withdrawPermissions := exchange.AutoWithdrawCrypto |
+		exchange.AutoWithdrawFiat
+
+	b.Features = &protocol.Features{
+		REST: &protocol.Components{
+			Enabled:              true,
+			TickerFetching:       protocol.On,
+			TradeFetching:        protocol.On,
+			OrderbookFetching:    protocol.On,
+			AutoPairUpdates:      protocol.On,
+			AccountInfo:          protocol.On,
+			GetOrder:             protocol.On,
+			GetOrders:            protocol.On,
+			CancelOrder:          protocol.On,
+			SubmitOrder:          protocol.On,
+			UserTradeHistory:     protocol.On,
+			CryptoWithdrawal:     protocol.On,
+			FiatWithdraw:         protocol.On,
+			TradeFee:             protocol.On,
+			FiatWithdrawalFee:    protocol.On,
+			CryptoWithdrawalFee:  protocol.On,
+			ExchangeTradeHistory: protocol.On,
+			Withdraw:             &withdrawPermissions,
 		},
-		Enabled: exchange.FeaturesEnabled{
-			AutoPairUpdates: true,
+		Websocket: &protocol.Components{
+			Enabled:                true,
+			TickerFetching:         protocol.On,
+			TradeFetching:          protocol.On,
+			OrderbookFetching:      protocol.On,
+			AccountInfo:            protocol.On,
+			Subscribe:              protocol.On,
+			AuthenticatedEndpoints: protocol.On,
 		},
 	}
 
@@ -134,7 +132,6 @@ func (b *BTCMarkets) Setup(exch *config.ExchangeConfig) error {
 
 	err = b.Websocket.Setup(
 		&wshandler.WebsocketSetup{
-			Enabled:                          exch.Features.Enabled.Websocket,
 			Verbose:                          exch.Verbose,
 			AuthenticatedWebsocketAPISupport: exch.API.AuthenticatedWebsocketSupport,
 			WebsocketTimeout:                 exch.WebsocketTrafficTimeout,
@@ -143,7 +140,7 @@ func (b *BTCMarkets) Setup(exch *config.ExchangeConfig) error {
 			RunningURL:                       exch.API.Endpoints.WebsocketURL,
 			Connector:                        b.WsConnect,
 			Subscriber:                       b.Subscribe,
-			Features:                         &b.Features.Supports.WebsocketCapabilities,
+			Features:                         b.Features.Websocket,
 		})
 	if err != nil {
 		return err
@@ -189,7 +186,7 @@ func (b *BTCMarkets) Run() {
 		}
 	}
 
-	if !b.GetEnabledFeatures().AutoPairUpdates && !forceUpdate {
+	if !b.Features.REST.AutoPairUpdatesEnabled() && !forceUpdate {
 		return
 	}
 

@@ -33,7 +33,7 @@ func (c *Coinbene) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if c.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if *c.Features.REST.AutoPairUpdates {
 		err = c.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -66,41 +66,40 @@ func (c *Coinbene) SetDefaults() {
 		},
 	}
 
-	c.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: false, // Purposely disabled until SWAP is supported
-			RESTCapabilities: protocol.Features{
-				TickerFetching:    true,
-				TradeFetching:     true,
-				OrderbookFetching: true,
-				AccountBalance:    true,
-				AutoPairUpdates:   true,
-				GetOrder:          true,
-				GetOrders:         true,
-				CancelOrder:       true,
-				CancelOrders:      true,
-				SubmitOrder:       true,
-				TradeFee:          true,
-			},
-			WebsocketCapabilities: protocol.Features{
-				TickerFetching:         true,
-				AccountBalance:         true,
-				AccountInfo:            true,
-				OrderbookFetching:      true,
-				TradeFetching:          true,
-				KlineFetching:          true,
-				Subscribe:              true,
-				Unsubscribe:            true,
-				AuthenticatedEndpoints: true,
-			},
-			WithdrawPermissions: exchange.NoFiatWithdrawals |
-				exchange.WithdrawCryptoViaWebsiteOnly,
+	withdrawPermissions := exchange.NoFiatWithdrawals |
+		exchange.WithdrawCryptoViaWebsiteOnly
+
+	c.Features = &protocol.Features{
+		REST: &protocol.Components{
+			Enabled:           true,
+			TickerFetching:    protocol.On,
+			TradeFetching:     protocol.On,
+			OrderbookFetching: protocol.On,
+			AccountBalance:    protocol.On,
+			AutoPairUpdates:   protocol.On,
+			GetOrder:          protocol.On,
+			GetOrders:         protocol.On,
+			CancelOrder:       protocol.On,
+			CancelOrders:      protocol.On,
+			SubmitOrder:       protocol.On,
+			TradeFee:          protocol.On,
+			Withdraw:          &withdrawPermissions,
 		},
-		Enabled: exchange.FeaturesEnabled{
-			AutoPairUpdates: true,
+		// Purposely disabled until SWAP is supported
+		Websocket: &protocol.Components{
+			Enabled:                true,
+			TickerFetching:         protocol.Off,
+			AccountBalance:         protocol.Off,
+			AccountInfo:            protocol.Off,
+			OrderbookFetching:      protocol.Off,
+			TradeFetching:          protocol.Off,
+			KlineFetching:          protocol.Off,
+			Subscribe:              protocol.Off,
+			Unsubscribe:            protocol.Off,
+			AuthenticatedEndpoints: protocol.Off,
 		},
 	}
+
 	c.Requester = request.New(c.Name,
 		request.NewRateLimit(time.Minute, authRateLimit),
 		request.NewRateLimit(time.Second, unauthRateLimit),
@@ -128,17 +127,16 @@ func (c *Coinbene) Setup(exch *config.ExchangeConfig) error {
 	}
 
 	// TO-DO: Remove this once SWAP is supported
-	if exch.Features.Enabled.Websocket {
+	if exch.Features.Websocket.Enabled {
 		log.Warnf(log.ExchangeSys,
 			"%s websocket only supports SWAP which GoCryptoTrader currently "+
 				"does not. Disabling.\n",
 			c.Name)
-		exch.Features.Enabled.Websocket = false
+		exch.Features.Websocket.Enabled = false
 	}
 
 	err = c.Websocket.Setup(
 		&wshandler.WebsocketSetup{
-			Enabled:                          exch.Features.Enabled.Websocket,
 			Verbose:                          exch.Verbose,
 			AuthenticatedWebsocketAPISupport: exch.API.AuthenticatedWebsocketSupport,
 			WebsocketTimeout:                 exch.WebsocketTrafficTimeout,
@@ -148,6 +146,7 @@ func (c *Coinbene) Setup(exch *config.ExchangeConfig) error {
 			Connector:                        c.WsConnect,
 			Subscriber:                       c.Subscribe,
 			UnSubscriber:                     c.Unsubscribe,
+			Features:                         exch.Features.Websocket,
 		})
 	if err != nil {
 		return err
@@ -194,7 +193,7 @@ func (c *Coinbene) Run() {
 		c.PrintEnabledPairs()
 	}
 
-	if !c.GetEnabledFeatures().AutoPairUpdates {
+	if !*c.Features.REST.AutoPairUpdates {
 		return
 	}
 
@@ -356,7 +355,7 @@ func (c *Coinbene) GetFundingHistory() ([]exchange.FundHistory, error) {
 }
 
 // GetExchangeHistory returns historic trade data since exchange opening.
-func (c *Coinbene) GetExchangeHistory(req *exchange.TradeHistory) ([]exchange.TradeHistory, error) {
+func (c *Coinbene) GetExchangeHistory(req *exchange.TradeHistoryRequest) ([]exchange.TradeHistory, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 

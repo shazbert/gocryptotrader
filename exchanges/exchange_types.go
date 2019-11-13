@@ -234,27 +234,6 @@ type FiatWithdrawRequest struct {
 	WireCurrency                  string
 }
 
-// Features stores the supported and enabled features
-// for the exchange
-type Features struct {
-	Supports FeaturesSupported
-	Enabled  FeaturesEnabled
-}
-
-// FeaturesEnabled stores the exchange enabled features
-type FeaturesEnabled struct {
-	AutoPairUpdates bool
-}
-
-// FeaturesSupported stores the exchanges supported features
-type FeaturesSupported struct {
-	REST                  bool
-	RESTCapabilities      protocol.Features
-	Websocket             bool
-	WebsocketCapabilities protocol.Features
-	WithdrawPermissions   uint32
-}
-
 // API stores the exchange API settings
 type API struct {
 	AuthenticatedSupport          bool
@@ -297,7 +276,7 @@ type Base struct {
 	API                           API
 	BaseCurrencies                currency.Currencies
 	CurrencyPairs                 currency.PairsManager
-	Features                      Features
+	Features                      *protocol.Features
 	HTTPTimeout                   time.Duration
 	HTTPUserAgent                 string
 	HTTPRecording                 bool

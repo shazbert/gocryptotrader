@@ -39,7 +39,7 @@ func TestMain(m *testing.M) {
 	lakebtcConfig.API.AuthenticatedSupport = true
 	lakebtcConfig.API.Credentials.Key = apiKey
 	lakebtcConfig.API.Credentials.Secret = apiSecret
-	lakebtcConfig.Features.Enabled.Websocket = true
+	lakebtcConfig.Features.Websocket.Enabled = true
 	err = l.Setup(lakebtcConfig)
 	if err != nil {
 		log.Fatal("LakeBTC setup error", err)

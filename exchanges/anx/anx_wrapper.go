@@ -34,7 +34,7 @@ func (a *ANX) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if a.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if a.Features.REST.AutoPairUpdatesEnabled() {
 		err = a.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -78,36 +78,32 @@ func (a *ANX) SetDefaults() {
 		},
 	}
 
-	a.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: false,
-			RESTCapabilities: protocol.Features{
-				TickerFetching:      true,
-				OrderbookFetching:   true,
-				AutoPairUpdates:     true,
-				AccountInfo:         true,
-				CryptoDeposit:       true,
-				CryptoWithdrawal:    true,
-				GetOrder:            true,
-				GetOrders:           true,
-				CancelOrders:        true,
-				CancelOrder:         true,
-				SubmitOrder:         true,
-				DepositHistory:      true,
-				WithdrawalHistory:   true,
-				UserTradeHistory:    true,
-				TradeFee:            true,
-				FiatWithdrawalFee:   true,
-				CryptoWithdrawalFee: true,
-			},
-			WithdrawPermissions: exchange.WithdrawCryptoWithEmail |
-				exchange.AutoWithdrawCryptoWithSetup |
-				exchange.WithdrawCryptoWith2FA |
-				exchange.WithdrawFiatViaWebsiteOnly,
-		},
-		Enabled: exchange.FeaturesEnabled{
-			AutoPairUpdates: false,
+	withdrawalPermission := exchange.WithdrawCryptoWithEmail |
+		exchange.AutoWithdrawCryptoWithSetup |
+		exchange.WithdrawCryptoWith2FA |
+		exchange.WithdrawFiatViaWebsiteOnly
+
+	a.Features = &protocol.Features{
+		REST: &protocol.Components{
+			Enabled:             true,
+			TickerFetching:      protocol.On,
+			OrderbookFetching:   protocol.On,
+			AutoPairUpdates:     protocol.Off,
+			AccountInfo:         protocol.On,
+			CryptoDeposit:       protocol.On,
+			CryptoWithdrawal:    protocol.On,
+			GetOrder:            protocol.On,
+			GetOrders:           protocol.On,
+			CancelOrders:        protocol.On,
+			CancelOrder:         protocol.On,
+			SubmitOrder:         protocol.On,
+			DepositHistory:      protocol.On,
+			WithdrawalHistory:   protocol.On,
+			UserTradeHistory:    protocol.On,
+			TradeFee:            protocol.On,
+			FiatWithdrawalFee:   protocol.On,
+			CryptoWithdrawalFee: protocol.On,
+			Withdraw:            &withdrawalPermission,
 		},
 	}
 
@@ -160,7 +156,7 @@ func (a *ANX) Run() {
 		}
 	}
 
-	if !a.GetEnabledFeatures().AutoPairUpdates && !forceUpdate {
+	if !a.Features.REST.AutoPairUpdatesEnabled() && !forceUpdate {
 		return
 	}
 

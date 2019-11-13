@@ -37,33 +37,31 @@ func (a *Alphapoint) SetDefaults() {
 		asset.Spot,
 	}
 
-	a.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
-				AccountInfo:       true,
-				TickerFetching:    true,
-				TradeFetching:     true,
-				OrderbookFetching: true,
-				GetOrders:         true,
-				CancelOrder:       true,
-				CancelOrders:      true,
-				SubmitOrder:       true,
-				ModifyOrder:       true,
-				UserTradeHistory:  true,
-				CryptoDeposit:     true,
-				CryptoWithdrawal:  true,
-				TradeFee:          true,
-			},
+	withdrawPermissions := exchange.WithdrawCryptoWith2FA |
+		exchange.AutoWithdrawCryptoWithAPIPermission |
+		exchange.NoFiatWithdrawals
 
-			WebsocketCapabilities: protocol.Features{
-				AccountInfo: true,
-			},
-
-			WithdrawPermissions: exchange.WithdrawCryptoWith2FA |
-				exchange.AutoWithdrawCryptoWithAPIPermission |
-				exchange.NoFiatWithdrawals,
+	a.Features = &protocol.Features{
+		REST: &protocol.Components{
+			Enabled:           true,
+			AccountInfo:       protocol.On,
+			TickerFetching:    protocol.On,
+			TradeFetching:     protocol.On,
+			OrderbookFetching: protocol.On,
+			GetOrders:         protocol.On,
+			CancelOrder:       protocol.On,
+			CancelOrders:      protocol.On,
+			SubmitOrder:       protocol.On,
+			ModifyOrder:       protocol.On,
+			UserTradeHistory:  protocol.On,
+			CryptoDeposit:     protocol.On,
+			CryptoWithdrawal:  protocol.On,
+			TradeFee:          protocol.On,
+			Withdraw:          &withdrawPermissions,
+		},
+		Websocket: &protocol.Components{
+			Enabled:     true,
+			AccountInfo: protocol.On,
 		},
 	}
 

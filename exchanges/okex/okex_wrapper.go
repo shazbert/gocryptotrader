@@ -37,7 +37,7 @@ func (o *OKEX) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if o.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if o.Features.REST.AutoPairUpdatesEnabled() {
 		err = o.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -104,47 +104,44 @@ func (o *OKEX) SetDefaults() {
 	o.CurrencyPairs.Store(asset.Spot, spot)
 	o.CurrencyPairs.Store(asset.Index, index)
 
-	o.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
-				TickerBatching:      true,
-				TickerFetching:      true,
-				KlineFetching:       true,
-				TradeFetching:       true,
-				OrderbookFetching:   true,
-				AutoPairUpdates:     true,
-				AccountInfo:         true,
-				GetOrder:            true,
-				GetOrders:           true,
-				CancelOrder:         true,
-				CancelOrders:        true,
-				SubmitOrder:         true,
-				SubmitOrders:        true,
-				DepositHistory:      true,
-				WithdrawalHistory:   true,
-				UserTradeHistory:    true,
-				CryptoDeposit:       true,
-				CryptoWithdrawal:    true,
-				TradeFee:            true,
-				CryptoWithdrawalFee: true,
-			},
-			WebsocketCapabilities: protocol.Features{
-				TickerFetching:         true,
-				TradeFetching:          true,
-				KlineFetching:          true,
-				OrderbookFetching:      true,
-				Subscribe:              true,
-				Unsubscribe:            true,
-				AuthenticatedEndpoints: true,
-				MessageCorrelation:     true,
-			},
-			WithdrawPermissions: exchange.AutoWithdrawCrypto |
-				exchange.NoFiatWithdrawals,
+	withdrawPermissions := exchange.AutoWithdrawCrypto |
+		exchange.NoFiatWithdrawals
+
+	o.Features = &protocol.Features{
+		REST: &protocol.Components{
+			Enabled:             true,
+			TickerBatching:      protocol.On,
+			TickerFetching:      protocol.On,
+			KlineFetching:       protocol.On,
+			TradeFetching:       protocol.On,
+			OrderbookFetching:   protocol.On,
+			AutoPairUpdates:     protocol.On,
+			AccountInfo:         protocol.On,
+			GetOrder:            protocol.On,
+			GetOrders:           protocol.On,
+			CancelOrder:         protocol.On,
+			CancelOrders:        protocol.On,
+			SubmitOrder:         protocol.On,
+			SubmitOrders:        protocol.On,
+			DepositHistory:      protocol.On,
+			WithdrawalHistory:   protocol.On,
+			UserTradeHistory:    protocol.On,
+			CryptoDeposit:       protocol.On,
+			CryptoWithdrawal:    protocol.On,
+			TradeFee:            protocol.On,
+			CryptoWithdrawalFee: protocol.On,
+			Withdraw:            &withdrawPermissions,
 		},
-		Enabled: exchange.FeaturesEnabled{
-			AutoPairUpdates: true,
+		Websocket: &protocol.Components{
+			Enabled:                true,
+			TickerFetching:         protocol.On,
+			TradeFetching:          protocol.On,
+			KlineFetching:          protocol.On,
+			OrderbookFetching:      protocol.On,
+			Subscribe:              protocol.On,
+			Unsubscribe:            protocol.On,
+			AuthenticatedEndpoints: protocol.On,
+			MessageCorrelation:     protocol.On,
 		},
 	}
 
@@ -239,7 +236,7 @@ func (o *OKEX) Run() {
 		}
 	}
 
-	if !o.GetEnabledFeatures().AutoPairUpdates {
+	if !o.Features.REST.AutoPairUpdatesEnabled() {
 		return
 	}
 

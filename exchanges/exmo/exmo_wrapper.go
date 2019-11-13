@@ -35,7 +35,7 @@ func (e *EXMO) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if e.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if e.Features.REST.AutoPairUpdatesEnabled() {
 		err = e.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -69,37 +69,33 @@ func (e *EXMO) SetDefaults() {
 		},
 	}
 
-	e.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: false,
-			RESTCapabilities: protocol.Features{
-				TickerBatching:      true,
-				TickerFetching:      true,
-				TradeFetching:       true,
-				OrderbookFetching:   true,
-				AutoPairUpdates:     true,
-				AccountInfo:         true,
-				GetOrder:            true,
-				GetOrders:           true,
-				CancelOrder:         true,
-				SubmitOrder:         true,
-				DepositHistory:      true,
-				WithdrawalHistory:   true,
-				UserTradeHistory:    true,
-				CryptoDeposit:       true,
-				CryptoWithdrawal:    true,
-				TradeFee:            true,
-				FiatDepositFee:      true,
-				FiatWithdrawalFee:   true,
-				CryptoDepositFee:    true,
-				CryptoWithdrawalFee: true,
-			},
-			WithdrawPermissions: exchange.AutoWithdrawCryptoWithSetup |
-				exchange.NoFiatWithdrawals,
-		},
-		Enabled: exchange.FeaturesEnabled{
-			AutoPairUpdates: true,
+	withdrawPermissions := exchange.AutoWithdrawCryptoWithSetup |
+		exchange.NoFiatWithdrawals
+
+	e.Features = &protocol.Features{
+		REST: &protocol.Components{
+			Enabled:             true,
+			TickerBatching:      protocol.On,
+			TickerFetching:      protocol.On,
+			TradeFetching:       protocol.On,
+			OrderbookFetching:   protocol.On,
+			AutoPairUpdates:     protocol.On,
+			AccountInfo:         protocol.On,
+			GetOrder:            protocol.On,
+			GetOrders:           protocol.On,
+			CancelOrder:         protocol.On,
+			SubmitOrder:         protocol.On,
+			DepositHistory:      protocol.On,
+			WithdrawalHistory:   protocol.On,
+			UserTradeHistory:    protocol.On,
+			CryptoDeposit:       protocol.On,
+			CryptoWithdrawal:    protocol.On,
+			TradeFee:            protocol.On,
+			FiatDepositFee:      protocol.On,
+			FiatWithdrawalFee:   protocol.On,
+			CryptoDepositFee:    protocol.On,
+			CryptoWithdrawalFee: protocol.On,
+			Withdraw:            &withdrawPermissions,
 		},
 	}
 
@@ -137,7 +133,7 @@ func (e *EXMO) Run() {
 		e.PrintEnabledPairs()
 	}
 
-	if !e.GetEnabledFeatures().AutoPairUpdates {
+	if !e.Features.REST.AutoPairUpdatesEnabled() {
 		return
 	}
 

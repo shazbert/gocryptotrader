@@ -35,7 +35,7 @@ func (g *Gemini) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if g.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if g.Features.REST.AutoPairUpdatesEnabled() {
 		err = g.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -66,39 +66,36 @@ func (g *Gemini) SetDefaults() {
 		},
 	}
 
-	g.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
-				TickerFetching:      true,
-				TradeFetching:       true,
-				OrderbookFetching:   true,
-				AutoPairUpdates:     true,
-				AccountInfo:         true,
-				GetOrder:            true,
-				CancelOrders:        true,
-				CancelOrder:         true,
-				SubmitOrder:         true,
-				UserTradeHistory:    true,
-				CryptoDeposit:       true,
-				CryptoWithdrawal:    true,
-				TradeFee:            true,
-				FiatWithdrawalFee:   true,
-				CryptoWithdrawalFee: true,
-			},
-			WebsocketCapabilities: protocol.Features{
-				OrderbookFetching:      true,
-				TradeFetching:          true,
-				AuthenticatedEndpoints: true,
-				MessageSequenceNumbers: true,
-			},
-			WithdrawPermissions: exchange.AutoWithdrawCryptoWithAPIPermission |
-				exchange.AutoWithdrawCryptoWithSetup |
-				exchange.WithdrawFiatViaWebsiteOnly,
+	withdrawPermissions := exchange.AutoWithdrawCryptoWithAPIPermission |
+		exchange.AutoWithdrawCryptoWithSetup |
+		exchange.WithdrawFiatViaWebsiteOnly
+
+	g.Features = &protocol.Features{
+		REST: &protocol.Components{
+			Enabled:             true,
+			TickerFetching:      protocol.On,
+			TradeFetching:       protocol.On,
+			OrderbookFetching:   protocol.On,
+			AutoPairUpdates:     protocol.On,
+			AccountInfo:         protocol.On,
+			GetOrder:            protocol.On,
+			CancelOrders:        protocol.On,
+			CancelOrder:         protocol.On,
+			SubmitOrder:         protocol.On,
+			UserTradeHistory:    protocol.On,
+			CryptoDeposit:       protocol.On,
+			CryptoWithdrawal:    protocol.On,
+			TradeFee:            protocol.On,
+			FiatWithdrawalFee:   protocol.On,
+			CryptoWithdrawalFee: protocol.On,
+			Withdraw:            &withdrawPermissions,
 		},
-		Enabled: exchange.FeaturesEnabled{
-			AutoPairUpdates: true,
+		Websocket: &protocol.Components{
+			Enabled:                true,
+			OrderbookFetching:      protocol.On,
+			TradeFetching:          protocol.On,
+			AuthenticatedEndpoints: protocol.On,
+			MessageSequenceNumbers: protocol.On,
 		},
 	}
 
@@ -134,7 +131,6 @@ func (g *Gemini) Setup(exch *config.ExchangeConfig) error {
 
 	err = g.Websocket.Setup(
 		&wshandler.WebsocketSetup{
-			Enabled:                          exch.Features.Enabled.Websocket,
 			Verbose:                          exch.Verbose,
 			AuthenticatedWebsocketAPISupport: exch.API.AuthenticatedWebsocketSupport,
 			WebsocketTimeout:                 exch.WebsocketTrafficTimeout,
@@ -142,7 +138,7 @@ func (g *Gemini) Setup(exch *config.ExchangeConfig) error {
 			ExchangeName:                     exch.Name,
 			RunningURL:                       exch.API.Endpoints.WebsocketURL,
 			Connector:                        g.WsConnect,
-			Features:                         &g.Features.Supports.WebsocketCapabilities,
+			Features:                         g.Features.Websocket,
 		})
 	if err != nil {
 		return err
@@ -182,7 +178,7 @@ func (g *Gemini) Run() {
 		g.PrintEnabledPairs()
 	}
 
-	if !g.GetEnabledFeatures().AutoPairUpdates {
+	if !g.Features.REST.AutoPairUpdatesEnabled() {
 		return
 	}
 
