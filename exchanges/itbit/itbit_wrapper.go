@@ -35,7 +35,7 @@ func (i *ItBit) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if i.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if i.Features.REST.AutoPairUpdatesEnabled() {
 		err = i.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -66,31 +66,27 @@ func (i *ItBit) SetDefaults() {
 		},
 	}
 
-	i.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: false,
-			RESTCapabilities: protocol.Features{
-				TickerFetching:    true,
-				TradeFetching:     true,
-				OrderbookFetching: true,
-				AccountInfo:       true,
-				GetOrder:          true,
-				GetOrders:         true,
-				CancelOrder:       true,
-				SubmitOrder:       true,
-				DepositHistory:    true,
-				WithdrawalHistory: true,
-				UserTradeHistory:  true,
-				CryptoDeposit:     true,
-				TradeFee:          true,
-				FiatWithdrawalFee: true,
-			},
-			WithdrawPermissions: exchange.WithdrawCryptoViaWebsiteOnly |
-				exchange.WithdrawFiatViaWebsiteOnly,
-		},
-		Enabled: exchange.FeaturesEnabled{
-			AutoPairUpdates: false,
+	withdrawPermissions := exchange.WithdrawCryptoViaWebsiteOnly |
+		exchange.WithdrawFiatViaWebsiteOnly
+
+	i.Features = &protocol.Features{
+		REST: &protocol.Components{
+			Enabled:           true,
+			TickerFetching:    protocol.On,
+			TradeFetching:     protocol.On,
+			OrderbookFetching: protocol.On,
+			AccountInfo:       protocol.On,
+			GetOrder:          protocol.On,
+			GetOrders:         protocol.On,
+			CancelOrder:       protocol.On,
+			SubmitOrder:       protocol.On,
+			DepositHistory:    protocol.On,
+			WithdrawalHistory: protocol.On,
+			UserTradeHistory:  protocol.On,
+			CryptoDeposit:     protocol.On,
+			TradeFee:          protocol.On,
+			FiatWithdrawalFee: protocol.On,
+			Withdraw:          &withdrawPermissions,
 		},
 	}
 

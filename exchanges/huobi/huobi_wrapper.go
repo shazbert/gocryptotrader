@@ -35,7 +35,7 @@ func (h *HUOBI) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if h.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if h.Features.REST.AutoPairUpdatesEnabled() {
 		err = h.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -68,41 +68,38 @@ func (h *HUOBI) SetDefaults() {
 		},
 	}
 
-	h.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
-				TickerBatching:    true,
-				TickerFetching:    true,
-				KlineFetching:     true,
-				TradeFetching:     true,
-				OrderbookFetching: true,
-				AutoPairUpdates:   true,
-				AccountInfo:       true,
-				GetOrder:          true,
-				GetOrders:         true,
-				CancelOrders:      true,
-				CancelOrder:       true,
-				SubmitOrder:       true,
-				CryptoWithdrawal:  true,
-				TradeFee:          true,
-			},
-			WebsocketCapabilities: protocol.Features{
-				KlineFetching:          true,
-				OrderbookFetching:      true,
-				TradeFetching:          true,
-				Subscribe:              true,
-				Unsubscribe:            true,
-				AuthenticatedEndpoints: true,
-				AccountInfo:            true,
-				MessageCorrelation:     true,
-			},
-			WithdrawPermissions: exchange.AutoWithdrawCryptoWithSetup |
-				exchange.NoFiatWithdrawals,
+	withdrawPermissions := exchange.AutoWithdrawCryptoWithSetup |
+		exchange.NoFiatWithdrawals
+
+	h.Features = &protocol.Features{
+		REST: &protocol.Components{
+			Enabled:           true,
+			TickerBatching:    protocol.On,
+			TickerFetching:    protocol.On,
+			KlineFetching:     protocol.On,
+			TradeFetching:     protocol.On,
+			OrderbookFetching: protocol.On,
+			AutoPairUpdates:   protocol.On,
+			AccountInfo:       protocol.On,
+			GetOrder:          protocol.On,
+			GetOrders:         protocol.On,
+			CancelOrders:      protocol.On,
+			CancelOrder:       protocol.On,
+			SubmitOrder:       protocol.On,
+			CryptoWithdrawal:  protocol.On,
+			TradeFee:          protocol.On,
+			Withdraw:          &withdrawPermissions,
 		},
-		Enabled: exchange.FeaturesEnabled{
-			AutoPairUpdates: true,
+		Websocket: &protocol.Components{
+			Enabled:                true,
+			KlineFetching:          protocol.On,
+			OrderbookFetching:      protocol.On,
+			TradeFetching:          protocol.On,
+			Subscribe:              protocol.On,
+			Unsubscribe:            protocol.On,
+			AuthenticatedEndpoints: protocol.On,
+			AccountInfo:            protocol.On,
+			MessageCorrelation:     protocol.On,
 		},
 	}
 
@@ -137,7 +134,6 @@ func (h *HUOBI) Setup(exch *config.ExchangeConfig) error {
 
 	err = h.Websocket.Setup(
 		&wshandler.WebsocketSetup{
-			Enabled:                          exch.Features.Enabled.Websocket,
 			Verbose:                          exch.Verbose,
 			AuthenticatedWebsocketAPISupport: exch.API.AuthenticatedWebsocketSupport,
 			WebsocketTimeout:                 exch.WebsocketTrafficTimeout,
@@ -147,7 +143,7 @@ func (h *HUOBI) Setup(exch *config.ExchangeConfig) error {
 			Connector:                        h.WsConnect,
 			Subscriber:                       h.Subscribe,
 			UnSubscriber:                     h.Unsubscribe,
-			Features:                         &h.Features.Supports.WebsocketCapabilities,
+			Features:                         h.Features.Websocket,
 		})
 	if err != nil {
 		return err
@@ -240,7 +236,7 @@ func (h *HUOBI) Run() {
 		}
 	}
 
-	if !h.GetEnabledFeatures().AutoPairUpdates && !forceUpdate {
+	if !h.Features.REST.AutoPairUpdatesEnabled() && !forceUpdate {
 		return
 	}
 

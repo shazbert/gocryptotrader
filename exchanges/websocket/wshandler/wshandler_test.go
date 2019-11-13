@@ -23,7 +23,6 @@ func TestTrafficMonitorTimeout(t *testing.T) {
 	ws := New()
 	err := ws.Setup(
 		&WebsocketSetup{
-			Enabled:                          true,
 			AuthenticatedWebsocketAPISupport: true,
 			WebsocketTimeout:                 10000,
 			DefaultURL:                       "testDefaultURL",
@@ -32,6 +31,7 @@ func TestTrafficMonitorTimeout(t *testing.T) {
 			Connector:                        func() error { return nil },
 			Subscriber:                       func(test WebsocketChannelSubscription) error { return nil },
 			UnSubscriber:                     func(test WebsocketChannelSubscription) error { return nil },
+			Features:                         &protocol.Components{Enabled: true},
 		})
 	if err != nil {
 		t.Error(err)
@@ -81,12 +81,11 @@ func TestIsDisconnectionError(t *testing.T) {
 func TestConnectionMessageErrors(t *testing.T) {
 	ws := New()
 	ws.connected = true
-	ws.enabled = true
 	ws.ReadMessageErrors = make(chan error)
 	ws.DataHandler = make(chan interface{})
 	ws.ShutdownC = make(chan struct{})
 	ws.connector = func() error { return nil }
-	ws.features = &protocol.Features{}
+	ws.features = &protocol.Components{Enabled: true}
 	go ws.connectionMonitor()
 	timer := time.NewTimer(900 * time.Millisecond)
 	ws.ReadMessageErrors <- errors.New("errorText")
@@ -119,7 +118,7 @@ func TestWebsocket(t *testing.T) {
 	ws.setInit(true)
 	err := ws.Setup(&WebsocketSetup{
 		ExchangeName: "test",
-		Enabled:      true,
+		Features:     &protocol.Components{Enabled: true},
 	})
 	if err != nil && err.Error() != "test Websocket already initialised" {
 		t.Errorf("Expected 'test Websocket already initialised', received %v", err)
@@ -133,7 +132,6 @@ func TestWebsocket(t *testing.T) {
 
 	err = ws.Setup(
 		&WebsocketSetup{
-			Enabled:                          true,
 			AuthenticatedWebsocketAPISupport: true,
 			WebsocketTimeout:                 2,
 			DefaultURL:                       "testDefaultURL",
@@ -142,7 +140,7 @@ func TestWebsocket(t *testing.T) {
 			Connector:                        func() error { return nil },
 			Subscriber:                       func(test WebsocketChannelSubscription) error { return nil },
 			UnSubscriber:                     func(test WebsocketChannelSubscription) error { return nil },
-			Features:                         &protocol.Features{},
+			Features:                         &protocol.Components{Enabled: true},
 		})
 	if err != nil {
 		t.Error(err)
@@ -310,7 +308,10 @@ func TestUnsubscriptionWithExistingEntry(t *testing.T) {
 func TestManageSubscriptionsStartStop(t *testing.T) {
 	w := Websocket{
 		ShutdownC: make(chan struct{}),
-		features:  &protocol.Features{Subscribe: true, Unsubscribe: true},
+		features: &protocol.Components{
+			Subscribe:   protocol.On,
+			Unsubscribe: protocol.On,
+		},
 	}
 	w.Wg.Add(1)
 	go w.manageSubscriptions()
@@ -322,7 +323,10 @@ func TestManageSubscriptionsStartStop(t *testing.T) {
 func TestManageSubscriptions(t *testing.T) {
 	w := Websocket{
 		ShutdownC: make(chan struct{}),
-		features:  &protocol.Features{Subscribe: true, Unsubscribe: true},
+		features: &protocol.Components{
+			Subscribe:   protocol.On,
+			Unsubscribe: protocol.On,
+		},
 		subscribedChannels: []WebsocketChannelSubscription{
 			{
 				Channel: "hello",

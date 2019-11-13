@@ -24,7 +24,6 @@ const (
 // wrapper for routine processing in routines.go
 type Websocket struct {
 	canUseAuthenticatedEndpoints bool
-	enabled                      bool
 	init                         bool
 	connected                    bool
 	connecting                   bool
@@ -56,11 +55,11 @@ type Websocket struct {
 	TrafficAlert chan struct{}
 	// ReadMessageErrors will received all errors from ws.ReadMessage() and verify if its a disconnection
 	ReadMessageErrors chan error
-	features          *protocol.Features
+	features          *protocol.Components
 }
 
+// WebsocketSetup meow meow meow
 type WebsocketSetup struct {
-	Enabled                          bool
 	Verbose                          bool
 	AuthenticatedWebsocketAPISupport bool
 	WebsocketTimeout                 time.Duration
@@ -70,7 +69,7 @@ type WebsocketSetup struct {
 	Connector                        func() error
 	Subscriber                       func(channelToSubscribe WebsocketChannelSubscription) error
 	UnSubscriber                     func(channelToUnsubscribe WebsocketChannelSubscription) error
-	Features                         *protocol.Features
+	Features                         *protocol.Components
 }
 
 // WebsocketChannelSubscription container for websocket subscriptions

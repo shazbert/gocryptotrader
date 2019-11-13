@@ -34,7 +34,7 @@ func (l *Lbank) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if l.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if l.Features.REST.AutoPairUpdatesEnabled() {
 		err = l.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -66,32 +66,29 @@ func (l *Lbank) SetDefaults() {
 		},
 	}
 
-	l.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST: true,
-			RESTCapabilities: protocol.Features{
-				TickerBatching:      true,
-				TickerFetching:      true,
-				KlineFetching:       true,
-				TradeFetching:       true,
-				OrderbookFetching:   true,
-				AutoPairUpdates:     true,
-				AccountInfo:         true,
-				GetOrder:            true,
-				GetOrders:           true,
-				CancelOrder:         true,
-				SubmitOrder:         true,
-				WithdrawalHistory:   true,
-				UserTradeHistory:    true,
-				CryptoWithdrawal:    true,
-				TradeFee:            true,
-				CryptoWithdrawalFee: true,
-			},
-			WithdrawPermissions: exchange.AutoWithdrawCryptoWithAPIPermission |
-				exchange.NoFiatWithdrawals,
-		},
-		Enabled: exchange.FeaturesEnabled{
-			AutoPairUpdates: true,
+	withdrawPermissions := exchange.AutoWithdrawCryptoWithAPIPermission |
+		exchange.NoFiatWithdrawals
+
+	l.Features = &protocol.Features{
+		REST: &protocol.Components{
+			Enabled:             true,
+			TickerBatching:      protocol.On,
+			TickerFetching:      protocol.On,
+			KlineFetching:       protocol.On,
+			TradeFetching:       protocol.On,
+			OrderbookFetching:   protocol.On,
+			AutoPairUpdates:     protocol.On,
+			AccountInfo:         protocol.On,
+			GetOrder:            protocol.On,
+			GetOrders:           protocol.On,
+			CancelOrder:         protocol.On,
+			SubmitOrder:         protocol.On,
+			WithdrawalHistory:   protocol.On,
+			UserTradeHistory:    protocol.On,
+			CryptoWithdrawal:    protocol.On,
+			TradeFee:            protocol.On,
+			CryptoWithdrawalFee: protocol.On,
+			Withdraw:            &withdrawPermissions,
 		},
 	}
 
@@ -141,7 +138,7 @@ func (l *Lbank) Run() {
 		l.PrintEnabledPairs()
 	}
 
-	if !l.GetEnabledFeatures().AutoPairUpdates {
+	if !l.Features.REST.AutoPairUpdatesEnabled() {
 		return
 	}
 

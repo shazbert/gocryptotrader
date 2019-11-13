@@ -35,7 +35,7 @@ func (l *LakeBTC) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if l.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if l.Features.REST.AutoPairUpdatesEnabled() {
 		err = l.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -67,37 +67,34 @@ func (l *LakeBTC) SetDefaults() {
 		},
 	}
 
-	l.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
-				TickerBatching:    true,
-				TickerFetching:    true,
-				TradeFetching:     true,
-				OrderbookFetching: true,
-				AutoPairUpdates:   true,
-				AccountInfo:       true,
-				GetOrder:          true,
-				GetOrders:         true,
-				CancelOrders:      true,
-				CancelOrder:       true,
-				SubmitOrder:       true,
-				UserTradeHistory:  true,
-				CryptoWithdrawal:  true,
-				TradeFee:          true,
-				CryptoDepositFee:  true,
-			},
-			WebsocketCapabilities: protocol.Features{
-				TradeFetching:     true,
-				OrderbookFetching: true,
-				Subscribe:         true,
-			},
-			WithdrawPermissions: exchange.AutoWithdrawCrypto |
-				exchange.WithdrawFiatViaWebsiteOnly,
+	withdrawPermissions := exchange.AutoWithdrawCrypto |
+		exchange.WithdrawFiatViaWebsiteOnly
+
+	l.Features = &protocol.Features{
+		REST: &protocol.Components{
+			Enabled:           true,
+			TickerBatching:    protocol.On,
+			TickerFetching:    protocol.On,
+			TradeFetching:     protocol.On,
+			OrderbookFetching: protocol.On,
+			AutoPairUpdates:   protocol.On,
+			AccountInfo:       protocol.On,
+			GetOrder:          protocol.On,
+			GetOrders:         protocol.On,
+			CancelOrders:      protocol.On,
+			CancelOrder:       protocol.On,
+			SubmitOrder:       protocol.On,
+			UserTradeHistory:  protocol.On,
+			CryptoWithdrawal:  protocol.On,
+			TradeFee:          protocol.On,
+			CryptoDepositFee:  protocol.On,
+			Withdraw:          &withdrawPermissions,
 		},
-		Enabled: exchange.FeaturesEnabled{
-			AutoPairUpdates: true,
+		Websocket: &protocol.Components{
+			Enabled:           true,
+			TradeFetching:     protocol.On,
+			OrderbookFetching: protocol.On,
+			Subscribe:         protocol.On,
 		},
 	}
 
@@ -129,7 +126,6 @@ func (l *LakeBTC) Setup(exch *config.ExchangeConfig) error {
 
 	err = l.Websocket.Setup(
 		&wshandler.WebsocketSetup{
-			Enabled:                          exch.Features.Enabled.Websocket,
 			Verbose:                          exch.Verbose,
 			AuthenticatedWebsocketAPISupport: exch.API.AuthenticatedWebsocketSupport,
 			WebsocketTimeout:                 exch.WebsocketTrafficTimeout,
@@ -138,7 +134,7 @@ func (l *LakeBTC) Setup(exch *config.ExchangeConfig) error {
 			RunningURL:                       exch.API.Endpoints.WebsocketURL,
 			Connector:                        l.WsConnect,
 			Subscriber:                       l.Subscribe,
-			Features:                         &l.Features.Supports.WebsocketCapabilities,
+			Features:                         l.Features.Websocket,
 		})
 	if err != nil {
 		return err
@@ -169,7 +165,7 @@ func (l *LakeBTC) Run() {
 		l.PrintEnabledPairs()
 	}
 
-	if !l.GetEnabledFeatures().AutoPairUpdates {
+	if !l.Features.REST.AutoPairUpdatesEnabled() {
 		return
 	}
 

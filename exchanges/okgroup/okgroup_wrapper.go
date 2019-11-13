@@ -34,7 +34,6 @@ func (o *OKGroup) Setup(exch *config.ExchangeConfig) error {
 	}
 
 	err = o.Websocket.Setup(&wshandler.WebsocketSetup{
-		Enabled:                          exch.Features.Enabled.Websocket,
 		Verbose:                          exch.Verbose,
 		AuthenticatedWebsocketAPISupport: exch.API.AuthenticatedWebsocketSupport,
 		WebsocketTimeout:                 exch.WebsocketTrafficTimeout,
@@ -44,7 +43,7 @@ func (o *OKGroup) Setup(exch *config.ExchangeConfig) error {
 		Connector:                        o.WsConnect,
 		Subscriber:                       o.Subscribe,
 		UnSubscriber:                     o.Unsubscribe,
-		Features:                         &o.Features.Supports.WebsocketCapabilities,
+		Features:                         o.Features.Websocket,
 	})
 	if err != nil {
 		return err

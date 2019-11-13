@@ -34,7 +34,7 @@ func (c *CoinbasePro) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if c.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if c.Features.REST.AutoPairUpdatesEnabled() {
 		err = c.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -69,46 +69,43 @@ func (c *CoinbasePro) SetDefaults() {
 		},
 	}
 
-	c.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
-				TickerFetching:    true,
-				KlineFetching:     true,
-				TradeFetching:     true,
-				OrderbookFetching: true,
-				AutoPairUpdates:   true,
-				AccountInfo:       true,
-				GetOrder:          true,
-				GetOrders:         true,
-				CancelOrders:      true,
-				CancelOrder:       true,
-				SubmitOrder:       true,
-				DepositHistory:    true,
-				WithdrawalHistory: true,
-				UserTradeHistory:  true,
-				CryptoDeposit:     true,
-				CryptoWithdrawal:  true,
-				FiatDeposit:       true,
-				FiatWithdraw:      true,
-				TradeFee:          true,
-				FiatDepositFee:    true,
-				FiatWithdrawalFee: true,
-			},
-			WebsocketCapabilities: protocol.Features{
-				TickerFetching:         true,
-				OrderbookFetching:      true,
-				Subscribe:              true,
-				Unsubscribe:            true,
-				AuthenticatedEndpoints: true,
-				MessageSequenceNumbers: true,
-			},
-			WithdrawPermissions: exchange.AutoWithdrawCryptoWithAPIPermission |
-				exchange.AutoWithdrawFiatWithAPIPermission,
+	withdrawPermissions := exchange.AutoWithdrawCryptoWithAPIPermission |
+		exchange.AutoWithdrawFiatWithAPIPermission
+
+	c.Features = &protocol.Features{
+		REST: &protocol.Components{
+			Enabled:           true,
+			TickerFetching:    protocol.On,
+			KlineFetching:     protocol.On,
+			TradeFetching:     protocol.On,
+			OrderbookFetching: protocol.On,
+			AutoPairUpdates:   protocol.On,
+			AccountInfo:       protocol.On,
+			GetOrder:          protocol.On,
+			GetOrders:         protocol.On,
+			CancelOrders:      protocol.On,
+			CancelOrder:       protocol.On,
+			SubmitOrder:       protocol.On,
+			DepositHistory:    protocol.On,
+			WithdrawalHistory: protocol.On,
+			UserTradeHistory:  protocol.On,
+			CryptoDeposit:     protocol.On,
+			CryptoWithdrawal:  protocol.On,
+			FiatDeposit:       protocol.On,
+			FiatWithdraw:      protocol.On,
+			TradeFee:          protocol.On,
+			FiatDepositFee:    protocol.On,
+			FiatWithdrawalFee: protocol.On,
+			Withdraw:          &withdrawPermissions,
 		},
-		Enabled: exchange.FeaturesEnabled{
-			AutoPairUpdates: true,
+		Websocket: &protocol.Components{
+			Enabled:                true,
+			TickerFetching:         protocol.On,
+			OrderbookFetching:      protocol.On,
+			Subscribe:              protocol.On,
+			Unsubscribe:            protocol.On,
+			AuthenticatedEndpoints: protocol.On,
+			MessageSequenceNumbers: protocol.On,
 		},
 	}
 
@@ -140,7 +137,6 @@ func (c *CoinbasePro) Setup(exch *config.ExchangeConfig) error {
 
 	err = c.Websocket.Setup(
 		&wshandler.WebsocketSetup{
-			Enabled:                          exch.Features.Enabled.Websocket,
 			Verbose:                          exch.Verbose,
 			AuthenticatedWebsocketAPISupport: exch.API.AuthenticatedWebsocketSupport,
 			WebsocketTimeout:                 exch.WebsocketTrafficTimeout,
@@ -150,7 +146,7 @@ func (c *CoinbasePro) Setup(exch *config.ExchangeConfig) error {
 			Connector:                        c.WsConnect,
 			Subscriber:                       c.Subscribe,
 			UnSubscriber:                     c.Unsubscribe,
-			Features:                         &c.Features.Supports.WebsocketCapabilities,
+			Features:                         c.Features.Websocket,
 		})
 	if err != nil {
 		return err
@@ -214,7 +210,7 @@ func (c *CoinbasePro) Run() {
 		}
 	}
 
-	if !c.GetEnabledFeatures().AutoPairUpdates && !forceUpdate {
+	if !c.Features.REST.AutoPairUpdatesEnabled() && !forceUpdate {
 		return
 	}
 

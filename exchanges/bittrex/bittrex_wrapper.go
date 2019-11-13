@@ -34,7 +34,7 @@ func (b *Bittrex) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if b.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if b.Features.REST.AutoPairUpdatesEnabled() {
 		err = b.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -67,33 +67,29 @@ func (b *Bittrex) SetDefaults() {
 		},
 	}
 
-	b.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: false,
-			RESTCapabilities: protocol.Features{
-				TickerBatching:      true,
-				TickerFetching:      true,
-				KlineFetching:       true,
-				TradeFetching:       true,
-				OrderbookFetching:   true,
-				AutoPairUpdates:     true,
-				GetOrders:           true,
-				CancelOrder:         true,
-				SubmitOrder:         true,
-				DepositHistory:      true,
-				WithdrawalHistory:   true,
-				UserTradeHistory:    true,
-				CryptoDeposit:       true,
-				CryptoWithdrawal:    true,
-				TradeFee:            true,
-				CryptoWithdrawalFee: true,
-			},
-			WithdrawPermissions: exchange.AutoWithdrawCryptoWithAPIPermission |
-				exchange.NoFiatWithdrawals,
-		},
-		Enabled: exchange.FeaturesEnabled{
-			AutoPairUpdates: true,
+	withdrawPermissions := exchange.AutoWithdrawCryptoWithAPIPermission |
+		exchange.NoFiatWithdrawals
+
+	b.Features = &protocol.Features{
+		REST: &protocol.Components{
+			Enabled:             true,
+			TickerBatching:      protocol.On,
+			TickerFetching:      protocol.On,
+			KlineFetching:       protocol.On,
+			TradeFetching:       protocol.On,
+			OrderbookFetching:   protocol.On,
+			AutoPairUpdates:     protocol.On,
+			GetOrders:           protocol.On,
+			CancelOrder:         protocol.On,
+			SubmitOrder:         protocol.On,
+			DepositHistory:      protocol.On,
+			WithdrawalHistory:   protocol.On,
+			UserTradeHistory:    protocol.On,
+			CryptoDeposit:       protocol.On,
+			CryptoWithdrawal:    protocol.On,
+			TradeFee:            protocol.On,
+			CryptoWithdrawalFee: protocol.On,
+			Withdraw:            &withdrawPermissions,
 		},
 	}
 
@@ -147,7 +143,7 @@ func (b *Bittrex) Run() {
 		}
 	}
 
-	if !b.GetEnabledFeatures().AutoPairUpdates && !forceUpdate {
+	if !b.Features.REST.AutoPairUpdatesEnabled() && !forceUpdate {
 		return
 	}
 

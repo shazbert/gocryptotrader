@@ -71,7 +71,7 @@ func TestSetup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v Setup() init error", OKGroupExchange)
 	}
-	if okcoinConfig.Features.Enabled.Websocket {
+	if okcoinConfig.Features.Websocket.Enabled {
 		websocketEnabled = true
 	}
 

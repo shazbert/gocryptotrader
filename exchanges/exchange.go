@@ -96,54 +96,53 @@ func (e *Base) SetClientProxyAddress(addr string) error {
 
 // SetFeatureDefaults sets the exchanges default feature
 // support set
-func (e *Base) SetFeatureDefaults() {
-	if e.Config.Features == nil {
-		s := &config.FeaturesConfig{
-			Supports: config.FeaturesSupportedConfig{
-				Websocket: e.Features.Supports.Websocket,
-				REST:      e.Features.Supports.REST,
-				RESTCapabilities: protocol.Features{
-					AutoPairUpdates: e.Features.Supports.RESTCapabilities.AutoPairUpdates,
-				},
-			},
-		}
-
-		if e.Config.SupportsAutoPairUpdates != nil {
-			s.Supports.RESTCapabilities.AutoPairUpdates = *e.Config.SupportsAutoPairUpdates
-			s.Enabled.AutoPairUpdates = *e.Config.SupportsAutoPairUpdates
-		} else {
-			s.Supports.RESTCapabilities.AutoPairUpdates = e.Features.Supports.RESTCapabilities.AutoPairUpdates
-			s.Enabled.AutoPairUpdates = e.Features.Supports.RESTCapabilities.AutoPairUpdates
-			if !s.Supports.RESTCapabilities.AutoPairUpdates {
-				e.Config.CurrencyPairs.LastUpdated = time.Now().Unix()
-				e.CurrencyPairs.LastUpdated = e.Config.CurrencyPairs.LastUpdated
-			}
-		}
-		e.Config.Features = s
-		e.Config.SupportsAutoPairUpdates = nil
-	} else {
-		if e.Features.Supports.RESTCapabilities.AutoPairUpdates != e.Config.Features.Supports.RESTCapabilities.AutoPairUpdates {
-			e.Config.Features.Supports.RESTCapabilities.AutoPairUpdates = e.Features.Supports.RESTCapabilities.AutoPairUpdates
-
-			if !e.Config.Features.Supports.RESTCapabilities.AutoPairUpdates {
-				e.Config.CurrencyPairs.LastUpdated = time.Now().Unix()
-			}
-		}
-
-		if e.Features.Supports.REST != e.Config.Features.Supports.REST {
-			e.Config.Features.Supports.REST = e.Features.Supports.REST
-		}
-
-		if e.Features.Supports.RESTCapabilities.TickerBatching != e.Config.Features.Supports.RESTCapabilities.TickerBatching {
-			e.Config.Features.Supports.RESTCapabilities.TickerBatching = e.Features.Supports.RESTCapabilities.TickerBatching
-		}
-
-		if e.Features.Supports.Websocket != e.Config.Features.Supports.Websocket {
-			e.Config.Features.Supports.Websocket = e.Features.Supports.Websocket
-		}
-
-		e.Features.Enabled.AutoPairUpdates = e.Config.Features.Enabled.AutoPairUpdates
+func (e *Base) SetFeatureDefaults() error {
+	if e.Features == nil {
+		return fmt.Errorf("features defaults not set for exchange %s", e.Name)
 	}
+
+	if e.Config.Features == nil {
+		e.Config.Features = e.Features
+
+		// translation from old config code
+		if e.Config.SupportsAutoPairUpdates != nil {
+			e.Features.REST.AutoPairUpdates = e.Config.SupportsAutoPairUpdates
+			e.Config.SupportsAutoPairUpdates = nil
+		}
+
+		if !e.Config.Features.REST.AutoPairUpdatesEnabled() {
+			e.Config.CurrencyPairs.LastUpdated = time.Now().Unix()
+			e.CurrencyPairs.LastUpdated = e.Config.CurrencyPairs.LastUpdated
+		}
+
+		return nil
+	}
+
+	if e.Features.REST != nil {
+		err := e.Features.REST.Update(e.Config.Features.REST)
+		if err != nil {
+			return err
+		}
+	}
+
+	if e.Features.Websocket != nil {
+		err := e.Features.Websocket.Update(e.Config.Features.Websocket)
+		if err != nil {
+			return err
+		}
+	}
+
+	if e.Features.Fix != nil {
+		err := e.Features.Fix.Update(e.Config.Features.Fix)
+		if err != nil {
+			return err
+		}
+	}
+
+	// makes the same
+	e.Config.Features = e.Features
+
+	return nil
 }
 
 // SetAPICredentialDefaults sets the API Credential validator defaults
@@ -197,14 +196,24 @@ func (e *Base) SetHTTPRateLimiter() {
 // SupportsRESTTickerBatchUpdates returns whether or not the
 // exhange supports REST batch ticker fetching
 func (e *Base) SupportsRESTTickerBatchUpdates() bool {
-	return e.Features.Supports.RESTCapabilities.TickerBatching
+	if e.Features.REST == nil || e.Features.REST.TickerBatching == nil {
+		return false
+	}
+	return *e.Features.REST.TickerBatching
 }
 
 // SupportsAutoPairUpdates returns whether or not the exchange supports
 // auto currency pair updating
 func (e *Base) SupportsAutoPairUpdates() bool {
-	if e.Features.Supports.RESTCapabilities.AutoPairUpdates || e.Features.Supports.WebsocketCapabilities.AutoPairUpdates {
-		return true
+	if e.Features.REST != nil && e.Features.REST.AutoPairUpdates != nil {
+		if *e.Features.REST.AutoPairUpdates {
+			return true
+		}
+	}
+	if e.Features.Websocket != nil && e.Features.Websocket.AutoPairUpdates != nil {
+		if *e.Features.Websocket.AutoPairUpdates {
+			return true
+		}
 	}
 	return false
 }
@@ -308,14 +317,9 @@ func (e *Base) GetName() string {
 	return e.Name
 }
 
-// GetEnabledFeatures returns the exchanges enabled features
-func (e *Base) GetEnabledFeatures() FeaturesEnabled {
-	return e.Features.Enabled
-}
-
-// GetSupportedFeatures returns the exchanges supported features
-func (e *Base) GetSupportedFeatures() FeaturesSupported {
-	return e.Features.Supports
+// GetFeatures returns the exchange configured features
+func (e *Base) GetFeatures() *protocol.Features {
+	return e.Features
 }
 
 // GetPairFormat returns the pair format based on the exchange and
@@ -425,7 +429,9 @@ func (e *Base) SetupDefaults(exch *config.ExchangeConfig) error {
 	e.API.AuthenticatedSupport = exch.API.AuthenticatedSupport
 	e.API.AuthenticatedWebsocketSupport = exch.API.AuthenticatedWebsocketSupport
 	if e.API.AuthenticatedSupport || e.API.AuthenticatedWebsocketSupport {
-		e.SetAPIKeys(exch.API.Credentials.Key, exch.API.Credentials.Secret, exch.API.Credentials.ClientID)
+		e.SetAPIKeys(exch.API.Credentials.Key,
+			exch.API.Credentials.Secret,
+			exch.API.Credentials.ClientID)
 	}
 
 	if exch.HTTPTimeout <= time.Duration(0) {
@@ -457,10 +463,6 @@ func (e *Base) SetupDefaults(exch *config.ExchangeConfig) error {
 		if p != nil {
 			e.CurrencyPairs.Store(assetTypes[x], *p)
 		}
-	}
-
-	if e.Features.Supports.Websocket {
-		e.Websocket.Initialise()
 	}
 	return nil
 }
@@ -655,13 +657,13 @@ func (e *Base) GetAPIURLSecondaryDefault() string {
 // SupportsWebsocket returns whether or not the exchange supports
 // websocket
 func (e *Base) SupportsWebsocket() bool {
-	return e.Features.Supports.Websocket
+	return e.Features.Websocket != nil
 }
 
 // SupportsREST returns whether or not the exchange supports
 // REST
 func (e *Base) SupportsREST() bool {
-	return e.Features.Supports.REST
+	return e.Features.REST != nil
 }
 
 // IsWebsocketEnabled returns whether or not the exchange has its
@@ -675,7 +677,7 @@ func (e *Base) IsWebsocketEnabled() bool {
 
 // GetWithdrawPermissions passes through the exchange's withdraw permissions
 func (e *Base) GetWithdrawPermissions() uint32 {
-	return e.Features.Supports.WithdrawPermissions
+	return uint32(*e.Features.REST.Withdraw)
 }
 
 // SupportsWithdrawPermissions compares the supplied permissions with the exchange's to verify they're supported

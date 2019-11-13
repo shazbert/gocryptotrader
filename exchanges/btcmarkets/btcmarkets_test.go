@@ -8,6 +8,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/config"
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	exchange "github.com/thrasher-corp/gocryptotrader/exchanges"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
 )
 
@@ -502,5 +503,17 @@ func TestGetDepositAddress(t *testing.T) {
 	_, err := b.GetDepositAddress(currency.BTC, "")
 	if err == nil {
 		t.Error("GetDepositAddress() error cannot be nil")
+	}
+}
+
+func TestGetExchangeHistory(t *testing.T) {
+	p := currency.NewPairFromString("BTC-AUD")
+	_, err := b.GetExchangeHistory(&exchange.TradeHistoryRequest{
+		Pair:  p,
+		Asset: asset.Spot,
+	})
+
+	if err != nil {
+		t.Error(err)
 	}
 }

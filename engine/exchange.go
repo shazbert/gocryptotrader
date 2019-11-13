@@ -32,6 +32,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/exchanges/okcoin"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/okex"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/poloniex"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/protocol"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/yobit"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/zb"
 	log "github.com/thrasher-corp/gocryptotrader/logger"
@@ -215,24 +216,26 @@ func LoadExchange(name string, useWG bool, wg *sync.WaitGroup) error {
 
 	if Bot.Settings.EnableExchangeWebsocketSupport {
 		if exchCfg.Features != nil {
-			if exchCfg.Features.Supports.Websocket {
-				exchCfg.Features.Enabled.Websocket = true
+			if exchCfg.Features.Websocket != nil {
+				exchCfg.Features.Websocket.Enabled = true
 			}
 		}
 	}
 
 	if Bot.Settings.EnableExchangeAutoPairUpdates {
 		if exchCfg.Features != nil {
-			if exchCfg.Features.Supports.RESTCapabilities.AutoPairUpdates {
-				exchCfg.Features.Enabled.AutoPairUpdates = true
+			if exchCfg.Features.REST != nil &&
+				exchCfg.Features.REST.AutoPairUpdates != nil {
+				exchCfg.Features.REST.AutoPairUpdates = protocol.On
 			}
 		}
 	}
 
 	if Bot.Settings.DisableExchangeAutoPairUpdates {
 		if exchCfg.Features != nil {
-			if exchCfg.Features.Supports.RESTCapabilities.AutoPairUpdates {
-				exchCfg.Features.Enabled.AutoPairUpdates = false
+			if exchCfg.Features.REST != nil &&
+				exchCfg.Features.REST.AutoPairUpdates != nil {
+				exchCfg.Features.REST.AutoPairUpdates = protocol.Off
 			}
 		}
 	}

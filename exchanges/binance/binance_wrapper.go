@@ -35,7 +35,7 @@ func (b *Binance) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if b.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if b.Features.REST.AutoPairUpdatesEnabled() {
 		err = b.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -69,42 +69,39 @@ func (b *Binance) SetDefaults() {
 		},
 	}
 
-	b.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
-				TickerBatching:      true,
-				TickerFetching:      true,
-				KlineFetching:       true,
-				OrderbookFetching:   true,
-				AutoPairUpdates:     true,
-				AccountInfo:         true,
-				CryptoDeposit:       true,
-				CryptoWithdrawal:    true,
-				GetOrder:            true,
-				GetOrders:           true,
-				CancelOrders:        true,
-				CancelOrder:         true,
-				SubmitOrder:         true,
-				DepositHistory:      true,
-				WithdrawalHistory:   true,
-				TradeFetching:       true,
-				UserTradeHistory:    true,
-				TradeFee:            true,
-				CryptoWithdrawalFee: true,
-			},
-			WebsocketCapabilities: protocol.Features{
-				TradeFetching:     true,
-				TickerFetching:    true,
-				KlineFetching:     true,
-				OrderbookFetching: true,
-			},
-			WithdrawPermissions: exchange.AutoWithdrawCrypto |
-				exchange.NoFiatWithdrawals,
+	withdrawalPermission := exchange.AutoWithdrawCrypto |
+		exchange.NoFiatWithdrawals
+
+	b.Features = &protocol.Features{
+		REST: &protocol.Components{
+			Enabled:             true,
+			TickerBatching:      protocol.On,
+			TickerFetching:      protocol.On,
+			KlineFetching:       protocol.On,
+			OrderbookFetching:   protocol.On,
+			AutoPairUpdates:     protocol.On,
+			AccountInfo:         protocol.On,
+			CryptoDeposit:       protocol.On,
+			CryptoWithdrawal:    protocol.On,
+			GetOrder:            protocol.On,
+			GetOrders:           protocol.On,
+			CancelOrders:        protocol.On,
+			CancelOrder:         protocol.On,
+			SubmitOrder:         protocol.On,
+			DepositHistory:      protocol.On,
+			WithdrawalHistory:   protocol.On,
+			TradeFetching:       protocol.On,
+			UserTradeHistory:    protocol.On,
+			TradeFee:            protocol.On,
+			CryptoWithdrawalFee: protocol.On,
+			Withdraw:            &withdrawalPermission,
 		},
-		Enabled: exchange.FeaturesEnabled{
-			AutoPairUpdates: true,
+		Websocket: &protocol.Components{
+			Enabled:           true,
+			TradeFetching:     protocol.On,
+			TickerFetching:    protocol.On,
+			KlineFetching:     protocol.On,
+			OrderbookFetching: protocol.On,
 		},
 	}
 
@@ -136,7 +133,6 @@ func (b *Binance) Setup(exch *config.ExchangeConfig) error {
 
 	err = b.Websocket.Setup(
 		&wshandler.WebsocketSetup{
-			Enabled:                          exch.Features.Enabled.Websocket,
 			Verbose:                          exch.Verbose,
 			AuthenticatedWebsocketAPISupport: exch.API.AuthenticatedWebsocketSupport,
 			WebsocketTimeout:                 exch.WebsocketTrafficTimeout,
@@ -144,7 +140,7 @@ func (b *Binance) Setup(exch *config.ExchangeConfig) error {
 			ExchangeName:                     exch.Name,
 			RunningURL:                       exch.API.Endpoints.WebsocketURL,
 			Connector:                        b.WsConnect,
-			Features:                         &b.Features.Supports.WebsocketCapabilities,
+			Features:                         b.Features.Websocket,
 		})
 
 	if err != nil {
@@ -207,7 +203,7 @@ func (b *Binance) Run() {
 		}
 	}
 
-	if !b.GetEnabledFeatures().AutoPairUpdates && !forceUpdate {
+	if !b.Features.REST.AutoPairUpdatesEnabled() && !forceUpdate {
 		return
 	}
 

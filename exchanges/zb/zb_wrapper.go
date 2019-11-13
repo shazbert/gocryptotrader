@@ -34,7 +34,7 @@ func (z *ZB) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if z.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if z.Features.REST.AutoPairUpdatesEnabled() {
 		err = z.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -67,42 +67,39 @@ func (z *ZB) SetDefaults() {
 		},
 	}
 
-	z.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
-				TickerBatching:      true,
-				TickerFetching:      true,
-				KlineFetching:       true,
-				OrderbookFetching:   true,
-				AutoPairUpdates:     true,
-				AccountInfo:         true,
-				GetOrder:            true,
-				GetOrders:           true,
-				CancelOrder:         true,
-				CryptoDeposit:       true,
-				CryptoWithdrawal:    true,
-				TradeFee:            true,
-				CryptoDepositFee:    true,
-				CryptoWithdrawalFee: true,
-			},
-			WebsocketCapabilities: protocol.Features{
-				TickerFetching:         true,
-				TradeFetching:          true,
-				OrderbookFetching:      true,
-				Subscribe:              true,
-				AuthenticatedEndpoints: true,
-				AccountInfo:            true,
-				CancelOrder:            true,
-				SubmitOrder:            true,
-				MessageCorrelation:     true,
-			},
-			WithdrawPermissions: exchange.AutoWithdrawCrypto |
-				exchange.NoFiatWithdrawals,
+	withdrawPermissions := exchange.AutoWithdrawCrypto |
+		exchange.NoFiatWithdrawals
+
+	z.Features = &protocol.Features{
+		REST: &protocol.Components{
+			Enabled:             true,
+			TickerBatching:      protocol.On,
+			TickerFetching:      protocol.On,
+			KlineFetching:       protocol.On,
+			OrderbookFetching:   protocol.On,
+			AutoPairUpdates:     protocol.On,
+			AccountInfo:         protocol.On,
+			GetOrder:            protocol.On,
+			GetOrders:           protocol.On,
+			CancelOrder:         protocol.On,
+			CryptoDeposit:       protocol.On,
+			CryptoWithdrawal:    protocol.On,
+			TradeFee:            protocol.On,
+			CryptoDepositFee:    protocol.On,
+			CryptoWithdrawalFee: protocol.On,
+			Withdraw:            &withdrawPermissions,
 		},
-		Enabled: exchange.FeaturesEnabled{
-			AutoPairUpdates: true,
+		Websocket: &protocol.Components{
+			Enabled:                true,
+			TickerFetching:         protocol.On,
+			TradeFetching:          protocol.On,
+			OrderbookFetching:      protocol.On,
+			Subscribe:              protocol.On,
+			AuthenticatedEndpoints: protocol.On,
+			AccountInfo:            protocol.On,
+			CancelOrder:            protocol.On,
+			SubmitOrder:            protocol.On,
+			MessageCorrelation:     protocol.On,
 		},
 	}
 
@@ -135,7 +132,6 @@ func (z *ZB) Setup(exch *config.ExchangeConfig) error {
 
 	err = z.Websocket.Setup(
 		&wshandler.WebsocketSetup{
-			Enabled:                          exch.Features.Enabled.Websocket,
 			Verbose:                          exch.Verbose,
 			AuthenticatedWebsocketAPISupport: exch.API.AuthenticatedWebsocketSupport,
 			WebsocketTimeout:                 exch.WebsocketTrafficTimeout,
@@ -144,7 +140,7 @@ func (z *ZB) Setup(exch *config.ExchangeConfig) error {
 			RunningURL:                       exch.API.Endpoints.WebsocketURL,
 			Connector:                        z.WsConnect,
 			Subscriber:                       z.Subscribe,
-			Features:                         &z.Features.Supports.WebsocketCapabilities,
+			Features:                         z.Features.Websocket,
 		})
 	if err != nil {
 		return err
@@ -177,7 +173,7 @@ func (z *ZB) Run() {
 		z.PrintEnabledPairs()
 	}
 
-	if !z.GetEnabledFeatures().AutoPairUpdates {
+	if !z.Features.REST.AutoPairUpdatesEnabled() {
 		return
 	}
 

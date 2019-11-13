@@ -9,6 +9,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	"github.com/thrasher-corp/gocryptotrader/database"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/protocol"
 	log "github.com/thrasher-corp/gocryptotrader/logger"
 	"github.com/thrasher-corp/gocryptotrader/ntpclient"
 )
@@ -1312,9 +1313,8 @@ func TestCheckExchangeConfigValues(t *testing.T) {
 		t.Error(err)
 	}
 
-	if !cfg.Exchanges[0].Features.Enabled.AutoPairUpdates ||
-		!cfg.Exchanges[0].Features.Enabled.Websocket ||
-		!cfg.Exchanges[0].Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if !cfg.Exchanges[0].Features.Websocket.Enabled ||
+		!*cfg.Exchanges[0].Features.REST.AutoPairUpdates {
 		t.Error("unexpected values")
 	}
 
@@ -1402,8 +1402,8 @@ func TestCheckExchangeConfigValues(t *testing.T) {
 	}
 
 	// Test AutoPairUpdates
-	cfg.Exchanges[0].Features.Supports.RESTCapabilities.AutoPairUpdates = false
-	cfg.Exchanges[0].Features.Supports.WebsocketCapabilities.AutoPairUpdates = false
+	cfg.Exchanges[0].Features.REST.AutoPairUpdates = protocol.Off
+	cfg.Exchanges[0].Features.Websocket.AutoPairUpdates = protocol.Off
 	cfg.Exchanges[0].CurrencyPairs.LastUpdated = 0
 	cfg.CheckExchangeConfigValues()
 

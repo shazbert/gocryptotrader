@@ -32,7 +32,7 @@ func (b *Bitflyer) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if b.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if b.Features.REST.AutoPairUpdatesEnabled() {
 		err = b.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -66,23 +66,19 @@ func (b *Bitflyer) SetDefaults() {
 		},
 	}
 
-	b.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: false,
-			RESTCapabilities: protocol.Features{
-				TickerFetching:    true,
-				OrderbookFetching: true,
-				AutoPairUpdates:   true,
-				TradeFee:          true,
-				FiatDepositFee:    true,
-				FiatWithdrawalFee: true,
-			},
-			WithdrawPermissions: exchange.WithdrawCryptoViaWebsiteOnly |
-				exchange.AutoWithdrawFiat,
-		},
-		Enabled: exchange.FeaturesEnabled{
-			AutoPairUpdates: true,
+	withdrawPermissions := exchange.WithdrawCryptoViaWebsiteOnly |
+		exchange.AutoWithdrawFiat
+
+	b.Features = &protocol.Features{
+		REST: &protocol.Components{
+			Enabled:           true,
+			TickerFetching:    protocol.On,
+			OrderbookFetching: protocol.On,
+			AutoPairUpdates:   protocol.On,
+			TradeFee:          protocol.On,
+			FiatDepositFee:    protocol.On,
+			FiatWithdrawalFee: protocol.On,
+			Withdraw:          &withdrawPermissions,
 		},
 	}
 
@@ -122,7 +118,7 @@ func (b *Bitflyer) Run() {
 		b.PrintEnabledPairs()
 	}
 
-	if !b.GetEnabledFeatures().AutoPairUpdates {
+	if !b.Features.REST.AutoPairUpdatesEnabled() {
 		return
 	}
 

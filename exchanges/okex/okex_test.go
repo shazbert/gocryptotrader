@@ -72,7 +72,7 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		log.Fatalf("%v Setup() init error %s", OKGroupExchange, err)
 	}
-	if okexConfig.Features.Enabled.Websocket {
+	if okexConfig.Features.Websocket.Enabled {
 		websocketEnabled = true
 	}
 	okexConfig.API.AuthenticatedSupport = true

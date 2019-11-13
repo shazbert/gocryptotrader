@@ -24,7 +24,6 @@ import (
 func New() *Websocket {
 	return &Websocket{
 		defaultURL: "",
-		enabled:    false,
 		proxyAddr:  "",
 		runningURL: "",
 		init:       true,
@@ -38,7 +37,6 @@ func (w *Websocket) Setup(setupData *WebsocketSetup) error {
 	w.verbose = setupData.Verbose
 	w.SetChannelSubscriber(setupData.Subscriber)
 	w.SetChannelUnsubscriber(setupData.UnSubscriber)
-	w.enabled = setupData.Enabled
 	w.SetDefaultURL(setupData.DefaultURL)
 	w.SetConnector(setupData.Connector)
 	w.SetWebsocketURL(setupData.RunningURL)
@@ -46,12 +44,7 @@ func (w *Websocket) Setup(setupData *WebsocketSetup) error {
 	w.SetCanUseAuthenticatedEndpoints(setupData.AuthenticatedWebsocketAPISupport)
 	w.trafficTimeout = setupData.WebsocketTimeout
 	w.features = setupData.Features
-	err := w.Initialise()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return w.Initialise()
 }
 
 // Connect initiates a websocket connection by using a package defined connection
@@ -92,7 +85,7 @@ func (w *Websocket) Connect() error {
 	if !w.IsConnectionMonitorRunning() {
 		go w.connectionMonitor()
 	}
-	if w.features.Subscribe || w.features.Unsubscribe {
+	if w.features.SubscribeEnabled() || w.features.UnsubscribeEnabled() {
 		w.Wg.Add(1)
 		go w.manageSubscriptions()
 	}
@@ -277,7 +270,7 @@ func (w *Websocket) IsConnecting() bool {
 
 func (w *Websocket) setEnabled(b bool) {
 	w.connectionMutex.Lock()
-	w.enabled = b
+	w.features.Enabled = b
 	w.connectionMutex.Unlock()
 }
 
@@ -285,7 +278,7 @@ func (w *Websocket) setEnabled(b bool) {
 func (w *Websocket) IsEnabled() bool {
 	w.connectionMutex.RLock()
 	defer w.connectionMutex.RUnlock()
-	return w.enabled
+	return w.features.Enabled
 }
 
 func (w *Websocket) setInit(b bool) {
@@ -350,7 +343,8 @@ func (w *Websocket) Initialise() error {
 		return fmt.Errorf("%v Websocket already initialised",
 			w.exchangeName)
 	}
-	w.setEnabled(w.enabled)
+	fmt.Println("WOW:", w.exchangeName)
+	w.setEnabled(w.features.Enabled)
 	return nil
 }
 
@@ -415,7 +409,7 @@ func (w *Websocket) SetChannelUnsubscriber(unsubscriber func(channelToUnsubscrib
 
 // ManageSubscriptions ensures the subscriptions specified continue to be subscribed to
 func (w *Websocket) manageSubscriptions() {
-	if !w.features.Subscribe && !w.features.Unsubscribe {
+	if !w.features.SubscribeEnabled() && !w.features.UnsubscribeEnabled() {
 		w.DataHandler <- fmt.Errorf("%v does not support channel subscriptions, exiting ManageSubscriptions()", w.exchangeName)
 		return
 	}
@@ -448,13 +442,13 @@ func (w *Websocket) manageSubscriptions() {
 				log.Debugf(log.WebsocketMgr, "%v checking subscriptions", w.exchangeName)
 			}
 			// Subscribe to channels Pending a subscription
-			if w.features.Subscribe {
+			if w.features.SubscribeEnabled() {
 				err := w.appendSubscribedChannels()
 				if err != nil {
 					w.DataHandler <- err
 				}
 			}
-			if w.features.Unsubscribe {
+			if w.features.UnsubscribeEnabled() {
 				err := w.unsubscribeToChannels()
 				if err != nil {
 					w.DataHandler <- err

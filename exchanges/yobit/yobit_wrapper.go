@@ -2,7 +2,6 @@ package yobit
 
 import (
 	"errors"
-	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -36,7 +35,7 @@ func (y *Yobit) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if y.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if y.Features.REST.AutoPairUpdatesEnabled() {
 		err = y.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -70,33 +69,29 @@ func (y *Yobit) SetDefaults() {
 		},
 	}
 
-	y.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: false,
-			RESTCapabilities: protocol.Features{
-				TickerBatching:      true,
-				TickerFetching:      true,
-				TradeFetching:       true,
-				OrderbookFetching:   true,
-				AutoPairUpdates:     true,
-				AccountInfo:         true,
-				GetOrder:            true,
-				GetOrders:           true,
-				CancelOrder:         true,
-				UserTradeHistory:    true,
-				CryptoDeposit:       true,
-				CryptoWithdrawal:    true,
-				TradeFee:            true,
-				FiatDepositFee:      true,
-				FiatWithdrawalFee:   true,
-				CryptoWithdrawalFee: true,
-			},
-			WithdrawPermissions: exchange.AutoWithdrawCryptoWithAPIPermission |
-				exchange.WithdrawFiatViaWebsiteOnly,
-		},
-		Enabled: exchange.FeaturesEnabled{
-			AutoPairUpdates: true,
+	withdrawPermissions := exchange.AutoWithdrawCryptoWithAPIPermission |
+		exchange.WithdrawFiatViaWebsiteOnly
+
+	y.Features = &protocol.Features{
+		REST: &protocol.Components{
+			Enabled:             true,
+			TickerBatching:      protocol.On,
+			TickerFetching:      protocol.On,
+			TradeFetching:       protocol.On,
+			OrderbookFetching:   protocol.On,
+			AutoPairUpdates:     protocol.On,
+			AccountInfo:         protocol.On,
+			GetOrder:            protocol.On,
+			GetOrders:           protocol.On,
+			CancelOrder:         protocol.On,
+			UserTradeHistory:    protocol.On,
+			CryptoDeposit:       protocol.On,
+			CryptoWithdrawal:    protocol.On,
+			TradeFee:            protocol.On,
+			FiatDepositFee:      protocol.On,
+			FiatWithdrawalFee:   protocol.On,
+			CryptoWithdrawalFee: protocol.On,
+			Withdraw:            &withdrawPermissions,
 		},
 	}
 
@@ -136,7 +131,7 @@ func (y *Yobit) Run() {
 		y.PrintEnabledPairs()
 	}
 
-	if !y.GetEnabledFeatures().AutoPairUpdates {
+	if !y.Features.REST.AutoPairUpdatesEnabled() {
 		return
 	}
 
@@ -380,7 +375,6 @@ func (y *Yobit) CancelAllOrders(_ *order.Cancel) (order.CancelAllResponse, error
 
 	var allActiveOrders []map[string]ActiveOrders
 	enabledPairs := y.GetEnabledPairs(asset.Spot)
-	fmt.Println(enabledPairs)
 	for i := range enabledPairs {
 		fCurr := y.FormatExchangeCurrency(enabledPairs[i], asset.Spot).String()
 		activeOrdersForPair, err := y.GetOpenOrders(fCurr)
