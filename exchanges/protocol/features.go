@@ -29,41 +29,52 @@ type Components struct {
 	Enabled bool `json:"enabled"`
 
 	// nil == unsupported for this protocol scheme
-	TickerBatching         *bool   `json:"tickerBatching,omitempty"`
-	AutoPairUpdates        *bool   `json:"autoPairUpdates,omitempty"`
-	AccountBalance         *bool   `json:"accountBalance,omitempty"`
-	CryptoDeposit          *bool   `json:"cryptoDeposit,omitempty"`
-	CryptoWithdrawal       *bool   `json:"cryptoWithdrawal,omitempty"`
-	FiatWithdraw           *bool   `json:"fiatWithdraw,omitempty"`
-	GetOrder               *bool   `json:"getOrder,omitempty"`
-	GetOrders              *bool   `json:"getOrders,omitempty"`
-	CancelOrders           *bool   `json:"cancelOrders,omitempty"`
-	CancelOrder            *bool   `json:"cancelOrder,omitempty"`
-	SubmitOrder            *bool   `json:"submitOrder,omitempty"`
-	SubmitOrders           *bool   `json:"submitOrders,omitempty"`
-	ModifyOrder            *bool   `json:"modifyOrder,omitempty"`
-	DepositHistory         *bool   `json:"depositHistory,omitempty"`
-	WithdrawalHistory      *bool   `json:"withdrawalHistory,omitempty"`
-	TradeFetching          *bool   `json:"tradeFetching,omitempty"`
-	ExchangeTradeHistory   *bool   `json:"exchangeTradeHistory,omitempty"`
-	UserTradeHistory       *bool   `json:"userTradeHistory,omitempty"`
-	TradeFee               *bool   `json:"tradeFee,omitempty"`
-	FiatDepositFee         *bool   `json:"fiatDepositFee,omitempty"`
-	FiatWithdrawalFee      *bool   `json:"fiatWithdrawalFee,omitempty"`
-	CryptoDepositFee       *bool   `json:"cryptoDepositFee,omitempty"`
-	CryptoWithdrawalFee    *bool   `json:"cryptoWithdrawalFee,omitempty"`
-	TickerFetching         *bool   `json:"tickerFetching,omitempty"`
-	KlineFetching          *bool   `json:"klineFetching,omitempty"`
-	OrderbookFetching      *bool   `json:"orderbookFetching,omitempty"`
-	AccountInfo            *bool   `json:"accountInfo,omitempty"`
-	FiatDeposit            *bool   `json:"fiatDeposit,omitempty"`
-	DeadMansSwitch         *bool   `json:"deadMansSwitch,omitempty"`
-	Subscribe              *bool   `json:"subscribe,omitempty"`
-	Unsubscribe            *bool   `json:"unsubscribe,omitempty"`
-	AuthenticatedEndpoints *bool   `json:"authenticatedEndpoints,omitempty"`
-	MessageCorrelation     *bool   `json:"messageCorrelation,omitempty"`
-	MessageSequenceNumbers *bool   `json:"messageSequenceNumbers,omitempty"`
-	Withdraw               *uint32 `json:",omit"`
+	TickerBatching         *bool       `json:"tickerBatching,omitempty"`
+	AutoPairUpdates        *bool       `json:"autoPairUpdates,omitempty"`
+	AccountBalance         *bool       `json:"accountBalance,omitempty"`
+	CryptoDeposit          *bool       `json:"cryptoDeposit,omitempty"`
+	CryptoWithdrawal       *bool       `json:"cryptoWithdrawal,omitempty"`
+	FiatWithdraw           *bool       `json:"fiatWithdraw,omitempty"`
+	GetOrder               *bool       `json:"getOrder,omitempty"`
+	GetOrders              *bool       `json:"getOrders,omitempty"`
+	CancelOrders           *bool       `json:"cancelOrders,omitempty"`
+	CancelOrder            *bool       `json:"cancelOrder,omitempty"`
+	SubmitOrder            *bool       `json:"submitOrder,omitempty"`
+	SubmitOrders           *bool       `json:"submitOrders,omitempty"`
+	ModifyOrder            *bool       `json:"modifyOrder,omitempty"`
+	DepositHistory         *bool       `json:"depositHistory,omitempty"`
+	WithdrawalHistory      *bool       `json:"withdrawalHistory,omitempty"`
+	TradeFetching          *bool       `json:"tradeFetching,omitempty"`
+	ExchangeTradeHistory   *bool       `json:"exchangeTradeHistory,omitempty"`
+	UserTradeHistory       *bool       `json:"userTradeHistory,omitempty"`
+	TradeFee               *bool       `json:"tradeFee,omitempty"`
+	FiatDepositFee         *bool       `json:"fiatDepositFee,omitempty"`
+	FiatWithdrawalFee      *bool       `json:"fiatWithdrawalFee,omitempty"`
+	CryptoDepositFee       *bool       `json:"cryptoDepositFee,omitempty"`
+	CryptoWithdrawalFee    *bool       `json:"cryptoWithdrawalFee,omitempty"`
+	TickerFetching         *bool       `json:"tickerFetching,omitempty"`
+	KlineFetching          *bool       `json:"klineFetching,omitempty"`
+	OrderbookFetching      *bool       `json:"orderbookFetching,omitempty"`
+	AccountInfo            *bool       `json:"accountInfo,omitempty"`
+	FiatDeposit            *bool       `json:"fiatDeposit,omitempty"`
+	DeadMansSwitch         *bool       `json:"deadMansSwitch,omitempty"`
+	Subscribe              *bool       `json:"subscribe,omitempty"`
+	Unsubscribe            *bool       `json:"unsubscribe,omitempty"`
+	AuthenticatedEndpoints *bool       `json:"authenticatedEndpoints,omitempty"`
+	MessageCorrelation     *bool       `json:"messageCorrelation,omitempty"`
+	MessageSequenceNumbers *bool       `json:"messageSequenceNumbers,omitempty"`
+	Withdraw               *uint32     `json:"-"`
+	Limits                 *RateLimits `json:"-"`
+}
+
+// ProtocolSupported checks to see if the protocol is supported
+func (c *Components) ProtocolSupported() bool {
+	return c != nil
+}
+
+// TickerBatchingSupported checks if ticker batching functionality is supported
+func (c *Components) TickerBatchingSupported() bool {
+	return c != nil && c.TickerBatching != nil
 }
 
 // SubscribeEnabled checks if subscription functionality is enabled
