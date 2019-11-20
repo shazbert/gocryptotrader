@@ -14,10 +14,12 @@ import (
 	grpcruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/common/crypto"
+	"github.com/thrasher-corp/gocryptotrader/common/ohlc"
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	"github.com/thrasher-corp/gocryptotrader/database/models/postgres"
 	"github.com/thrasher-corp/gocryptotrader/database/models/sqlite3"
 	"github.com/thrasher-corp/gocryptotrader/database/repository/audit"
+	exchange "github.com/thrasher-corp/gocryptotrader/exchanges"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/orderbook"
@@ -1208,4 +1210,51 @@ func (s *RPCServer) GetAuditEvent(ctx context.Context, r *gctrpc.GetAuditEventRe
 	}
 
 	return &resp, nil
+}
+
+// GetOHLC returns OHLC data for exchange currency pair time interval
+func (s *RPCServer) GetOHLC(ctx context.Context, r *gctrpc.GetOHLCRequest) (*gctrpc.GetOHLCResponse, error) {
+	if r.Exchange == "" {
+		return nil, errors.New("exchange name not supplied")
+	}
+
+	if r.Pair == nil {
+		return nil, errors.New("currency pair not supplied")
+	}
+
+	if r.AssetType == "" {
+		return nil, errors.New("asset type not supplied")
+	}
+
+	if r.Interval == "" {
+		return nil, errors.New("chart interval not supplied")
+	}
+
+	dummyPair := currency.NewPairFromString("BTC-USD")
+
+	// Get trade history data from database, db not yet done. Will do initial
+	// sync first
+
+	dummyData := []exchange.TradeHistory{}
+
+	test, err := ohlc.CreateOHLC(dummyData,
+		time.Duration(5*time.Minute),
+		dummyPair,
+		asset.Spot,
+		"BTC Markets")
+
+	if err != nil {
+		return nil, err
+	}
+
+	returnCandles := &gctrpc.GetOHLCResponse{
+		Open:             test.Open,
+		High:             test.High,
+		Low:              test.Low,
+		Close:            test.Close,
+		Volume:           test.Volume,
+		PercentageChange: test.PercentageChange,
+	}
+
+	return returnCandles, nil
 }

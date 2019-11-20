@@ -23,20 +23,20 @@ import (
 // Engine contains configuration, portfolio, exchange & ticker data and is the
 // overarching type across this code base.
 type Engine struct {
-	Config                      *config.Config
-	Portfolio                   *portfolio.Base
-	Exchanges                   []exchange.IBotExchange
-	ExchangeCurrencyPairManager *ExchangeCurrencyPairSyncer
-	NTPManager                  ntpManager
-	ConnectionManager           connectionManager
-	DatabaseManager             databaseManager
-	OrderManager                orderManager
-	PortfolioManager            portfolioManager
-	CommsManager                commsManager
-	DepositAddressManager       *DepositAddressManager
-	Settings                    Settings
-	Uptime                      time.Time
-	ServicesWG                  sync.WaitGroup
+	Config                *config.Config
+	Portfolio             *portfolio.Base
+	Exchanges             []exchange.IBotExchange
+	SyncManager           *SyncManager
+	NTPManager            ntpManager
+	ConnectionManager     connectionManager
+	DatabaseManager       databaseManager
+	OrderManager          orderManager
+	PortfolioManager      portfolioManager
+	CommsManager          commsManager
+	DepositAddressManager *DepositAddressManager
+	Settings              Settings
+	Uptime                time.Time
+	ServicesWG            sync.WaitGroup
 }
 
 // Vars for engine
@@ -384,18 +384,19 @@ func (e *Engine) Start() error {
 	}
 
 	if e.Settings.EnableExchangeSyncManager {
-		exchangeSyncCfg := CurrencyPairSyncerConfig{
+		cfg := SyncConfig{
 			SyncTicker:       e.Settings.EnableTickerSyncing,
 			SyncOrderbook:    e.Settings.EnableOrderbookSyncing,
+			SyncTrades:       e.Settings.EnableRecentTradeSyncing,
 			SyncContinuously: true,
-			NumWorkers:       15,
+			NumOfWorkers:     15,
 		}
 
-		e.ExchangeCurrencyPairManager, err = NewCurrencyPairSyncer(exchangeSyncCfg)
+		e.SyncManager, err = NewSyncManager(cfg)
 		if err != nil {
 			log.Warnf(log.Global, "Unable to initialise exchange currency pair syncer. Err: %s", err)
 		} else {
-			go e.ExchangeCurrencyPairManager.Start()
+			go e.SyncManager.Start()
 		}
 	}
 

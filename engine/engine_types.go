@@ -23,8 +23,6 @@ type Settings struct {
 	EnableCommsRelayer          bool
 	EnableExchangeSyncManager   bool
 	EnableDepositAddressManager bool
-	EnableTickerSyncing         bool
-	EnableOrderbookSyncing      bool
 	EnableEventManager          bool
 	EnableOrderManager          bool
 	EnableConnectivityMonitor   bool
@@ -33,6 +31,20 @@ type Settings struct {
 	EnableWebsocketRoutine      bool
 	EventManagerDelay           time.Duration
 	Verbose                     bool
+
+	// Sync manager settings
+	EnableContinuousSync       bool
+	SyncWorkerCount            int
+	EnableTickerSyncing        bool
+	EnableOrderbookSyncing     bool
+	EnableRecentTradeSyncing   bool
+	EnableHistoricTradeSyncing bool
+
+	// Not yet used
+	EnableAccountSyncing       bool
+	EnableFeeSyncing           bool
+	EnableAvailablePairSyncing bool
+	EnableOrderSyncing         bool
 
 	// Forex settings
 	EnableCurrencyConverter bool
