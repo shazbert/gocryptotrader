@@ -2,15 +2,38 @@ package protocol
 
 import (
 	"errors"
+	"fmt"
+	"golang.org/x/time/rate"
 	"time"
 )
 
 var (
-	// On infers functionality support and enabled
-	On = func() *bool { b := true; return &b }()
-	// Off infers functionality support and disabled
-	Off = func() *bool { b := false; return &b }()
+// // On infers functionality support and enabled
+// On = func(s *GlobalRate) *Component { b := true; return &b }
+// // Off infers functionality support and disabled
+// Off = func() *bool { b := false; return &b }
 )
+
+// DefaultGlobalRate this defaults the rate to once every second
+var DefaultGlobalRate = &GlobalRate{
+	Auth:   rate.NewLimiter(1, 1),
+	UnAuth: rate.NewLimiter(1, 1),
+}
+
+func SetNewComponentWithGlobalRate(gr *GlobalRate, enabled bool) *Component {
+	if gr == nil {
+		fmt.Println("globalrate not supplied using default")
+		return &Component{
+			Enabled: enabled,
+			Rate:    DefaultGlobalRate,
+		}
+	}
+
+	return &Component{
+		Enabled: enabled,
+		Rate:    gr,
+	}
+}
 
 // Features stores the exchange supported protocol functionality
 type Features struct {
@@ -22,6 +45,12 @@ type Features struct {
 // Permissions defines a set of allowable permissions
 type Permissions uint32
 
+// Component derives a singular potential supported function
+type Component struct {
+	Enabled bool
+	Rate    *GlobalRate `json:"-"`
+}
+
 // Components hold all variables for an exchange protocol functionality
 // (e.g REST or Websocket)
 type Components struct {
@@ -29,42 +58,42 @@ type Components struct {
 	Enabled bool `json:"enabled"`
 
 	// nil == unsupported for this protocol scheme
-	TickerBatching         *bool       `json:"tickerBatching,omitempty"`
-	AutoPairUpdates        *bool       `json:"autoPairUpdates,omitempty"`
-	AccountBalance         *bool       `json:"accountBalance,omitempty"`
-	CryptoDeposit          *bool       `json:"cryptoDeposit,omitempty"`
-	CryptoWithdrawal       *bool       `json:"cryptoWithdrawal,omitempty"`
-	FiatWithdraw           *bool       `json:"fiatWithdraw,omitempty"`
-	GetOrder               *bool       `json:"getOrder,omitempty"`
-	GetOrders              *bool       `json:"getOrders,omitempty"`
-	CancelOrders           *bool       `json:"cancelOrders,omitempty"`
-	CancelOrder            *bool       `json:"cancelOrder,omitempty"`
-	SubmitOrder            *bool       `json:"submitOrder,omitempty"`
-	SubmitOrders           *bool       `json:"submitOrders,omitempty"`
-	ModifyOrder            *bool       `json:"modifyOrder,omitempty"`
-	DepositHistory         *bool       `json:"depositHistory,omitempty"`
-	WithdrawalHistory      *bool       `json:"withdrawalHistory,omitempty"`
-	TradeFetching          *bool       `json:"tradeFetching,omitempty"`
-	ExchangeTradeHistory   *bool       `json:"exchangeTradeHistory,omitempty"`
-	UserTradeHistory       *bool       `json:"userTradeHistory,omitempty"`
-	TradeFee               *bool       `json:"tradeFee,omitempty"`
-	FiatDepositFee         *bool       `json:"fiatDepositFee,omitempty"`
-	FiatWithdrawalFee      *bool       `json:"fiatWithdrawalFee,omitempty"`
-	CryptoDepositFee       *bool       `json:"cryptoDepositFee,omitempty"`
-	CryptoWithdrawalFee    *bool       `json:"cryptoWithdrawalFee,omitempty"`
-	TickerFetching         *bool       `json:"tickerFetching,omitempty"`
-	KlineFetching          *bool       `json:"klineFetching,omitempty"`
-	OrderbookFetching      *bool       `json:"orderbookFetching,omitempty"`
-	AccountInfo            *bool       `json:"accountInfo,omitempty"`
-	FiatDeposit            *bool       `json:"fiatDeposit,omitempty"`
-	DeadMansSwitch         *bool       `json:"deadMansSwitch,omitempty"`
-	Subscribe              *bool       `json:"subscribe,omitempty"`
-	Unsubscribe            *bool       `json:"unsubscribe,omitempty"`
-	AuthenticatedEndpoints *bool       `json:"authenticatedEndpoints,omitempty"`
-	MessageCorrelation     *bool       `json:"messageCorrelation,omitempty"`
-	MessageSequenceNumbers *bool       `json:"messageSequenceNumbers,omitempty"`
-	Withdraw               *uint32     `json:"-"`
-	Limits                 *RateLimits `json:"-"`
+	TickerBatching         *Component `json:"tickerBatching,omitempty"`
+	AutoPairUpdates        *Component `json:"autoPairUpdates,omitempty"`
+	AccountBalance         *Component `json:"accountBalance,omitempty"`
+	CryptoDeposit          *Component `json:"cryptoDeposit,omitempty"`
+	CryptoWithdrawal       *Component `json:"cryptoWithdrawal,omitempty"`
+	FiatWithdraw           *Component `json:"fiatWithdraw,omitempty"`
+	GetOrder               *Component `json:"getOrder,omitempty"`
+	GetOrders              *Component `json:"getOrders,omitempty"`
+	CancelOrders           *Component `json:"cancelOrders,omitempty"`
+	CancelOrder            *Component `json:"cancelOrder,omitempty"`
+	SubmitOrder            *Component `json:"submitOrder,omitempty"`
+	SubmitOrders           *Component `json:"submitOrders,omitempty"`
+	ModifyOrder            *Component `json:"modifyOrder,omitempty"`
+	DepositHistory         *Component `json:"depositHistory,omitempty"`
+	WithdrawalHistory      *Component `json:"withdrawalHistory,omitempty"`
+	TradeFetching          *Component `json:"tradeFetching,omitempty"`
+	ExchangeTradeHistory   *Component `json:"exchangeTradeHistory,omitempty"`
+	UserTradeHistory       *Component `json:"userTradeHistory,omitempty"`
+	TradeFee               *Component `json:"tradeFee,omitempty"`
+	FiatDepositFee         *Component `json:"fiatDepositFee,omitempty"`
+	FiatWithdrawalFee      *Component `json:"fiatWithdrawalFee,omitempty"`
+	CryptoDepositFee       *Component `json:"cryptoDepositFee,omitempty"`
+	CryptoWithdrawalFee    *Component `json:"cryptoWithdrawalFee,omitempty"`
+	TickerFetching         *Component `json:"tickerFetching,omitempty"`
+	KlineFetching          *Component `json:"klineFetching,omitempty"`
+	OrderbookFetching      *Component `json:"orderbookFetching,omitempty"`
+	AccountInfo            *Component `json:"accountInfo,omitempty"`
+	FiatDeposit            *Component `json:"fiatDeposit,omitempty"`
+	DeadMansSwitch         *Component `json:"deadMansSwitch,omitempty"`
+	Subscribe              *Component `json:"subscribe,omitempty"`
+	Unsubscribe            *Component `json:"unsubscribe,omitempty"`
+	AuthenticatedEndpoints *Component `json:"authenticatedEndpoints,omitempty"`
+	MessageCorrelation     *Component `json:"messageCorrelation,omitempty"`
+	MessageSequenceNumbers *Component `json:"messageSequenceNumbers,omitempty"`
+	Withdraw               *uint32    `json:"-"`
+	// Limits                 *RateLimits `json:"-"`
 }
 
 // ProtocolSupported checks to see if the protocol is supported
@@ -77,20 +106,20 @@ func (c *Components) TickerBatchingSupported() bool {
 	return c != nil && c.TickerBatching != nil
 }
 
-// SubscribeEnabled checks if subscription functionality is enabled
-func (c *Components) SubscribeEnabled() bool {
-	return c.Subscribe != nil && *c.Subscribe
-}
+// // SubscribeEnabled checks if subscription functionality is enabled
+// func (c *Components) SubscribeEnabled() bool {
+// 	return c.Subscribe != nil && *c.Subscribe
+// }
 
-// UnsubscribeEnabled checks if unsubscribe functionality is enabled
-func (c *Components) UnsubscribeEnabled() bool {
-	return c.Subscribe != nil && *c.Subscribe
-}
+// // UnsubscribeEnabled checks if unsubscribe functionality is enabled
+// func (c *Components) UnsubscribeEnabled() bool {
+// 	return c.Subscribe != nil && *c.Subscribe
+// }
 
-// AutoPairUpdatesEnabled checks if auto pair updating functionality is enabled
-func (c *Components) AutoPairUpdatesEnabled() bool {
-	return c.Subscribe != nil && *c.Subscribe
-}
+// // AutoPairUpdatesEnabled checks if auto pair updating functionality is enabled
+// func (c *Components) AutoPairUpdatesEnabled() bool {
+// 	return c.Subscribe != nil && *c.Subscribe
+// }
 
 // Update takes in a secondary functionality list to ensure default full list is
 // primed

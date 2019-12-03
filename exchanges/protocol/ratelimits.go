@@ -1,13 +1,12 @@
 package protocol
 
-var limits map[string]map[string]RateLimits
+import "golang.org/x/time/rate"
 
-// RateLimits defines exchange side rate limits for each individual protocol
-type RateLimits struct {
-	Authenticated   Limit
-	Unauthenticated Limit
-	count           int32
-}
+// var limits map[string]map[string]RateLimits
 
-// Limit in duration
-type Limit int64
+type Rate rate.Limit
+
+// func HelloRate() {
+// 	r := rate.NewLimiter(1, 3)
+// 	r
+// }
