@@ -5077,6 +5077,156 @@ func (m *AuditEvent) GetTimestamp() string {
 	return ""
 }
 
+type GetOHLCRequest struct {
+	Exchange             string        `protobuf:"bytes,1,opt,name=exchange,proto3" json:"exchange,omitempty"`
+	Pair                 *CurrencyPair `protobuf:"bytes,2,opt,name=pair,proto3" json:"pair,omitempty"`
+	AssetType            string        `protobuf:"bytes,3,opt,name=asset_type,json=assetType,proto3" json:"asset_type,omitempty"`
+	Interval             string        `protobuf:"bytes,4,opt,name=interval,proto3" json:"interval,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+	XXX_unrecognized     []byte        `json:"-"`
+	XXX_sizecache        int32         `json:"-"`
+}
+
+func (m *GetOHLCRequest) Reset()         { *m = GetOHLCRequest{} }
+func (m *GetOHLCRequest) String() string { return proto.CompactTextString(m) }
+func (*GetOHLCRequest) ProtoMessage()    {}
+func (*GetOHLCRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_77a6da22d6a3feb1, []int{99}
+}
+
+func (m *GetOHLCRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetOHLCRequest.Unmarshal(m, b)
+}
+func (m *GetOHLCRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetOHLCRequest.Marshal(b, m, deterministic)
+}
+func (m *GetOHLCRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetOHLCRequest.Merge(m, src)
+}
+func (m *GetOHLCRequest) XXX_Size() int {
+	return xxx_messageInfo_GetOHLCRequest.Size(m)
+}
+func (m *GetOHLCRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetOHLCRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetOHLCRequest proto.InternalMessageInfo
+
+func (m *GetOHLCRequest) GetExchange() string {
+	if m != nil {
+		return m.Exchange
+	}
+	return ""
+}
+
+func (m *GetOHLCRequest) GetPair() *CurrencyPair {
+	if m != nil {
+		return m.Pair
+	}
+	return nil
+}
+
+func (m *GetOHLCRequest) GetAssetType() string {
+	if m != nil {
+		return m.AssetType
+	}
+	return ""
+}
+
+func (m *GetOHLCRequest) GetInterval() string {
+	if m != nil {
+		return m.Interval
+	}
+	return ""
+}
+
+type GetOHLCResponse struct {
+	Open                 []float64 `protobuf:"fixed64,1,rep,packed,name=open,proto3" json:"open,omitempty"`
+	High                 []float64 `protobuf:"fixed64,2,rep,packed,name=high,proto3" json:"high,omitempty"`
+	Low                  []float64 `protobuf:"fixed64,3,rep,packed,name=low,proto3" json:"low,omitempty"`
+	Close                []float64 `protobuf:"fixed64,4,rep,packed,name=close,proto3" json:"close,omitempty"`
+	Volume               []float64 `protobuf:"fixed64,5,rep,packed,name=volume,proto3" json:"volume,omitempty"`
+	PercentageChange     []float64 `protobuf:"fixed64,6,rep,packed,name=percentageChange,proto3" json:"percentageChange,omitempty"`
+	Date                 []int64   `protobuf:"varint,7,rep,packed,name=date,proto3" json:"date,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
+	XXX_unrecognized     []byte    `json:"-"`
+	XXX_sizecache        int32     `json:"-"`
+}
+
+func (m *GetOHLCResponse) Reset()         { *m = GetOHLCResponse{} }
+func (m *GetOHLCResponse) String() string { return proto.CompactTextString(m) }
+func (*GetOHLCResponse) ProtoMessage()    {}
+func (*GetOHLCResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_77a6da22d6a3feb1, []int{100}
+}
+
+func (m *GetOHLCResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetOHLCResponse.Unmarshal(m, b)
+}
+func (m *GetOHLCResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetOHLCResponse.Marshal(b, m, deterministic)
+}
+func (m *GetOHLCResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetOHLCResponse.Merge(m, src)
+}
+func (m *GetOHLCResponse) XXX_Size() int {
+	return xxx_messageInfo_GetOHLCResponse.Size(m)
+}
+func (m *GetOHLCResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetOHLCResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetOHLCResponse proto.InternalMessageInfo
+
+func (m *GetOHLCResponse) GetOpen() []float64 {
+	if m != nil {
+		return m.Open
+	}
+	return nil
+}
+
+func (m *GetOHLCResponse) GetHigh() []float64 {
+	if m != nil {
+		return m.High
+	}
+	return nil
+}
+
+func (m *GetOHLCResponse) GetLow() []float64 {
+	if m != nil {
+		return m.Low
+	}
+	return nil
+}
+
+func (m *GetOHLCResponse) GetClose() []float64 {
+	if m != nil {
+		return m.Close
+	}
+	return nil
+}
+
+func (m *GetOHLCResponse) GetVolume() []float64 {
+	if m != nil {
+		return m.Volume
+	}
+	return nil
+}
+
+func (m *GetOHLCResponse) GetPercentageChange() []float64 {
+	if m != nil {
+		return m.PercentageChange
+	}
+	return nil
+}
+
+func (m *GetOHLCResponse) GetDate() []int64 {
+	if m != nil {
+		return m.Date
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*GetInfoRequest)(nil), "gctrpc.GetInfoRequest")
 	proto.RegisterType((*GetInfoResponse)(nil), "gctrpc.GetInfoResponse")
@@ -5562,6 +5712,7 @@ type GoCryptoTraderClient interface {
 	GetTickerStream(ctx context.Context, in *GetTickerStreamRequest, opts ...grpc.CallOption) (GoCryptoTrader_GetTickerStreamClient, error)
 	GetExchangeTickerStream(ctx context.Context, in *GetExchangeTickerStreamRequest, opts ...grpc.CallOption) (GoCryptoTrader_GetExchangeTickerStreamClient, error)
 	GetAuditEvent(ctx context.Context, in *GetAuditEventRequest, opts ...grpc.CallOption) (*GetAuditEventResponse, error)
+	GetOHLC(ctx context.Context, in *GetOHLCRequest, opts ...grpc.CallOption) (*GetOHLCResponse, error)
 }
 
 type goCryptoTraderClient struct {
@@ -6096,6 +6247,15 @@ func (c *goCryptoTraderClient) GetAuditEvent(ctx context.Context, in *GetAuditEv
 	return out, nil
 }
 
+func (c *goCryptoTraderClient) GetOHLC(ctx context.Context, in *GetOHLCRequest, opts ...grpc.CallOption) (*GetOHLCResponse, error) {
+	out := new(GetOHLCResponse)
+	err := c.cc.Invoke(ctx, "/gctrpc.GoCryptoTrader/GetOHLC", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // GoCryptoTraderServer is the server API for GoCryptoTrader service.
 type GoCryptoTraderServer interface {
 	GetInfo(context.Context, *GetInfoRequest) (*GetInfoResponse, error)
@@ -6146,6 +6306,159 @@ type GoCryptoTraderServer interface {
 	GetTickerStream(*GetTickerStreamRequest, GoCryptoTrader_GetTickerStreamServer) error
 	GetExchangeTickerStream(*GetExchangeTickerStreamRequest, GoCryptoTrader_GetExchangeTickerStreamServer) error
 	GetAuditEvent(context.Context, *GetAuditEventRequest) (*GetAuditEventResponse, error)
+	GetOHLC(context.Context, *GetOHLCRequest) (*GetOHLCResponse, error)
+}
+
+// UnimplementedGoCryptoTraderServer can be embedded to have forward compatible implementations.
+type UnimplementedGoCryptoTraderServer struct {
+}
+
+func (*UnimplementedGoCryptoTraderServer) GetInfo(ctx context.Context, req *GetInfoRequest) (*GetInfoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetInfo not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetSubsystems(ctx context.Context, req *GetSubsystemsRequest) (*GetSusbsytemsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSubsystems not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) EnableSubsystem(ctx context.Context, req *GenericSubsystemRequest) (*GenericSubsystemResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EnableSubsystem not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) DisableSubsystem(ctx context.Context, req *GenericSubsystemRequest) (*GenericSubsystemResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DisableSubsystem not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetRPCEndpoints(ctx context.Context, req *GetRPCEndpointsRequest) (*GetRPCEndpointsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRPCEndpoints not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetCommunicationRelayers(ctx context.Context, req *GetCommunicationRelayersRequest) (*GetCommunicationRelayersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCommunicationRelayers not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetExchanges(ctx context.Context, req *GetExchangesRequest) (*GetExchangesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetExchanges not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) DisableExchange(ctx context.Context, req *GenericExchangeNameRequest) (*GenericExchangeNameResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DisableExchange not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetExchangeInfo(ctx context.Context, req *GenericExchangeNameRequest) (*GetExchangeInfoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetExchangeInfo not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetExchangeOTPCode(ctx context.Context, req *GenericExchangeNameRequest) (*GetExchangeOTPReponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetExchangeOTPCode not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetExchangeOTPCodes(ctx context.Context, req *GetExchangeOTPsRequest) (*GetExchangeOTPsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetExchangeOTPCodes not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) EnableExchange(ctx context.Context, req *GenericExchangeNameRequest) (*GenericExchangeNameResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EnableExchange not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetTicker(ctx context.Context, req *GetTickerRequest) (*TickerResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTicker not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetTickers(ctx context.Context, req *GetTickersRequest) (*GetTickersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTickers not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetOrderbook(ctx context.Context, req *GetOrderbookRequest) (*OrderbookResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetOrderbook not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetOrderbooks(ctx context.Context, req *GetOrderbooksRequest) (*GetOrderbooksResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetOrderbooks not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetAccountInfo(ctx context.Context, req *GetAccountInfoRequest) (*GetAccountInfoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAccountInfo not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetConfig(ctx context.Context, req *GetConfigRequest) (*GetConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetConfig not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetPortfolio(ctx context.Context, req *GetPortfolioRequest) (*GetPortfolioResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPortfolio not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetPortfolioSummary(ctx context.Context, req *GetPortfolioSummaryRequest) (*GetPortfolioSummaryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPortfolioSummary not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) AddPortfolioAddress(ctx context.Context, req *AddPortfolioAddressRequest) (*AddPortfolioAddressResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddPortfolioAddress not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) RemovePortfolioAddress(ctx context.Context, req *RemovePortfolioAddressRequest) (*RemovePortfolioAddressResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemovePortfolioAddress not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetForexProviders(ctx context.Context, req *GetForexProvidersRequest) (*GetForexProvidersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetForexProviders not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetForexRates(ctx context.Context, req *GetForexRatesRequest) (*GetForexRatesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetForexRates not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetOrders(ctx context.Context, req *GetOrdersRequest) (*GetOrdersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetOrders not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetOrder(ctx context.Context, req *GetOrderRequest) (*OrderDetails, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetOrder not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) SubmitOrder(ctx context.Context, req *SubmitOrderRequest) (*SubmitOrderResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SubmitOrder not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) SimulateOrder(ctx context.Context, req *SimulateOrderRequest) (*SimulateOrderResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SimulateOrder not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) WhaleBomb(ctx context.Context, req *WhaleBombRequest) (*SimulateOrderResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method WhaleBomb not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) CancelOrder(ctx context.Context, req *CancelOrderRequest) (*CancelOrderResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CancelOrder not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) CancelAllOrders(ctx context.Context, req *CancelAllOrdersRequest) (*CancelAllOrdersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CancelAllOrders not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetEvents(ctx context.Context, req *GetEventsRequest) (*GetEventsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetEvents not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) AddEvent(ctx context.Context, req *AddEventRequest) (*AddEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddEvent not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) RemoveEvent(ctx context.Context, req *RemoveEventRequest) (*RemoveEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemoveEvent not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetCryptocurrencyDepositAddresses(ctx context.Context, req *GetCryptocurrencyDepositAddressesRequest) (*GetCryptocurrencyDepositAddressesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCryptocurrencyDepositAddresses not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetCryptocurrencyDepositAddress(ctx context.Context, req *GetCryptocurrencyDepositAddressRequest) (*GetCryptocurrencyDepositAddressResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCryptocurrencyDepositAddress not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) WithdrawCryptocurrencyFunds(ctx context.Context, req *WithdrawCurrencyRequest) (*WithdrawResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method WithdrawCryptocurrencyFunds not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) WithdrawFiatFunds(ctx context.Context, req *WithdrawCurrencyRequest) (*WithdrawResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method WithdrawFiatFunds not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetLoggerDetails(ctx context.Context, req *GetLoggerDetailsRequest) (*GetLoggerDetailsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetLoggerDetails not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) SetLoggerDetails(ctx context.Context, req *SetLoggerDetailsRequest) (*GetLoggerDetailsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetLoggerDetails not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetExchangePairs(ctx context.Context, req *GetExchangePairsRequest) (*GetExchangePairsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetExchangePairs not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) EnableExchangePair(ctx context.Context, req *ExchangePairRequest) (*GenericExchangeNameResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EnableExchangePair not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) DisableExchangePair(ctx context.Context, req *ExchangePairRequest) (*GenericExchangeNameResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DisableExchangePair not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetOrderbookStream(req *GetOrderbookStreamRequest, srv GoCryptoTrader_GetOrderbookStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetOrderbookStream not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetExchangeOrderbookStream(req *GetExchangeOrderbookStreamRequest, srv GoCryptoTrader_GetExchangeOrderbookStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetExchangeOrderbookStream not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetTickerStream(req *GetTickerStreamRequest, srv GoCryptoTrader_GetTickerStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetTickerStream not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetExchangeTickerStream(req *GetExchangeTickerStreamRequest, srv GoCryptoTrader_GetExchangeTickerStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetExchangeTickerStream not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetAuditEvent(ctx context.Context, req *GetAuditEventRequest) (*GetAuditEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAuditEvent not implemented")
+}
+func (*UnimplementedGoCryptoTraderServer) GetOHLC(ctx context.Context, req *GetOHLCRequest) (*GetOHLCResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetOHLC not implemented")
 }
 
 // UnimplementedGoCryptoTraderServer can be embedded to have forward compatible implementations.
@@ -7177,6 +7490,24 @@ func _GoCryptoTrader_GetAuditEvent_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _GoCryptoTrader_GetOHLC_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetOHLCRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GoCryptoTraderServer).GetOHLC(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gctrpc.GoCryptoTrader/GetOHLC",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GoCryptoTraderServer).GetOHLC(ctx, req.(*GetOHLCRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _GoCryptoTrader_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "gctrpc.GoCryptoTrader",
 	HandlerType: (*GoCryptoTraderServer)(nil),
@@ -7356,6 +7687,10 @@ var _GoCryptoTrader_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetAuditEvent",
 			Handler:    _GoCryptoTrader_GetAuditEvent_Handler,
+		},
+		{
+			MethodName: "GetOHLC",
+			Handler:    _GoCryptoTrader_GetOHLC_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

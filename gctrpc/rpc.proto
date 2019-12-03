@@ -528,6 +528,23 @@ message AuditEvent {
     string timestamp = 4;
 }
 
+message GetOHLCRequest {
+    string exchange = 1;
+    CurrencyPair pair = 2;
+    string asset_type = 3;
+    string interval = 4;
+}
+
+message GetOHLCResponse {
+    repeated double open = 1;
+    repeated double high = 2;
+    repeated double low = 3;
+    repeated double close = 4;
+    repeated double volume = 5;
+    repeated double percentageChange = 6;
+    repeated int64 date = 7;
+}
+
 service GoCryptoTrader {
     rpc GetInfo (GetInfoRequest) returns (GetInfoResponse) {
         option (google.api.http) = {
@@ -838,6 +855,12 @@ service GoCryptoTrader {
     rpc GetAuditEvent(GetAuditEventRequest) returns (GetAuditEventResponse) {
         option (google.api.http) = {
             get: "/v1/getauditevent"
+        };
+    }
+
+    rpc GetOHLC(GetOHLCRequest) returns (GetOHLCResponse) {
+        option (google.api.http) = {
+            get: "/v1/getohlc"
         };
     }
 }

@@ -311,8 +311,8 @@ func WebsocketDataHandler(ws *wshandler.Websocket) {
 					Pair:        d.Pair,
 					LastUpdated: d.Timestamp,
 				}
-				if Bot.Settings.EnableExchangeSyncManager && Bot.ExchangeCurrencyPairManager != nil {
-					Bot.ExchangeCurrencyPairManager.update(ws.GetName(),
+				if Bot.Settings.EnableExchangeSyncManager && Bot.SyncManager != nil {
+					Bot.SyncManager.update(ws.GetName(),
 						d.Pair, d.AssetType, SyncItemTicker, nil)
 				}
 				err := ticker.ProcessTicker(ws.GetName(), &tickerNew, d.AssetType)
@@ -328,8 +328,8 @@ func WebsocketDataHandler(ws *wshandler.Websocket) {
 			case wshandler.WebsocketOrderbookUpdate:
 				// Orderbook data
 				result := data.(wshandler.WebsocketOrderbookUpdate)
-				if Bot.Settings.EnableExchangeSyncManager && Bot.ExchangeCurrencyPairManager != nil {
-					Bot.ExchangeCurrencyPairManager.update(ws.GetName(),
+				if Bot.Settings.EnableExchangeSyncManager && Bot.SyncManager != nil {
+					Bot.SyncManager.update(ws.GetName(),
 						result.Pair, result.Asset, SyncItemOrderbook, nil)
 				}
 				// TO-DO: printOrderbookSummary

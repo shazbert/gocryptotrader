@@ -3337,6 +3337,26 @@ func RegisterGoCryptoTraderHandlerClient(ctx context.Context, mux *runtime.Serve
 
 	})
 
+	mux.Handle("GET", pattern_GoCryptoTrader_GetOHLC_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		rctx, err := runtime.AnnotateContext(ctx, mux, req)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_GoCryptoTrader_GetOHLC_0(rctx, inboundMarshaler, client, req, pathParams)
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_GoCryptoTrader_GetOHLC_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
 	return nil
 }
 
@@ -3436,6 +3456,8 @@ var (
 	pattern_GoCryptoTrader_GetExchangeTickerStream_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "getexchangetickerstream"}, "", runtime.AssumeColonVerbOpt(true)))
 
 	pattern_GoCryptoTrader_GetAuditEvent_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "getauditevent"}, "", runtime.AssumeColonVerbOpt(true)))
+
+	pattern_GoCryptoTrader_GetOHLC_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "getohlc"}, "", runtime.AssumeColonVerbOpt(true)))
 )
 
 var (
@@ -3534,4 +3556,6 @@ var (
 	forward_GoCryptoTrader_GetExchangeTickerStream_0 = runtime.ForwardResponseStream
 
 	forward_GoCryptoTrader_GetAuditEvent_0 = runtime.ForwardResponseMessage
+
+	forward_GoCryptoTrader_GetOHLC_0 = runtime.ForwardResponseMessage
 )
