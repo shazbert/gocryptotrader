@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/thrasher-corp/gocryptotrader/common"
+	"github.com/thrasher-corp/gocryptotrader/common/convert"
 	"github.com/thrasher-corp/gocryptotrader/config"
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	exchange "github.com/thrasher-corp/gocryptotrader/exchanges"
@@ -72,36 +73,41 @@ func (b *Binance) SetDefaults() {
 	withdrawalPermission := exchange.AutoWithdrawCrypto |
 		exchange.NoFiatWithdrawals
 
+	globalRate := protocol.GetNewGlobalRate(time.Second,
+		time.Second,
+		binanceAuthRate,
+		binanceUnauthRate)
+
 	b.Features = &protocol.Features{
 		REST: &protocol.Components{
 			Enabled:             true,
-			TickerBatching:      protocol.On,
-			TickerFetching:      protocol.On,
-			KlineFetching:       protocol.On,
-			OrderbookFetching:   protocol.On,
-			AutoPairUpdates:     protocol.On,
-			AccountInfo:         protocol.On,
-			CryptoDeposit:       protocol.On,
-			CryptoWithdrawal:    protocol.On,
-			GetOrder:            protocol.On,
-			GetOrders:           protocol.On,
-			CancelOrders:        protocol.On,
-			CancelOrder:         protocol.On,
-			SubmitOrder:         protocol.On,
-			DepositHistory:      protocol.On,
-			WithdrawalHistory:   protocol.On,
-			TradeFetching:       protocol.On,
-			UserTradeHistory:    protocol.On,
-			TradeFee:            protocol.On,
-			CryptoWithdrawalFee: protocol.On,
+			TickerBatching:      protocol.SetNewComponent(globalRate, true, false),
+			TickerFetching:      protocol.SetNewComponent(globalRate, true, false),
+			KlineFetching:       protocol.SetNewComponent(globalRate, true, false),
+			OrderbookFetching:   protocol.SetNewComponent(globalRate, true, false),
+			AutoPairUpdates:     protocol.SetNewComponent(globalRate, true, false),
+			AccountInfo:         protocol.SetNewComponent(globalRate, true, true),
+			CryptoDeposit:       protocol.SetNewComponent(globalRate, true, true),
+			CryptoWithdrawal:    protocol.SetNewComponent(globalRate, true, true),
+			GetOrder:            protocol.SetNewComponent(globalRate, true, true),
+			GetOrders:           protocol.SetNewComponent(globalRate, true, true),
+			CancelOrders:        protocol.SetNewComponent(globalRate, true, true),
+			CancelOrder:         protocol.SetNewComponent(globalRate, true, true),
+			SubmitOrder:         protocol.SetNewComponent(globalRate, true, true),
+			DepositHistory:      protocol.SetNewComponent(globalRate, true, true),
+			WithdrawalHistory:   protocol.SetNewComponent(globalRate, true, true),
+			TradeFetching:       protocol.SetNewComponent(globalRate, true, false),
+			UserTradeHistory:    protocol.SetNewComponent(globalRate, true, true),
+			TradeFee:            protocol.SetNewComponent(globalRate, true, true),
+			CryptoWithdrawalFee: protocol.SetNewComponent(globalRate, true, true),
 			Withdraw:            &withdrawalPermission,
 		},
 		Websocket: &protocol.Components{
 			Enabled:           true,
-			TradeFetching:     protocol.On,
-			TickerFetching:    protocol.On,
-			KlineFetching:     protocol.On,
-			OrderbookFetching: protocol.On,
+			TradeFetching:     protocol.SetNewComponentNoRate(true, false),
+			TickerFetching:    protocol.SetNewComponentNoRate(true, false),
+			KlineFetching:     protocol.SetNewComponentNoRate(true, false),
+			OrderbookFetching: protocol.SetNewComponentNoRate(true, false),
 		},
 	}
 
@@ -398,15 +404,15 @@ func (b *Binance) GetExchangeHistory(p *exchange.TradeHistoryRequest) ([]exchang
 	// time thus reducing request data.
 	trades, err := b.GetAggregatedTrades(formattedPair.String(),
 		1000,
-		common.UnixMillis(p.TimestampStart),
-		common.UnixMillis(timestampEnd))
+		convert.UnixMillis(p.TimestampStart),
+		convert.UnixMillis(timestampEnd))
 	if err != nil {
 		return resp, err
 	}
 
 	for i := range trades {
 		resp = append(resp, exchange.TradeHistory{
-			Timestamp:    time.Unix(0, common.UnixMillisToNano(trades[i].TimeStamp)),
+			// Timestamp:    time.Unix(0, common.UnixMillisToNano(trades[i].TimeStamp)),
 			TID:          strconv.FormatInt(trades[i].ATradeID, 10),
 			FirstTradeID: strconv.FormatInt(trades[i].FirstTradeID, 10),
 			LastTradeID:  strconv.FormatInt(trades[i].LastTradeID, 10),

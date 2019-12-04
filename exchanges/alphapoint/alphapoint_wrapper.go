@@ -41,27 +41,32 @@ func (a *Alphapoint) SetDefaults() {
 		exchange.AutoWithdrawCryptoWithAPIPermission |
 		exchange.NoFiatWithdrawals
 
+	globalRate := protocol.GetNewGlobalRate(time.Minute*10,
+		time.Minute*10,
+		alphapointAuthRate,
+		alphapointUnauthRate)
+
 	a.Features = &protocol.Features{
 		REST: &protocol.Components{
 			Enabled:           true,
-			AccountInfo:       protocol.On,
-			TickerFetching:    protocol.On,
-			TradeFetching:     protocol.On,
-			OrderbookFetching: protocol.On,
-			GetOrders:         protocol.On,
-			CancelOrder:       protocol.On,
-			CancelOrders:      protocol.On,
-			SubmitOrder:       protocol.On,
-			ModifyOrder:       protocol.On,
-			UserTradeHistory:  protocol.On,
-			CryptoDeposit:     protocol.On,
-			CryptoWithdrawal:  protocol.On,
-			TradeFee:          protocol.On,
+			AccountInfo:       protocol.SetNewComponent(globalRate, true, true),
+			TickerFetching:    protocol.SetNewComponent(globalRate, true, false),
+			TradeFetching:     protocol.SetNewComponent(globalRate, true, false),
+			OrderbookFetching: protocol.SetNewComponent(globalRate, true, false),
+			GetOrders:         protocol.SetNewComponent(globalRate, true, true),
+			CancelOrder:       protocol.SetNewComponent(globalRate, true, true),
+			CancelOrders:      protocol.SetNewComponent(globalRate, true, true),
+			SubmitOrder:       protocol.SetNewComponent(globalRate, true, true),
+			ModifyOrder:       protocol.SetNewComponent(globalRate, true, true),
+			UserTradeHistory:  protocol.SetNewComponent(globalRate, true, true),
+			CryptoDeposit:     protocol.SetNewComponent(globalRate, true, true),
+			CryptoWithdrawal:  protocol.SetNewComponent(globalRate, true, true),
+			TradeFee:          protocol.SetNewComponent(globalRate, true, true),
 			Withdraw:          &withdrawPermissions,
 		},
 		Websocket: &protocol.Components{
 			Enabled:     true,
-			AccountInfo: protocol.On,
+			AccountInfo: protocol.SetNewComponentNoRate(true, true),
 		},
 	}
 

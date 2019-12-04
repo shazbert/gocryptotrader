@@ -36,7 +36,7 @@ func (b *Bitfinex) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if *b.Features.REST.AutoPairUpdates {
+	if b.Features.REST.AutoPairUpdatesEnabled() {
 		err = b.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -71,43 +71,48 @@ func (b *Bitfinex) SetDefaults() {
 	withdrawPermissions := exchange.AutoWithdrawCryptoWithAPIPermission |
 		exchange.AutoWithdrawFiatWithAPIPermission
 
+	globalRate := protocol.GetNewGlobalRate(time.Minute,
+		time.Minute,
+		bitfinexAuthRate,
+		bitfinexUnauthRate)
+
 	b.Features = &protocol.Features{
 		REST: &protocol.Components{
 			Enabled:             true,
-			TickerBatching:      protocol.On,
-			TickerFetching:      protocol.On,
-			OrderbookFetching:   protocol.On,
-			AutoPairUpdates:     protocol.On,
-			AccountInfo:         protocol.On,
-			CryptoDeposit:       protocol.On,
-			CryptoWithdrawal:    protocol.On,
-			FiatWithdraw:        protocol.On,
-			GetOrder:            protocol.On,
-			GetOrders:           protocol.On,
-			CancelOrders:        protocol.On,
-			CancelOrder:         protocol.On,
-			SubmitOrder:         protocol.On,
-			SubmitOrders:        protocol.On,
-			ModifyOrder:         protocol.On,
-			DepositHistory:      protocol.On,
-			WithdrawalHistory:   protocol.On,
-			TradeFetching:       protocol.On,
-			UserTradeHistory:    protocol.On,
-			TradeFee:            protocol.On,
-			FiatDepositFee:      protocol.On,
-			FiatWithdrawalFee:   protocol.On,
-			CryptoDepositFee:    protocol.On,
-			CryptoWithdrawalFee: protocol.On,
+			TickerBatching:      protocol.SetNewComponent(globalRate, true, false),
+			TickerFetching:      protocol.SetNewComponent(globalRate, true, false),
+			OrderbookFetching:   protocol.SetNewComponent(globalRate, true, false),
+			AutoPairUpdates:     protocol.SetNewComponent(globalRate, true, false),
+			AccountInfo:         protocol.SetNewComponent(globalRate, true, true),
+			CryptoDeposit:       protocol.SetNewComponent(globalRate, true, true),
+			CryptoWithdrawal:    protocol.SetNewComponent(globalRate, true, true),
+			FiatWithdraw:        protocol.SetNewComponent(globalRate, true, true),
+			GetOrder:            protocol.SetNewComponent(globalRate, true, true),
+			GetOrders:           protocol.SetNewComponent(globalRate, true, true),
+			CancelOrders:        protocol.SetNewComponent(globalRate, true, true),
+			CancelOrder:         protocol.SetNewComponent(globalRate, true, true),
+			SubmitOrder:         protocol.SetNewComponent(globalRate, true, true),
+			SubmitOrders:        protocol.SetNewComponent(globalRate, true, true),
+			ModifyOrder:         protocol.SetNewComponent(globalRate, true, true),
+			DepositHistory:      protocol.SetNewComponent(globalRate, true, true),
+			WithdrawalHistory:   protocol.SetNewComponent(globalRate, true, true),
+			TradeFetching:       protocol.SetNewComponent(globalRate, true, false),
+			UserTradeHistory:    protocol.SetNewComponent(globalRate, true, true),
+			TradeFee:            protocol.SetNewComponent(globalRate, true, true),
+			FiatDepositFee:      protocol.SetNewComponent(globalRate, true, true),
+			FiatWithdrawalFee:   protocol.SetNewComponent(globalRate, true, true),
+			CryptoDepositFee:    protocol.SetNewComponent(globalRate, true, true),
+			CryptoWithdrawalFee: protocol.SetNewComponent(globalRate, true, true),
 			Withdraw:            &withdrawPermissions,
 		},
 		Websocket: &protocol.Components{
 			Enabled:                true,
-			TickerFetching:         protocol.On,
-			TradeFetching:          protocol.On,
-			OrderbookFetching:      protocol.On,
-			Subscribe:              protocol.On,
-			Unsubscribe:            protocol.On,
-			AuthenticatedEndpoints: protocol.On,
+			TickerFetching:         protocol.SetNewComponentNoRate(true, false),
+			TradeFetching:          protocol.SetNewComponentNoRate(true, false),
+			OrderbookFetching:      protocol.SetNewComponentNoRate(true, false),
+			Subscribe:              protocol.SetNewComponentNoRate(true, false),
+			Unsubscribe:            protocol.SetNewComponentNoRate(true, false),
+			AuthenticatedEndpoints: protocol.SetNewComponentNoRate(true, true),
 		},
 	}
 

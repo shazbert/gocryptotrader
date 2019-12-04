@@ -7,48 +7,81 @@ import (
 	"time"
 )
 
-var (
-// // On infers functionality support and enabled
-// On = func(s *GlobalRate) *Component { b := true; return &b }
-// // Off infers functionality support and disabled
-// Off = func() *bool { b := false; return &b }
-)
-
-// DefaultGlobalRate this defaults the rate to once every second
-var DefaultGlobalRate = &GlobalRate{
-	Auth:   rate.NewLimiter(1, 1),
-	UnAuth: rate.NewLimiter(1, 1),
+// GetNewGlobalRate returns a new global rate limit
+func GetNewGlobalRate(authTime, unAuthTime time.Duration, authCount, unAuthCount int) *GlobalRate {
+	return &GlobalRate{
+		Auth:   rate.NewLimiter(rate.Every(authTime), authCount),
+		UnAuth: rate.NewLimiter(rate.Every(unAuthTime), unAuthCount),
+	}
 }
 
-func SetNewComponentWithGlobalRate(gr *GlobalRate, enabled bool) *Component {
-	if gr == nil {
+// GetNewSpecificRate returns a new rate limiter specific for a functions rate
+// limit
+func GetNewSpecificRate(timeLimit time.Duration, count int) *SpecificRate {
+	return &SpecificRate{
+		Rate: rate.NewLimiter(rate.Every(timeLimit), count),
+	}
+}
+
+// SetNewComponent sets rate limit for individual component, can either set
+// as global rate, specific rate.
+func SetNewComponent(l Limiter, enabled, auth bool) *Component {
+	if l == nil {
 		fmt.Println("globalrate not supplied using default")
 		return &Component{
 			Enabled: enabled,
 			Rate:    DefaultGlobalRate,
+			Auth:    auth,
 		}
 	}
 
 	return &Component{
 		Enabled: enabled,
-		Rate:    gr,
+		Rate:    l,
+		Auth:    auth,
 	}
 }
 
-// Features stores the exchange supported protocol functionality
-type Features struct {
-	REST      *Components `json:"rest,omitempty"`
-	Websocket *Components `json:"websocket,omitempty"`
-	Fix       *Components `json:"fix,omitempty"`
+// SetNewComponentNoRate sets new component without rate limit options due to
+// no protocol requirements
+func SetNewComponentNoRate(enabled, auth bool) *Component {
+	return &Component{
+		Enabled: enabled,
+		Auth:    auth,
+	}
 }
 
-// Permissions defines a set of allowable permissions
-type Permissions uint32
+// Execute initiates a check if can deploy if not rests until there is an
+// opening - this will pause routine
+func (c *Component) Execute() {
+	if c.Rate == nil {
+		return
+	}
+	c.Rate.Execute(c.Auth)
+}
 
-// Component derives a singular potential supported function
-type Component struct {
-	Enabled bool
-	Rate    *GlobalRate `json:"-"`
+// Reserve reserves spots if we have a backlog of orders - this will pause
+// routine or return an error if it exceeds the burst amount
+func (c *Component) Reserve(n int) error {
+	if c.Rate == nil {
+		return errors.New("rate limits not supported for this protocol")
+	}
+	return c.Rate.Reserve(n, c.Auth)
+}
+
+// IsEnabled sets the component to disabled
+func (c *Component) IsEnabled() bool {
+	return c.Enabled
+}
+
+// Enable sets the component to enabled
+func (c *Component) Enable() {
+	c.Enabled = true
+}
+
+// Disable sets the component to disabled
+func (c *Component) Disable() {
+	c.Enabled = false
 }
 
 // Components hold all variables for an exchange protocol functionality
@@ -106,20 +139,20 @@ func (c *Components) TickerBatchingSupported() bool {
 	return c != nil && c.TickerBatching != nil
 }
 
-// // SubscribeEnabled checks if subscription functionality is enabled
-// func (c *Components) SubscribeEnabled() bool {
-// 	return c.Subscribe != nil && *c.Subscribe
-// }
+// SubscribeEnabled checks if subscription functionality is enabled
+func (c *Components) SubscribeEnabled() bool {
+	return c.Subscribe != nil && c.Subscribe.Enabled
+}
 
-// // UnsubscribeEnabled checks if unsubscribe functionality is enabled
-// func (c *Components) UnsubscribeEnabled() bool {
-// 	return c.Subscribe != nil && *c.Subscribe
-// }
+// UnsubscribeEnabled checks if unsubscribe functionality is enabled
+func (c *Components) UnsubscribeEnabled() bool {
+	return c.Unsubscribe != nil && c.Unsubscribe.Enabled
+}
 
-// // AutoPairUpdatesEnabled checks if auto pair updating functionality is enabled
-// func (c *Components) AutoPairUpdatesEnabled() bool {
-// 	return c.Subscribe != nil && *c.Subscribe
-// }
+// AutoPairUpdatesEnabled checks if auto pair updating functionality is enabled
+func (c *Components) AutoPairUpdatesEnabled() bool {
+	return c.AutoPairUpdates != nil && c.AutoPairUpdates.Enabled
+}
 
 // Update takes in a secondary functionality list to ensure default full list is
 // primed
@@ -339,13 +372,4 @@ func (c *Components) Update(p *Components) error {
 	}
 
 	return nil
-}
-
-// TradeHistoryCaveat defines a set of exchange params that will allow for a sync item
-// to be generated to populate via rest the current trading tip and also
-// populate the full historic trade information for a currency asset
-type TradeHistoryCaveat struct {
-	HistoricFetching bool
-	HistoricalOffset time.Duration
-	StartTime        time.Time
 }

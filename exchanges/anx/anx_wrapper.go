@@ -83,26 +83,31 @@ func (a *ANX) SetDefaults() {
 		exchange.WithdrawCryptoWith2FA |
 		exchange.WithdrawFiatViaWebsiteOnly
 
+	globalRate := protocol.GetNewGlobalRate(time.Second,
+		time.Second,
+		anxAuthRate,
+		anxUnauthRate)
+
 	a.Features = &protocol.Features{
 		REST: &protocol.Components{
 			Enabled:             true,
-			TickerFetching:      protocol.On,
-			OrderbookFetching:   protocol.On,
-			AutoPairUpdates:     protocol.Off,
-			AccountInfo:         protocol.On,
-			CryptoDeposit:       protocol.On,
-			CryptoWithdrawal:    protocol.On,
-			GetOrder:            protocol.On,
-			GetOrders:           protocol.On,
-			CancelOrders:        protocol.On,
-			CancelOrder:         protocol.On,
-			SubmitOrder:         protocol.On,
-			DepositHistory:      protocol.On,
-			WithdrawalHistory:   protocol.On,
-			UserTradeHistory:    protocol.On,
-			TradeFee:            protocol.On,
-			FiatWithdrawalFee:   protocol.On,
-			CryptoWithdrawalFee: protocol.On,
+			TickerFetching:      protocol.SetNewComponent(globalRate, true, false),
+			OrderbookFetching:   protocol.SetNewComponent(globalRate, true, false),
+			AutoPairUpdates:     protocol.SetNewComponent(globalRate, false, false),
+			AccountInfo:         protocol.SetNewComponent(globalRate, true, true),
+			CryptoDeposit:       protocol.SetNewComponent(globalRate, true, true),
+			CryptoWithdrawal:    protocol.SetNewComponent(globalRate, true, true),
+			GetOrder:            protocol.SetNewComponent(globalRate, true, true),
+			GetOrders:           protocol.SetNewComponent(globalRate, true, true),
+			CancelOrders:        protocol.SetNewComponent(globalRate, true, true),
+			CancelOrder:         protocol.SetNewComponent(globalRate, true, true),
+			SubmitOrder:         protocol.SetNewComponent(globalRate, true, true),
+			DepositHistory:      protocol.SetNewComponent(globalRate, true, true),
+			WithdrawalHistory:   protocol.SetNewComponent(globalRate, true, true),
+			UserTradeHistory:    protocol.SetNewComponent(globalRate, true, true),
+			TradeFee:            protocol.SetNewComponent(globalRate, true, true),
+			FiatWithdrawalFee:   protocol.SetNewComponent(globalRate, true, true),
+			CryptoWithdrawalFee: protocol.SetNewComponent(globalRate, true, true),
 			Withdraw:            &withdrawalPermission,
 		},
 	}
