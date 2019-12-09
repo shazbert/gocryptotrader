@@ -70,32 +70,37 @@ func (g *Gemini) SetDefaults() {
 		exchange.AutoWithdrawCryptoWithSetup |
 		exchange.WithdrawFiatViaWebsiteOnly
 
+	globalRate := protocol.GetNewGlobalRate(time.Minute,
+		time.Minute,
+		geminiAuthRate,
+		geminiUnauthRate)
+
 	g.Features = &protocol.Features{
 		REST: &protocol.Components{
 			Enabled:             true,
-			TickerFetching:      protocol.On,
-			TradeFetching:       protocol.On,
-			OrderbookFetching:   protocol.On,
-			AutoPairUpdates:     protocol.On,
-			AccountInfo:         protocol.On,
-			GetOrder:            protocol.On,
-			CancelOrders:        protocol.On,
-			CancelOrder:         protocol.On,
-			SubmitOrder:         protocol.On,
-			UserTradeHistory:    protocol.On,
-			CryptoDeposit:       protocol.On,
-			CryptoWithdrawal:    protocol.On,
-			TradeFee:            protocol.On,
-			FiatWithdrawalFee:   protocol.On,
-			CryptoWithdrawalFee: protocol.On,
+			TickerFetching:      protocol.SetNewComponent(globalRate, true, false),
+			TradeFetching:       protocol.SetNewComponent(globalRate, true, false),
+			OrderbookFetching:   protocol.SetNewComponent(globalRate, true, false),
+			AutoPairUpdates:     protocol.SetNewComponent(globalRate, true, false),
+			AccountInfo:         protocol.SetNewComponent(globalRate, true, true),
+			GetOrder:            protocol.SetNewComponent(globalRate, true, true),
+			CancelOrders:        protocol.SetNewComponent(globalRate, true, true),
+			CancelOrder:         protocol.SetNewComponent(globalRate, true, true),
+			SubmitOrder:         protocol.SetNewComponent(globalRate, true, true),
+			UserTradeHistory:    protocol.SetNewComponent(globalRate, true, true),
+			CryptoDeposit:       protocol.SetNewComponent(globalRate, true, true),
+			CryptoWithdrawal:    protocol.SetNewComponent(globalRate, true, true),
+			TradeFee:            protocol.SetNewComponent(globalRate, true, true),
+			FiatWithdrawalFee:   protocol.SetNewComponent(globalRate, true, true),
+			CryptoWithdrawalFee: protocol.SetNewComponent(globalRate, true, true),
 			Withdraw:            &withdrawPermissions,
 		},
 		Websocket: &protocol.Components{
 			Enabled:                true,
-			OrderbookFetching:      protocol.On,
-			TradeFetching:          protocol.On,
-			AuthenticatedEndpoints: protocol.On,
-			MessageSequenceNumbers: protocol.On,
+			OrderbookFetching:      protocol.SetNewComponentNoRate(true, false),
+			TradeFetching:          protocol.SetNewComponentNoRate(true, false),
+			AuthenticatedEndpoints: protocol.SetNewComponentNoRate(true, true),
+			MessageSequenceNumbers: protocol.SetNewComponentNoRate(true, false),
 		},
 	}
 

@@ -35,7 +35,7 @@ func (b *Bitstamp) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if *b.Features.REST.AutoPairUpdates {
+	if b.Features.REST.AutoPairUpdates.Enabled {
 		err = b.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -70,37 +70,42 @@ func (b *Bitstamp) SetDefaults() {
 	withdrawalPermissions := exchange.AutoWithdrawCrypto |
 		exchange.AutoWithdrawFiat
 
+	globalRate := protocol.GetNewGlobalRate(time.Minute*10,
+		time.Minute*10,
+		bitstampAuthRate,
+		bitstampUnauthRate)
+
 	b.Features = &protocol.Features{
 		REST: &protocol.Components{
 			Enabled:           true,
-			TickerFetching:    protocol.On,
-			TradeFetching:     protocol.On,
-			OrderbookFetching: protocol.On,
-			AutoPairUpdates:   protocol.On,
-			GetOrder:          protocol.On,
-			GetOrders:         protocol.On,
-			CancelOrders:      protocol.On,
-			CancelOrder:       protocol.On,
-			SubmitOrder:       protocol.On,
-			DepositHistory:    protocol.On,
-			WithdrawalHistory: protocol.On,
-			UserTradeHistory:  protocol.On,
-			CryptoDeposit:     protocol.On,
-			CryptoWithdrawal:  protocol.On,
-			FiatDeposit:       protocol.On,
-			FiatWithdraw:      protocol.On,
-			TradeFee:          protocol.On,
-			FiatDepositFee:    protocol.On,
-			FiatWithdrawalFee: protocol.On,
-			CryptoDepositFee:  protocol.On,
+			TickerFetching:    protocol.SetNewComponent(globalRate, true, false),
+			TradeFetching:     protocol.SetNewComponent(globalRate, true, false),
+			OrderbookFetching: protocol.SetNewComponent(globalRate, true, false),
+			AutoPairUpdates:   protocol.SetNewComponent(globalRate, true, false),
+			GetOrder:          protocol.SetNewComponent(globalRate, true, true),
+			GetOrders:         protocol.SetNewComponent(globalRate, true, true),
+			CancelOrders:      protocol.SetNewComponent(globalRate, true, true),
+			CancelOrder:       protocol.SetNewComponent(globalRate, true, true),
+			SubmitOrder:       protocol.SetNewComponent(globalRate, true, true),
+			DepositHistory:    protocol.SetNewComponent(globalRate, true, true),
+			WithdrawalHistory: protocol.SetNewComponent(globalRate, true, true),
+			UserTradeHistory:  protocol.SetNewComponent(globalRate, true, true),
+			CryptoDeposit:     protocol.SetNewComponent(globalRate, true, true),
+			CryptoWithdrawal:  protocol.SetNewComponent(globalRate, true, true),
+			FiatDeposit:       protocol.SetNewComponent(globalRate, true, true),
+			FiatWithdraw:      protocol.SetNewComponent(globalRate, true, true),
+			TradeFee:          protocol.SetNewComponent(globalRate, true, true),
+			FiatDepositFee:    protocol.SetNewComponent(globalRate, true, true),
+			FiatWithdrawalFee: protocol.SetNewComponent(globalRate, true, true),
+			CryptoDepositFee:  protocol.SetNewComponent(globalRate, true, true),
 			Withdraw:          &withdrawalPermissions,
 		},
 		Websocket: &protocol.Components{
 			Enabled:           true,
-			TradeFetching:     protocol.On,
-			OrderbookFetching: protocol.On,
-			Subscribe:         protocol.On,
-			Unsubscribe:       protocol.On,
+			TradeFetching:     protocol.SetNewComponentNoRate(true, false),
+			OrderbookFetching: protocol.SetNewComponentNoRate(true, false),
+			Subscribe:         protocol.SetNewComponentNoRate(true, false),
+			Unsubscribe:       protocol.SetNewComponentNoRate(true, false),
 		},
 	}
 

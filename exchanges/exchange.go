@@ -106,7 +106,9 @@ func (e *Base) SetFeatureDefaults() error {
 
 		// translation from old config code
 		if e.Config.SupportsAutoPairUpdates != nil {
-			e.Features.REST.AutoPairUpdates = e.Config.SupportsAutoPairUpdates
+			e.Features.REST.AutoPairUpdates = &protocol.Component{
+				Enabled: *e.Config.SupportsAutoPairUpdates,
+			}
 			e.Config.SupportsAutoPairUpdates = nil
 		}
 
@@ -199,19 +201,19 @@ func (e *Base) SupportsRESTTickerBatchUpdates() bool {
 	if e.Features.REST == nil || e.Features.REST.TickerBatching == nil {
 		return false
 	}
-	return *e.Features.REST.TickerBatching
+	return true
 }
 
 // SupportsAutoPairUpdates returns whether or not the exchange supports
 // auto currency pair updating
 func (e *Base) SupportsAutoPairUpdates() bool {
 	if e.Features.REST != nil && e.Features.REST.AutoPairUpdates != nil {
-		if *e.Features.REST.AutoPairUpdates {
+		if e.Features.REST.AutoPairUpdates.IsEnabled() {
 			return true
 		}
 	}
 	if e.Features.Websocket != nil && e.Features.Websocket.AutoPairUpdates != nil {
-		if *e.Features.Websocket.AutoPairUpdates {
+		if e.Features.Websocket.AutoPairUpdates.IsEnabled() {
 			return true
 		}
 	}

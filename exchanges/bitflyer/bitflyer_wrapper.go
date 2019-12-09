@@ -66,18 +66,23 @@ func (b *Bitflyer) SetDefaults() {
 		},
 	}
 
+	globalRate := protocol.GetNewGlobalRate(time.Minute,
+		time.Minute,
+		bitflyerAuthRate,
+		bitflyerUnauthRate)
+
 	withdrawPermissions := exchange.WithdrawCryptoViaWebsiteOnly |
 		exchange.AutoWithdrawFiat
 
 	b.Features = &protocol.Features{
 		REST: &protocol.Components{
 			Enabled:           true,
-			TickerFetching:    protocol.On,
-			OrderbookFetching: protocol.On,
-			AutoPairUpdates:   protocol.On,
-			TradeFee:          protocol.On,
-			FiatDepositFee:    protocol.On,
-			FiatWithdrawalFee: protocol.On,
+			TickerFetching:    protocol.SetNewComponent(globalRate, true, false),
+			OrderbookFetching: protocol.SetNewComponent(globalRate, true, false),
+			AutoPairUpdates:   protocol.SetNewComponent(globalRate, true, false),
+			TradeFee:          protocol.SetNewComponent(globalRate, true, true),
+			FiatDepositFee:    protocol.SetNewComponent(globalRate, true, true),
+			FiatWithdrawalFee: protocol.SetNewComponent(globalRate, true, true),
 			Withdraw:          &withdrawPermissions,
 		},
 	}

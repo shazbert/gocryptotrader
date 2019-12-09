@@ -70,31 +70,37 @@ func (l *LakeBTC) SetDefaults() {
 	withdrawPermissions := exchange.AutoWithdrawCrypto |
 		exchange.WithdrawFiatViaWebsiteOnly
 
+	globalRate := protocol.GetNewGlobalRate(time.Second,
+		time.Second,
+		lakeBTCAuthRate,
+		lakeBTCUnauth)
+
 	l.Features = &protocol.Features{
 		REST: &protocol.Components{
 			Enabled:           true,
-			TickerBatching:    protocol.On,
-			TickerFetching:    protocol.On,
-			TradeFetching:     protocol.On,
-			OrderbookFetching: protocol.On,
-			AutoPairUpdates:   protocol.On,
-			AccountInfo:       protocol.On,
-			GetOrder:          protocol.On,
-			GetOrders:         protocol.On,
-			CancelOrders:      protocol.On,
-			CancelOrder:       protocol.On,
-			SubmitOrder:       protocol.On,
-			UserTradeHistory:  protocol.On,
-			CryptoWithdrawal:  protocol.On,
-			TradeFee:          protocol.On,
-			CryptoDepositFee:  protocol.On,
+			TickerBatching:    protocol.SetNewComponent(globalRate, true, false),
+			TickerFetching:    protocol.SetNewComponent(globalRate, true, false),
+			TradeFetching:     protocol.SetNewComponent(globalRate, true, false),
+			OrderbookFetching: protocol.SetNewComponent(globalRate, true, false),
+			AutoPairUpdates:   protocol.SetNewComponent(globalRate, true, false),
+			AccountInfo:       protocol.SetNewComponent(globalRate, true, true),
+			GetOrder:          protocol.SetNewComponent(globalRate, true, true),
+			GetOrders:         protocol.SetNewComponent(globalRate, true, true),
+			CancelOrders:      protocol.SetNewComponent(globalRate, true, true),
+			CancelOrder:       protocol.SetNewComponent(globalRate, true, true),
+			SubmitOrder:       protocol.SetNewComponent(globalRate, true, true),
+			UserTradeHistory:  protocol.SetNewComponent(globalRate, true, true),
+			CryptoWithdrawal:  protocol.SetNewComponent(globalRate, true, true),
+			TradeFee:          protocol.SetNewComponent(globalRate, true, true),
+			CryptoDepositFee:  protocol.SetNewComponent(globalRate, true, true),
 			Withdraw:          &withdrawPermissions,
 		},
 		Websocket: &protocol.Components{
 			Enabled:           true,
-			TradeFetching:     protocol.On,
-			OrderbookFetching: protocol.On,
-			Subscribe:         protocol.On,
+			TradeFetching:     protocol.SetNewComponentNoRate(true, false),
+			OrderbookFetching: protocol.SetNewComponentNoRate(true, false),
+			// Unsub?
+			Subscribe: protocol.SetNewComponentNoRate(true, false),
 		},
 	}
 

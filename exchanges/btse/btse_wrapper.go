@@ -70,32 +70,37 @@ func (b *BTSE) SetDefaults() {
 
 	withdrawPermissions := exchange.NoAPIWithdrawalMethods
 
+	globalRate := protocol.GetNewGlobalRate(time.Second,
+		time.Second,
+		0,
+		0)
+
 	b.Features = &protocol.Features{
 		REST: &protocol.Components{
 			Enabled:             true,
-			TickerFetching:      protocol.On,
-			KlineFetching:       protocol.On,
-			TradeFetching:       protocol.On,
-			OrderbookFetching:   protocol.On,
-			AutoPairUpdates:     protocol.On,
-			AccountInfo:         protocol.On,
-			GetOrder:            protocol.On,
-			GetOrders:           protocol.On,
-			CancelOrders:        protocol.On,
-			CancelOrder:         protocol.On,
-			SubmitOrder:         protocol.On,
-			TradeFee:            protocol.On,
-			FiatDepositFee:      protocol.On,
-			FiatWithdrawalFee:   protocol.On,
-			CryptoWithdrawalFee: protocol.On,
+			TickerFetching:      protocol.SetNewComponent(globalRate, true, false),
+			KlineFetching:       protocol.SetNewComponent(globalRate, true, false),
+			TradeFetching:       protocol.SetNewComponent(globalRate, true, false),
+			OrderbookFetching:   protocol.SetNewComponent(globalRate, true, false),
+			AutoPairUpdates:     protocol.SetNewComponent(globalRate, true, false),
+			AccountInfo:         protocol.SetNewComponent(globalRate, true, true),
+			GetOrder:            protocol.SetNewComponent(globalRate, true, true),
+			GetOrders:           protocol.SetNewComponent(globalRate, true, true),
+			CancelOrders:        protocol.SetNewComponent(globalRate, true, true),
+			CancelOrder:         protocol.SetNewComponent(globalRate, true, true),
+			SubmitOrder:         protocol.SetNewComponent(globalRate, true, true),
+			TradeFee:            protocol.SetNewComponent(globalRate, true, true),
+			FiatDepositFee:      protocol.SetNewComponent(globalRate, true, true),
+			FiatWithdrawalFee:   protocol.SetNewComponent(globalRate, true, true),
+			CryptoWithdrawalFee: protocol.SetNewComponent(globalRate, true, true),
 			Withdraw:            &withdrawPermissions,
 		},
 		Websocket: &protocol.Components{
 			Enabled:           true,
-			TickerFetching:    protocol.On,
-			OrderbookFetching: protocol.On,
-			Subscribe:         protocol.On,
-			Unsubscribe:       protocol.On,
+			TickerFetching:    protocol.SetNewComponentNoRate(true, false),
+			OrderbookFetching: protocol.SetNewComponentNoRate(true, false),
+			Subscribe:         protocol.SetNewComponentNoRate(true, false),
+			Unsubscribe:       protocol.SetNewComponentNoRate(true, false),
 
 			// TradeHistory is supported but it is currently broken on BTSE's
 			// API so it has been left as unsupported

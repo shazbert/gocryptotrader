@@ -72,21 +72,26 @@ func (l *LocalBitcoins) SetDefaults() {
 	withdrawPermissions := exchange.AutoWithdrawCrypto |
 		exchange.WithdrawFiatViaWebsiteOnly
 
+	globalRate := protocol.GetNewGlobalRate(time.Second,
+		time.Second,
+		localbitcoinsAuthRate,
+		localbitcoinsUnauthRate)
+
 	l.Features = &protocol.Features{
 		REST: &protocol.Components{
 			Enabled:           true,
-			TickerBatching:    protocol.On,
-			TickerFetching:    protocol.On,
-			AutoPairUpdates:   protocol.On,
-			AccountInfo:       protocol.On,
-			GetOrder:          protocol.On,
-			CancelOrder:       protocol.On,
-			SubmitOrder:       protocol.On,
-			DepositHistory:    protocol.On,
-			WithdrawalHistory: protocol.On,
-			UserTradeHistory:  protocol.On,
-			CryptoDeposit:     protocol.On,
-			CryptoWithdrawal:  protocol.On,
+			TickerBatching:    protocol.SetNewComponent(globalRate, true, true),
+			TickerFetching:    protocol.SetNewComponent(globalRate, true, true),
+			AutoPairUpdates:   protocol.SetNewComponent(globalRate, true, true),
+			AccountInfo:       protocol.SetNewComponent(globalRate, true, true),
+			GetOrder:          protocol.SetNewComponent(globalRate, true, true),
+			CancelOrder:       protocol.SetNewComponent(globalRate, true, true),
+			SubmitOrder:       protocol.SetNewComponent(globalRate, true, true),
+			DepositHistory:    protocol.SetNewComponent(globalRate, true, true),
+			WithdrawalHistory: protocol.SetNewComponent(globalRate, true, true),
+			UserTradeHistory:  protocol.SetNewComponent(globalRate, true, true),
+			CryptoDeposit:     protocol.SetNewComponent(globalRate, true, true),
+			CryptoWithdrawal:  protocol.SetNewComponent(globalRate, true, true),
 			Withdraw:          &withdrawPermissions,
 		},
 	}

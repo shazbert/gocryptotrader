@@ -33,7 +33,7 @@ func (c *Coinbene) GetDefaultConfig() (*config.ExchangeConfig, error) {
 		return nil, err
 	}
 
-	if *c.Features.REST.AutoPairUpdates {
+	if c.Features.REST.AutoPairUpdates.IsEnabled() {
 		err = c.UpdateTradablePairs(true)
 		if err != nil {
 			return nil, err
@@ -69,34 +69,40 @@ func (c *Coinbene) SetDefaults() {
 	withdrawPermissions := exchange.NoFiatWithdrawals |
 		exchange.WithdrawCryptoViaWebsiteOnly
 
+	globalRate := protocol.GetNewGlobalRate(time.Minute,
+		// Serious deviation from auth to unauth -recheck
+		time.Second,
+		authRateLimit,
+		unauthRateLimit)
+
 	c.Features = &protocol.Features{
 		REST: &protocol.Components{
 			Enabled:           true,
-			TickerFetching:    protocol.On,
-			TradeFetching:     protocol.On,
-			OrderbookFetching: protocol.On,
-			AccountBalance:    protocol.On,
-			AutoPairUpdates:   protocol.On,
-			GetOrder:          protocol.On,
-			GetOrders:         protocol.On,
-			CancelOrder:       protocol.On,
-			CancelOrders:      protocol.On,
-			SubmitOrder:       protocol.On,
-			TradeFee:          protocol.On,
+			TickerFetching:    protocol.SetNewComponent(globalRate, true, false),
+			TradeFetching:     protocol.SetNewComponent(globalRate, true, false),
+			OrderbookFetching: protocol.SetNewComponent(globalRate, true, false),
+			AccountBalance:    protocol.SetNewComponent(globalRate, true, true),
+			AutoPairUpdates:   protocol.SetNewComponent(globalRate, true, true),
+			GetOrder:          protocol.SetNewComponent(globalRate, true, true),
+			GetOrders:         protocol.SetNewComponent(globalRate, true, true),
+			CancelOrder:       protocol.SetNewComponent(globalRate, true, true),
+			CancelOrders:      protocol.SetNewComponent(globalRate, true, true),
+			SubmitOrder:       protocol.SetNewComponent(globalRate, true, true),
+			TradeFee:          protocol.SetNewComponent(globalRate, true, true),
 			Withdraw:          &withdrawPermissions,
 		},
 		// Purposely disabled until SWAP is supported
 		Websocket: &protocol.Components{
-			Enabled:                true,
-			TickerFetching:         protocol.Off,
-			AccountBalance:         protocol.Off,
-			AccountInfo:            protocol.Off,
-			OrderbookFetching:      protocol.Off,
-			TradeFetching:          protocol.Off,
-			KlineFetching:          protocol.Off,
-			Subscribe:              protocol.Off,
-			Unsubscribe:            protocol.Off,
-			AuthenticatedEndpoints: protocol.Off,
+			Enabled:                false,
+			TickerFetching:         protocol.SetNewComponentNoRate(false, false),
+			AccountBalance:         protocol.SetNewComponentNoRate(false, false),
+			AccountInfo:            protocol.SetNewComponentNoRate(false, false),
+			OrderbookFetching:      protocol.SetNewComponentNoRate(false, false),
+			TradeFetching:          protocol.SetNewComponentNoRate(false, false),
+			KlineFetching:          protocol.SetNewComponentNoRate(false, false),
+			Subscribe:              protocol.SetNewComponentNoRate(false, false),
+			Unsubscribe:            protocol.SetNewComponentNoRate(false, false),
+			AuthenticatedEndpoints: protocol.SetNewComponentNoRate(false, true),
 		},
 	}
 
@@ -193,7 +199,7 @@ func (c *Coinbene) Run() {
 		c.PrintEnabledPairs()
 	}
 
-	if !*c.Features.REST.AutoPairUpdates {
+	if !c.Features.REST.AutoPairUpdates.IsEnabled() {
 		return
 	}
 

@@ -307,6 +307,7 @@ func (k *Kraken) GetDepth(symbol string) (Orderbook, error) {
 	return orderBook, err
 }
 
+// TradesResponse and things and stuff and such
 type TradesResponse struct {
 	Error  interface{}            `json:"error"`
 	Result map[string]interface{} `json:"result"`

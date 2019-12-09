@@ -69,25 +69,30 @@ func (l *Lbank) SetDefaults() {
 	withdrawPermissions := exchange.AutoWithdrawCryptoWithAPIPermission |
 		exchange.NoFiatWithdrawals
 
+	globalRate := protocol.GetNewGlobalRate(time.Second,
+		time.Second,
+		lbankAuthRateLimit,
+		lbankUnAuthRateLimit)
+
 	l.Features = &protocol.Features{
 		REST: &protocol.Components{
 			Enabled:             true,
-			TickerBatching:      protocol.On,
-			TickerFetching:      protocol.On,
-			KlineFetching:       protocol.On,
-			TradeFetching:       protocol.On,
-			OrderbookFetching:   protocol.On,
-			AutoPairUpdates:     protocol.On,
-			AccountInfo:         protocol.On,
-			GetOrder:            protocol.On,
-			GetOrders:           protocol.On,
-			CancelOrder:         protocol.On,
-			SubmitOrder:         protocol.On,
-			WithdrawalHistory:   protocol.On,
-			UserTradeHistory:    protocol.On,
-			CryptoWithdrawal:    protocol.On,
-			TradeFee:            protocol.On,
-			CryptoWithdrawalFee: protocol.On,
+			TickerBatching:      protocol.SetNewComponent(globalRate, true, false),
+			TickerFetching:      protocol.SetNewComponent(globalRate, true, false),
+			KlineFetching:       protocol.SetNewComponent(globalRate, true, false),
+			TradeFetching:       protocol.SetNewComponent(globalRate, true, false),
+			OrderbookFetching:   protocol.SetNewComponent(globalRate, true, false),
+			AutoPairUpdates:     protocol.SetNewComponent(globalRate, true, false),
+			AccountInfo:         protocol.SetNewComponent(globalRate, true, true),
+			GetOrder:            protocol.SetNewComponent(globalRate, true, true),
+			GetOrders:           protocol.SetNewComponent(globalRate, true, true),
+			CancelOrder:         protocol.SetNewComponent(globalRate, true, true),
+			SubmitOrder:         protocol.SetNewComponent(globalRate, true, true),
+			WithdrawalHistory:   protocol.SetNewComponent(globalRate, true, true),
+			UserTradeHistory:    protocol.SetNewComponent(globalRate, true, true),
+			CryptoWithdrawal:    protocol.SetNewComponent(globalRate, true, true),
+			TradeFee:            protocol.SetNewComponent(globalRate, true, true),
+			CryptoWithdrawalFee: protocol.SetNewComponent(globalRate, true, true),
 			Withdraw:            &withdrawPermissions,
 		},
 	}

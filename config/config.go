@@ -818,9 +818,11 @@ func (c *Config) CheckExchangeConfigValues() error {
 				c.Exchanges[i].Features.REST = &protocol.Components{}
 			}
 			if *c.Exchanges[i].SupportsAutoPairUpdates {
-				c.Exchanges[i].Features.REST.AutoPairUpdates = protocol.On
+				c.Exchanges[i].Features.REST.AutoPairUpdates = &protocol.Component{
+					Enabled: true,
+				}
 			} else {
-				c.Exchanges[i].Features.REST.AutoPairUpdates = protocol.Off
+				c.Exchanges[i].Features.REST.AutoPairUpdates = &protocol.Component{}
 			}
 			c.Exchanges[i].SupportsAutoPairUpdates = nil
 		}
@@ -926,7 +928,7 @@ func (c *Config) CheckExchangeConfigValues() error {
 					log.Warnf(log.ExchangeSys, WarningExchangeAuthAPIDefaultOrEmptyValues, c.Exchanges[i].Name)
 				}
 			}
-			if !*c.Exchanges[i].Features.REST.AutoPairUpdates {
+			if !c.Exchanges[i].Features.REST.AutoPairUpdates.IsEnabled() {
 				lastUpdated := convert.UnixTimestampToTime(c.Exchanges[i].CurrencyPairs.LastUpdated)
 				lastUpdated = lastUpdated.AddDate(0, 0, pairsLastUpdatedWarningThreshold)
 				if lastUpdated.Unix() <= time.Now().Unix() {
