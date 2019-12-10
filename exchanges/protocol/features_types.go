@@ -2,12 +2,46 @@ package protocol
 
 import "time"
 
-var (
-// // On infers functionality support and enabled
-// On = func(s *GlobalRate) *Component { b := true; return &b }
-// // Off infers functionality support and disabled
-// Off = func() *bool { b := false; return &b }
-)
+var ()
+
+// SupportedFeatures is a supported features list
+var SupportedFeatures = []string{
+	"TickerBatching",
+	"AutoPairUpdates",
+	"AccountBalance",
+	"CryptoDeposit",
+	"CryptoWithdrawal",
+	"FiatWithdraw",
+	"GetOrder",
+	"GetOrders",
+	"CancelOrders",
+	"CancelOrder",
+	"SubmitOrder",
+	"SubmitOrders",
+	"ModifyOrder",
+	"DepositHistory",
+	"WithdrawalHistory",
+	"TradeFetching",
+	"ExchangeTradeHistory",
+	"UserTradeHistory",
+	"TradeFee",
+	"FiatDepositFee",
+	"FiatWithdrawalFee",
+	"CryptoDepositFee",
+	"CryptoWithdrawalFee",
+	"TickerFetching",
+	"KlineFetching",
+	"OrderbookFetching",
+	"AccountInfo",
+	"FiatDeposit",
+	"DeadMansSwitch",
+	"Subscribe",
+	"Unsubscribe",
+	"AuthenticatedEndpoints",
+	"MessageCorrelation",
+	"MessageSequenceNumbers",
+	"Withdraw",
+}
 
 // Features stores the exchange supported protocol functionality
 type Features struct {

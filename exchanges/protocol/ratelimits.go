@@ -3,6 +3,8 @@ package protocol
 import (
 	"errors"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 // IsGlobal returns if this struct is a global value
@@ -57,6 +59,22 @@ func (g *GlobalRate) Reserve(n int, auth bool) error {
 	return nil
 }
 
+func (g *GlobalRate) GetUnAuthLimit() rate.Limit {
+	return g.UnAuth.Limit()
+}
+
+func (g *GlobalRate) GetAuthLimit() rate.Limit {
+	return g.Auth.Limit()
+}
+
+func (g *GlobalRate) GetUnAuthBucket() int {
+	return g.UnAuth.Burst()
+}
+
+func (g *GlobalRate) GetAuthBucket() int {
+	return g.UnAuth.Burst()
+}
+
 // IsGlobal returns if this is a global variable
 func (s *SpecificRate) IsGlobal() bool {
 	return false
@@ -86,4 +104,20 @@ func (s *SpecificRate) Reserve(n int, _ bool) error {
 	r := s.Rate.ReserveN(time.Now(), n)
 	time.Sleep(r.Delay())
 	return nil
+}
+
+func (s *SpecificRate) GetUnAuthLimit() rate.Limit {
+	return s.Rate.Limit()
+}
+
+func (s *SpecificRate) GetAuthLimit() rate.Limit {
+	return s.Rate.Limit()
+}
+
+func (s *SpecificRate) GetUnAuthBucket() int {
+	return s.Rate.Burst()
+}
+
+func (s *SpecificRate) GetAuthBucket() int {
+	return s.Rate.Burst()
 }

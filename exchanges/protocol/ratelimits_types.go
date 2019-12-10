@@ -1,6 +1,8 @@
 package protocol
 
-import "golang.org/x/time/rate"
+import (
+	"golang.org/x/time/rate"
+)
 
 // DefaultGlobalRate this defaults the rate to once every second
 var DefaultGlobalRate = &GlobalRate{
@@ -14,6 +16,10 @@ type Limiter interface {
 	IsGlobal() bool
 	Execute(auth bool)
 	Reserve(n int, auth bool) error
+	GetUnAuthLimit() rate.Limit
+	GetAuthLimit() rate.Limit
+	GetUnAuthBucket() int
+	GetAuthBucket() int
 }
 
 // GlobalRate is global rate limit variables

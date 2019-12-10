@@ -90,6 +90,9 @@ type Components struct {
 	// Enabled always used and viewable in config
 	Enabled bool `json:"enabled"`
 
+	// GlobalRate limit
+	GlobalRate Limiter
+
 	// nil == unsupported for this protocol scheme
 	TickerBatching         *Component `json:"tickerBatching,omitempty"`
 	AutoPairUpdates        *Component `json:"autoPairUpdates,omitempty"`

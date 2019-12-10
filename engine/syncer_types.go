@@ -23,8 +23,8 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/exchanges/protocol"
 )
 
-// CurrencyPairSyncerConfig stores the currency pair config
-type CurrencyPairSyncerConfig struct {
+// SyncConfig stores the currency pair config
+type SyncConfig struct {
 	SyncTicker       bool
 	SyncOrderbook    bool
 	SyncTrades       bool

@@ -33,7 +33,6 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/exchanges/okcoin"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/okex"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/poloniex"
-	"github.com/thrasher-corp/gocryptotrader/exchanges/protocol"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/yobit"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/zb"
 	log "github.com/thrasher-corp/gocryptotrader/logger"
@@ -247,7 +246,7 @@ func LoadExchange(name string, useWG bool, wg *sync.WaitGroup) error {
 		if exchCfg.Features != nil {
 			if exchCfg.Features.REST != nil &&
 				exchCfg.Features.REST.AutoPairUpdates != nil {
-				exchCfg.Features.REST.AutoPairUpdates = protocol.On
+				exchCfg.Features.REST.AutoPairUpdates.Enable()
 			}
 		}
 	}
@@ -257,7 +256,7 @@ func LoadExchange(name string, useWG bool, wg *sync.WaitGroup) error {
 		if exchCfg.Features != nil {
 			if exchCfg.Features.REST != nil &&
 				exchCfg.Features.REST.AutoPairUpdates != nil {
-				exchCfg.Features.REST.AutoPairUpdates = protocol.Off
+				exchCfg.Features.REST.AutoPairUpdates.Disable()
 			}
 		}
 	}

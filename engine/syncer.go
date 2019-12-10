@@ -1,109 +1,143 @@
 package engine
 
-// // const holds the sync item types
-// const (
-// 	SyncItemTicker = iota
-// 	SyncItemOrderbook
-// 	SyncItemTrade
-// 	SyncItemHistoryTrade
+import (
+	"errors"
+	"fmt"
+	"time"
 
-// 	DefaultSyncerWorkers = 15
-// 	DefaultSyncerTimeout = time.Second * 15
-// )
+	log "github.com/thrasher-corp/gocryptotrader/logger"
+)
 
-// var (
-// 	createdCounter = 0
-// 	removedCounter = 0
-// )
+// const holds the sync item types
+const (
+	SyncItemTicker = iota
+	SyncItemOrderbook
+	SyncItemTrade
+	SyncItemHistoryTrade
 
-// // NewSyncManager returns a new configured SyncManager
-// func NewSyncManager(c SyncConfig) (*SyncManager, error) {
-// 	if !c.SyncOrderbook &&
-// 		!c.SyncTicker &&
-// 		!c.SyncTrades &&
-// 		!c.SyncHistoricTrades {
-// 		return nil, errors.New("no sync items enabled")
-// 	}
+	DefaultSyncerWorkers = 15
+	DefaultSyncerTimeout = time.Second * 15
+)
 
-// 	if c.NumWorkers <= 0 {
-// 		c.NumWorkers = DefaultSyncerWorkers
-// 	}
+var (
+	createdCounter = 0
+	removedCounter = 0
+)
 
-// 	if c.SyncTimeout <= time.Duration(0) {
-// 		c.SyncTimeout = DefaultSyncerTimeout
-// 	}
+// NewSyncManager returns a new configured SyncManager
+func NewSyncManager(c SyncConfig) (*SyncManager, error) {
+	if !c.SyncOrderbook &&
+		!c.SyncTicker &&
+		!c.SyncTrades {
+		return nil, errors.New("no sync items enabled")
+	}
 
-// 	s := ExchangeCurrencyPairSyncer{
-// 		Cfg: CurrencyPairSyncerConfig{
-// 			SyncTicker:       c.SyncTicker,
-// 			SyncOrderbook:    c.SyncOrderbook,
-// 			SyncTrades:       c.SyncTrades,
-// 			SyncContinuously: c.SyncContinuously,
-// 			SyncTimeout:      c.SyncTimeout,
-// 			NumWorkers:       c.NumWorkers,
-// 		},
-// 	}
+	if c.NumWorkers <= 0 {
+		c.NumWorkers = DefaultSyncerWorkers
+	}
 
-// 	s.tickerBatchLastRequested = make(map[string]time.Time)
+	if c.SyncTimeout <= time.Duration(0) {
+		c.SyncTimeout = DefaultSyncerTimeout
+	}
 
-// 	log.Debugf(log.SyncMgr,
-// 		"Exchange currency pair syncer config: continuous: %v ticker: %v"+
-// 			" orderbook: %v trades: %v workers: %v verbose: %v timeout: %v\n",
-// 		s.Cfg.SyncContinuously, s.Cfg.SyncTicker, s.Cfg.SyncOrderbook,
-// 		s.Cfg.SyncTrades, s.Cfg.NumWorkers, s.Cfg.Verbose, s.Cfg.SyncTimeout)
-// 	return &s, nil
-// }
+	s := SyncManager{
+		Config: SyncConfig{
+			SyncTicker:       c.SyncTicker,
+			SyncOrderbook:    c.SyncOrderbook,
+			SyncTrades:       c.SyncTrades,
+			SyncContinuously: c.SyncContinuously,
+			SyncTimeout:      c.SyncTimeout,
+			NumWorkers:       c.NumWorkers,
+		},
+	}
 
-// // Start starts an exchange currency pair syncer
-// func (e *SyncManager) Start() {
-// 	log.Debugln(log.SyncMgr, "Exchange CurrencyPairSyncer started.")
+	s.tickerBatchLastRequested = make(map[string]time.Time)
 
-// 	for x := range Bot.Exchanges {
-// 		if !Bot.Exchanges[x].IsEnabled() {
-// 			continue
-// 		}
+	log.Debugf(log.SyncMgr,
+		"Exchange currency pair syncer config: continuous: %v ticker: %v"+
+			" orderbook: %v trades: %v workers: %v verbose: %v timeout: %v\n",
+		s.Config.SyncContinuously,
+		s.Config.SyncTicker,
+		s.Config.SyncOrderbook,
+		s.Config.SyncTrades,
+		s.Config.NumWorkers,
+		s.Config.Verbose,
+		s.Config.SyncTimeout)
+	return &s, nil
+}
 
-// 		b := Bot.Exchanges[x].GetBase()
+type Meow struct {
+	Authenticated   ThroughPut
+	UnAuthenticated ThroughPut
+}
 
-// 		for y := range b.CurrencyPairs.AssetTypes {
-// 			pairs := b.CurrencyPairs.GetPairs(b.CurrencyPairs.AssetTypes[y], true)
-// 			for z := range pairs {
-// 				e.LoadSyncAgent(b.Name,
-// 					pairs[z],
-// 					b.CurrencyPairs.AssetTypes[y],
-// 					b.Features)
-// 			}
-// 		}
-// 	}
+// ThroughPut
+type ThroughPut struct {
+	Window      time.Duration
+	MaxRequest  int
+	StateChange chan struct{}
+}
 
-// 	log.Debugf(log.SyncMgr,
-// 		"Sync Manager: Initial sync started. %d items to process.\n",
-// 		createdCounter)
+// Start starts an exchange currency pair syncer
+func (e *SyncManager) Start() {
+	log.Debugln(log.SyncMgr, "Exchange CurrencyPairSyncer started.")
 
-// 	e.initSyncStartTime = time.Now()
+	for x := range Bot.Exchanges {
+		if !Bot.Exchanges[x].IsEnabled() {
+			continue
+		}
 
-// 	for i := 0; i < e.Config.NumOfWorkers; i++ {
-// 		fmt.Println("MEOW MEOW MEOW")
-// 		// go e.worker()
-// 	}
+		b := Bot.Exchanges[x].GetBase()
 
-// 	go func() {
-// 		e.initSync.Wait()
+		if b.Features.REST.GlobalRate != nil {
+			// Get rates and time window
+			AuthRequests := b.Features.REST.GlobalRate.GetAuthBucket()
+			AuthWindow := b.Features.REST.GlobalRate.GetAuthLimit()
+			UnAuthRequests := b.Features.REST.GlobalRate.GetUnAuthBucket()
+			UnAuthWindow := b.Features.REST.GlobalRate.GetUnAuthLimit()
 
-// 		log.Debugln(log.SyncMgr, "Sync Manager: Initial sync is complete.")
-// 		log.Debugf(log.SyncMgr,
-// 			"Sync Manager: Initial sync took %v [%v sync items].\n",
-// 			time.Now().Sub(e.initSyncStartTime),
-// 			createdCounter)
+		}
 
-// 		if !e.Config.SyncContinuously {
-// 			log.Debugln(log.SyncMgr, "Exchange CurrencyPairSyncer stopping.")
-// 			e.Stop()
-// 			Bot.Stop()
-// 			return
-// 		}
-// 	}()
-// }
+		// for y := range b.CurrencyPairs.AssetTypes {
+		// 	pairs := b.CurrencyPairs.GetPairs(b.CurrencyPairs.AssetTypes[y], true)
+		// 	for z := range pairs {
+		// 		// e.LoadSyncAgent(b.Name,
+		// 		// 	pairs[z],
+		// 		// 	b.CurrencyPairs.AssetTypes[y],
+		// 		// 	b.Features)
+
+		// 	}
+		// }
+	}
+
+	// log.Debugf(log.SyncMgr,
+	// 	"Sync Manager: Initial sync started. %d items to process.\n",
+	// 	createdCounter)
+
+	// e.initSyncStartTime = time.Now()
+
+	// // for i := 0; i < e.Config.NumOfWorkers; i++ {
+	// // 	fmt.Println("MEOW MEOW MEOW")
+	// // 	// go e.worker()
+	// // }
+
+	// go func() {
+	// 	e.initSync.Wait()
+
+	// 	log.Debugln(log.SyncMgr, "Sync Manager: Initial sync is complete.")
+	// 	log.Debugf(log.SyncMgr,
+	// 		"Sync Manager: Initial sync took %v [%v sync items].\n",
+	// 		time.Now().Sub(e.initSyncStartTime),
+	// 		createdCounter)
+
+	// 	if !e.Config.SyncContinuously {
+	// 		log.Debugln(log.SyncMgr, "Exchange CurrencyPairSyncer stopping.")
+	// 		e.Stop()
+	// 		Bot.Stop()
+	// 		return
+	// 	}
+	// }()
+}
 
 // // LoadSyncAgent derives a lovely sync agent
 // func (e *SyncManager) LoadSyncAgent(exchangeName string, p currency.Pair, a asset.Item, f *protocol.Features) {
@@ -133,15 +167,17 @@ package engine
 // 	e.add(c)
 // }
 
-// // Stop shuts down the exchange currency pair syncer
-// func (e *SyncManager) Stop() {
-// 	stopped := atomic.CompareAndSwapInt32(&e.shutdown, 0, 1)
-// 	if stopped {
-// 		log.Debugln(log.SyncMgr, "Exchange CurrencyPairSyncer stopped.")
-// 	} else {
-// 		// already shut down mate
-// 	}
-// }
+// Stop shuts down the exchange currency pair syncer
+func (e *SyncManager) Stop() {
+	// stopped := atomic.CompareAndSwapInt32(&e.shutdown, 0, 1)
+	// if stopped {
+	// 	log.Debugln(log.SyncMgr, "Exchange CurrencyPairSyncer stopped.")
+	// } else {
+	// 	// already shut down mate
+	// }
+
+	fmt.Println("MEOW STOP")
+}
 
 // func (e *SyncManager) get(exchangeName string, p currency.Pair, a asset.Item) (*SyncAgent, error) {
 // 	e.RLock()

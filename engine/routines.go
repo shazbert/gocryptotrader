@@ -312,8 +312,8 @@ func WebsocketDataHandler(ws *wshandler.Websocket) {
 					LastUpdated: d.Timestamp,
 				}
 				if Bot.Settings.EnableExchangeSyncManager && Bot.SyncManager != nil {
-					Bot.SyncManager.update(ws.GetName(),
-						d.Pair, d.AssetType, SyncItemTicker, nil)
+					// Bot.SyncManager.update(ws.GetName(),
+					// 	d.Pair, d.AssetType, SyncItemTicker, nil)
 				}
 				err := ticker.ProcessTicker(ws.GetName(), &tickerNew, d.AssetType)
 				if err != nil {
@@ -329,8 +329,8 @@ func WebsocketDataHandler(ws *wshandler.Websocket) {
 				// Orderbook data
 				result := data.(wshandler.WebsocketOrderbookUpdate)
 				if Bot.Settings.EnableExchangeSyncManager && Bot.SyncManager != nil {
-					Bot.SyncManager.update(ws.GetName(),
-						result.Pair, result.Asset, SyncItemOrderbook, nil)
+					// Bot.SyncManager.update(ws.GetName(),
+					// 	result.Pair, result.Asset, SyncItemOrderbook, nil)
 				}
 				// TO-DO: printOrderbookSummary
 				//nolint:gocritic

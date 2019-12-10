@@ -550,24 +550,24 @@ func (i Exchange) checkFunctionality(e exchange.IBotExchange, function int) erro
 
 	switch function {
 	case fetchTicker, updateTicker:
-		if !*b.Features.REST.TickerFetching {
+		if !b.Features.REST.TickerFetching.IsEnabled() {
 			return errFunctionalityNotSupported
 		}
 	case fetchOrderbook, updateOrderbook:
-		if !*b.Features.REST.OrderbookFetching {
+		if !b.Features.REST.OrderbookFetching.IsEnabled() {
 			return errFunctionalityNotSupported
 		}
 	case getAccountInfo:
-		if !*b.Features.REST.AccountInfo {
+		if !b.Features.REST.AccountInfo.IsEnabled() {
 			return errFunctionalityNotSupported
 		}
 	case getExchangeHistory:
-		if !*b.Features.REST.ExchangeTradeHistory {
+		if !b.Features.REST.ExchangeTradeHistory.IsEnabled() {
 			return errFunctionalityNotSupported
 		}
 	case getFeeByType:
 		// need to fix this
-		if !*b.Features.REST.TradeFee {
+		if !b.Features.REST.TradeFee.IsEnabled() {
 			return errFunctionalityNotSupported
 		}
 	case getFundingHistory:
@@ -575,27 +575,27 @@ func (i Exchange) checkFunctionality(e exchange.IBotExchange, function int) erro
 		return errFunctionalityNotSupported
 
 	case submitOrder:
-		if !*b.Features.REST.SubmitOrder {
+		if !b.Features.REST.SubmitOrder.IsEnabled() {
 			return errFunctionalityNotSupported
 		}
 	case modifyOrder:
-		if !*b.Features.REST.ModifyOrder {
+		if !b.Features.REST.ModifyOrder.IsEnabled() {
 			return errFunctionalityNotSupported
 		}
 	case cancelOrder:
-		if !*b.Features.REST.CancelOrder {
+		if !b.Features.REST.CancelOrder.IsEnabled() {
 			return errFunctionalityNotSupported
 		}
 	case cancelAllOrders:
-		if !*b.Features.REST.CancelOrders {
+		if !b.Features.REST.CancelOrders.IsEnabled() {
 			return errFunctionalityNotSupported
 		}
 	case getOrderDetail:
-		if !*b.Features.REST.GetOrder {
+		if !b.Features.REST.GetOrder.IsEnabled() {
 			return errFunctionalityNotSupported
 		}
 	case getOrderHistory:
-		if !*b.Features.REST.GetOrders {
+		if !b.Features.REST.GetOrders.IsEnabled() {
 			return errFunctionalityNotSupported
 		}
 	case withdraw:
