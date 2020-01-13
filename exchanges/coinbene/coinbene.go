@@ -38,9 +38,13 @@ const (
 	coinbeneGetTickers   = "/market/tickers"
 	coinbeneGetOrderBook = "/market/orderBook"
 	coinbeneGetKlines    = "/market/klines"
-	coinbeneGetTrades    = "/market/trades"
-	coinbeneGetAllPairs  = "/market/tradePair/list"
-	coinbenePairInfo     = "/market/tradePair/one"
+	// TODO: Implement function ---
+	coinbeneSpotKlines       = "/market/instruments/candles"
+	coinbeneSpotExchangeRate = "/market/rate/list"
+	// ---
+	coinbeneGetTrades   = "/market/trades"
+	coinbeneGetAllPairs = "/market/tradePair/list"
+	coinbenePairInfo    = "/market/tradePair/one"
 
 	// Authenticated endpoints
 	coinbeneAccountInfo        = "/account/info"
@@ -60,30 +64,82 @@ const (
 	coinbeneListSwapPositions  = "/position/list"
 	coinbenePositionFeeRate    = "/position/feeRate"
 
-	// Rate limit consts
-	contractRateInterval             = time.Second * 2
-	orderbookRequestRate             = 20
-	tickerRequestRate                = 20
-	klineRequestRate                 = 20
-	filledOrderRequestRate           = 20
-	contractAccountInfoRequestRate   = 10
-	positionInfoRequestRate          = 10
-	placeOrderRequestRate            = 20
-	cancelOrderRequestRate           = 20
-	getOpenOrdersRequestRate         = 5
-	openOrdersByPageRequestRate      = 5
-	getOrderInfoRequestRate          = 10
-	getClosedOrdersRequestRate       = 5
-	getClosedOrdersbyPageRequestRate = 5
-	cancelMultipleOrdersRequestRate  = 5
-	getOrderFillsRequestRate         = 10
-	getFundingRateRequestRate        = 10
+	// Contract rate limit time interval and request rates
+	contractRateInterval                 = time.Second * 2
+	orderbookContractReqRate             = 20
+	tickersContractReqRate               = 20
+	klineContractReqRate                 = 20
+	tradesContractReqRate                = 20
+	contractAccountInfoContractReqRate   = 10
+	positionInfoContractReqRate          = 10
+	placeOrderContractReqRate            = 20
+	cancelOrderContractReqRate           = 20
+	getOpenOrdersContractReqRate         = 5
+	openOrdersByPageContractReqRate      = 5
+	getOrderInfoContractReqRate          = 10
+	getClosedOrdersContractReqRate       = 5
+	getClosedOrdersbyPageContractReqRate = 5
+	cancelMultipleOrdersContractReqRate  = 5
+	getOrderFillsContractReqRate         = 10
+	getFundingRatesContractReqRate       = 10
 
-	spotRateInterval        = time.Second
-	getPairsRequestRate     = 2
-	getPairsInfoRequestRate = 3
-	getSpotOrderbook        = 6
-	getSpotTicker           = 6
+	// Spot rate limit time interval and request rates
+	spotRateInterval             = time.Second
+	getPairsSpotReqRate          = 2
+	getPairsInfoSpotReqRate      = 3
+	getOrderbookSpotReqRate      = 6
+	getTickerListSpotReqRate     = 6
+	getSpecificTickerSpotReqRate = 6
+	getMarketTradesSpotReqRate   = 3
+	// getKlineSpotReqRate              = 1
+	// getExchangeRateSpotReqRate       = 1
+	getAccountInfoSpotReqRate        = 3
+	queryAccountAssetInfoSpotReqRate = 6
+	placeOrderSpotReqRate            = 6
+	batchOrderSpotReqRate            = 3
+	queryOpenOrdersSpotReqRate       = 3
+	queryClosedOrdersSpotReqRate     = 3
+	querySpecficOrderSpotReqRate     = 6
+	queryTradeFillsSpotReqRate       = 3
+	cancelOrderSpotReqRate           = 6
+	cancelOrdersBatchSpotReqRate     = 3
+
+	// Rate limit functionality
+	contractOrderbook request.Functionality = iota
+	contractTickers
+	contractKline
+	contractTrades
+	contractAccountInfo
+	contractPositionInfo
+	contractPlaceOrder
+	contractCancelOrder
+	contractGetOpenOrders
+	contractOpenOrdersByPage
+	contractGetOrderInfo
+	contractGetClosedOrders
+	contractGetClosedOrdersbyPage
+	contractCancelMultipleOrders
+	contractGetOrderFills
+	contractGetFundingRates
+
+	spotPairs
+	spotPairInfo
+	spotOrderbook
+	spotTickerList
+	spotSpecificTicker
+	spotMarketTrades
+	spotKline        // Not implemented yet
+	spotExchangeRate // Not implemented yet
+	spotAccountInfo
+	spotAccountAssetInfo
+	spotPlaceOrder
+	spotBatchOrder
+	spotQueryOpenOrders
+	spotQueryClosedOrders
+	spotQuerySpecficOrder
+	spotQueryTradeFills
+	spotCancelOrder
+	spotCancelOrdersBatch
 
 	limitOrder    = "1"
 	marketOrder   = "2"
@@ -99,7 +155,7 @@ func (c *Coinbene) GetAllPairs() ([]PairData, error) {
 		Data []PairData `json:"data"`
 	}{}
 	path := c.API.Endpoints.URL + coinbeneAPIVersion + coinbeneGetAllPairs
-	return resp.Data, c.SendHTTPRequest(path, &resp)
+	return resp.Data, c.SendHTTPRequest(path, spotPairs, &resp)
 }
 
 // GetPairInfo gets info about a single pair
@@ -110,7 +166,7 @@ func (c *Coinbene) GetPairInfo(symbol string) (PairData, error) {
 	params := url.Values{}
 	params.Set("symbol", symbol)
 	path := common.EncodeURLValues(c.API.Endpoints.URL+coinbeneAPIVersion+coinbenePairInfo, params)
-	return resp.Data, c.SendHTTPRequest(path, &resp)
+	return resp.Data, c.SendHTTPRequest(path, spotPairInfo, &resp)
 }
 
 // GetOrderbook gets and stores orderbook data for given pair
@@ -127,7 +183,7 @@ func (c *Coinbene) GetOrderbook(symbol string, size int64) (Orderbook, error) {
 	params.Set("symbol", symbol)
 	params.Set("depth", strconv.FormatInt(size, 10))
 	path := common.EncodeURLValues(c.API.Endpoints.URL+coinbeneAPIVersion+coinbeneGetOrderBook, params)
-	err := c.SendHTTPRequest(path, request.Orderbook, &resp)
+	err := c.SendHTTPRequest(path, spotOrderbook, &resp)
 	if err != nil {
 		return Orderbook{}, err
 	}
@@ -173,7 +229,17 @@ func (c *Coinbene) GetTicker(symbol string) (TickerData, error) {
 	params := url.Values{}
 	params.Set("symbol", symbol)
 	path := common.EncodeURLValues(c.API.Endpoints.URL+coinbeneAPIVersion+coinbeneGetTicker, params)
-	return resp.TickerData, c.SendHTTPRequest(path, request.Ticker, &resp)
+	return resp.TickerData, c.SendHTTPRequest(path, spotSpecificTicker, &resp)
+}
+
+// GetTickers gets and all spot tickers supported by the exchange
+func (c *Coinbene) GetTickers() ([]TickerData, error) {
+	resp := struct {
+		TickerData []TickerData `json:"data"`
+	}{}
+
+	path := c.API.Endpoints.URL + coinbeneAPIVersion + coinbeneGetTicker
+	return resp.TickerData, c.SendHTTPRequest(path, spotTickerList, &resp)
 }
 
 // GetTrades gets recent trades from the exchange
@@ -185,7 +251,7 @@ func (c *Coinbene) GetTrades(symbol string) (Trades, error) {
 	params := url.Values{}
 	params.Set("symbol", symbol)
 	path := common.EncodeURLValues(c.API.Endpoints.URL+coinbeneAPIVersion+coinbeneGetTrades, params)
-	err := c.SendHTTPRequest(path, request.FilledOrder, &resp)
+	err := c.SendHTTPRequest(path, spotMarketTrades, &resp)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +293,7 @@ func (c *Coinbene) GetAccountBalances() ([]UserBalanceData, error) {
 		false,
 		nil,
 		&resp,
-		request.ContractAccountInfo)
+		spotAccountInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +314,7 @@ func (c *Coinbene) GetAccountAssetBalance(symbol string) (UserBalanceData, error
 		false,
 		v,
 		&resp,
-		request.ContractAccountInfo)
+		spotAccountAssetInfo)
 	if err != nil {
 		return UserBalanceData{}, err
 	}
@@ -297,7 +363,7 @@ func (c *Coinbene) PlaceSpotOrder(price, quantity float64, symbol, direction,
 		false,
 		params,
 		&resp,
-		request.PlaceOrder)
+		spotPlaceOrder)
 	if err != nil {
 		return resp, err
 	}
@@ -367,7 +433,7 @@ func (c *Coinbene) PlaceSpotOrders(orders []PlaceOrderRequest) ([]OrderPlacement
 		false,
 		reqOrders,
 		&resp,
-		request.CancelMultipleOrders)
+		spotBatchOrder)
 	if err != nil {
 		return nil, err
 	}
@@ -391,7 +457,7 @@ func (c *Coinbene) FetchOpenSpotOrders(symbol string) (OrdersInfo, error) {
 			false,
 			params,
 			&temp,
-			request.GetOpenOrders)
+			spotQueryOpenOrders)
 		if err != nil {
 			return nil, err
 		}
@@ -424,7 +490,7 @@ func (c *Coinbene) FetchClosedOrders(symbol, latestID string) (OrdersInfo, error
 			false,
 			params,
 			&temp,
-			request.GetClosedOrders)
+			spotQueryClosedOrders)
 		if err != nil {
 			return nil, err
 		}
@@ -452,7 +518,7 @@ func (c *Coinbene) FetchSpotOrderInfo(orderID string) (OrderInfo, error) {
 		false,
 		params,
 		&resp,
-		request.GetOrderInfo)
+		spotQuerySpecficOrder)
 	if err != nil {
 		return resp.Data, err
 	}
@@ -477,7 +543,7 @@ func (c *Coinbene) GetSpotOrderFills(orderID string) ([]OrderFills, error) {
 		false,
 		params,
 		&resp,
-		request.GetOrderFills)
+		spotQueryTradeFills)
 	if err != nil {
 		return nil, err
 	}
@@ -498,7 +564,7 @@ func (c *Coinbene) CancelSpotOrder(orderID string) (string, error) {
 		false,
 		req,
 		&resp,
-		request.CancelOrder)
+		spotCancelOrder)
 	if err != nil {
 		return "", err
 	}
@@ -521,7 +587,7 @@ func (c *Coinbene) CancelSpotOrders(orderIDs []string) ([]OrderCancellationRespo
 		false,
 		req,
 		&r,
-		request.CancelMultipleOrders)
+		spotCancelOrdersBatch)
 	if err != nil {
 		return nil, err
 	}
@@ -535,7 +601,7 @@ func (c *Coinbene) GetSwapTickers() (SwapTickers, error) {
 	}
 	var r resp
 	path := coinbeneSwapAPIURL + coinbeneAPIVersion + coinbeneGetTickers
-	err := c.SendHTTPRequest(path, request.Ticker, &r)
+	err := c.SendHTTPRequest(path, contractTickers, &r)
 	if err != nil {
 		return nil, err
 	}
@@ -580,7 +646,7 @@ func (c *Coinbene) GetSwapOrderbook(symbol string, size int64) (Orderbook, error
 
 	var r resp
 	path := common.EncodeURLValues(coinbeneSwapAPIURL+coinbeneAPIVersion+coinbeneGetOrderBook, v)
-	err := c.SendHTTPRequest(path, request.Orderbook, &r)
+	err := c.SendHTTPRequest(path, contractOrderbook, &r)
 	if err != nil {
 		return s, err
 	}
@@ -637,7 +703,7 @@ func (c *Coinbene) GetSwapKlines(symbol, startTime, endTime, resolution string) 
 	}
 	var r resp
 	path := common.EncodeURLValues(coinbeneSwapAPIURL+coinbeneAPIVersion+coinbeneGetKlines, v)
-	if err := c.SendHTTPRequest(path, request.Kline, &r); err != nil {
+	if err := c.SendHTTPRequest(path, contractKline, &r); err != nil {
 		return nil, err
 	}
 
@@ -705,7 +771,7 @@ func (c *Coinbene) GetSwapTrades(symbol string, limit int) (SwapTrades, error) {
 	}
 	var r resp
 	path := common.EncodeURLValues(coinbeneSwapAPIURL+coinbeneAPIVersion+coinbeneGetTrades, v)
-	if err := c.SendHTTPRequest(path, request.FilledOrder, &r); err != nil {
+	if err := c.SendHTTPRequest(path, contractTrades, &r); err != nil {
 		return nil, err
 	}
 
@@ -750,7 +816,7 @@ func (c *Coinbene) GetSwapAccountInfo() (SwapAccountInfo, error) {
 		true,
 		nil,
 		&r,
-		request.ContractAccountInfo)
+		contractAccountInfo)
 	if err != nil {
 		return SwapAccountInfo{}, err
 	}
@@ -772,7 +838,7 @@ func (c *Coinbene) GetSwapPositions(symbol string) (SwapPositions, error) {
 		true,
 		v,
 		&r,
-		request.PositionInfo)
+		contractPositionInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -827,7 +893,7 @@ func (c *Coinbene) PlaceSwapOrder(symbol, direction, orderType, marginMode,
 		true,
 		v,
 		&r,
-		request.PlaceOrder)
+		contractPlaceOrder)
 	if err != nil {
 		return SwapPlaceOrderResponse{}, err
 	}
@@ -849,7 +915,7 @@ func (c *Coinbene) CancelSwapOrder(orderID string) (string, error) {
 		true,
 		params,
 		&r,
-		request.CancelOrder)
+		contractCancelOrder)
 	if err != nil {
 		return "", err
 	}
@@ -877,7 +943,7 @@ func (c *Coinbene) GetSwapOpenOrders(symbol string, pageNum, pageSize int) (Swap
 		true,
 		v,
 		&r,
-		request.GetOpenOrders)
+		contractGetOpenOrders)
 	if err != nil {
 		return nil, err
 	}
@@ -904,7 +970,7 @@ func (c *Coinbene) GetSwapOpenOrdersByPage(symbol string, latestOrderID int64) (
 		true,
 		v,
 		&r,
-		request.OpenOrdersByPage)
+		contractOpenOrdersByPage)
 	if err != nil {
 		return nil, err
 	}
@@ -926,7 +992,7 @@ func (c *Coinbene) GetSwapOrderInfo(orderID string) (SwapOrder, error) {
 		true,
 		v,
 		&r,
-		request.GetOrderInfo)
+		contractGetOrderInfo)
 	if err != nil {
 		return SwapOrder{}, err
 	}
@@ -969,7 +1035,7 @@ func (c *Coinbene) GetSwapOrderHistory(beginTime, endTime, symbol string, pageNu
 		true,
 		v,
 		&r,
-		request.GetClosedOrders)
+		contractGetClosedOrders)
 	if err != nil {
 		return nil, err
 	}
@@ -1007,7 +1073,7 @@ func (c *Coinbene) GetSwapOrderHistoryByOrderID(beginTime, endTime, symbol, stat
 		true,
 		v,
 		&r,
-		request.GetClosedOrdersbyPage)
+		contractGetClosedOrdersbyPage)
 	if err != nil {
 		return nil, err
 	}
@@ -1033,7 +1099,7 @@ func (c *Coinbene) CancelSwapOrders(orderIDs []string) ([]OrderCancellationRespo
 		true,
 		req,
 		&r,
-		request.CancelMultipleOrders)
+		contractCancelMultipleOrders)
 	if err != nil {
 		return nil, err
 	}
@@ -1064,7 +1130,7 @@ func (c *Coinbene) GetSwapOrderFills(symbol, orderID string, lastTradeID int64) 
 		true,
 		v,
 		&r,
-		request.GetOrderFills)
+		contractGetOrderFills)
 	if err != nil {
 		return nil, err
 	}
@@ -1092,7 +1158,7 @@ func (c *Coinbene) GetSwapFundingRates(pageNum, pageSize int) ([]SwapFundingRate
 		true,
 		v,
 		&r,
-		request.GetFundingRate)
+		contractGetFundingRates)
 	if err != nil {
 		return nil, err
 	}
