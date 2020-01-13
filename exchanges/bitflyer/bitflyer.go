@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	exchange "github.com/thrasher-corp/gocryptotrader/exchanges"
@@ -62,8 +63,11 @@ const (
 	privMarginChange               = "/me/getcollateralhistory"
 	privTradingCommission          = "/me/gettradingcommission"
 
-	bitflyerAuthRate   = 200
-	bitflyerUnauthRate = 500
+	biflyerRateInterval                 = time.Minute * 5
+	bitflyerPrivateRequestRate          = 500
+	bitflyerPrivateLowVolumeRequestRate = 100
+	bitflyerPrivateSendOrderRequestRate = 300
+	bitflyerPublicRequestRate           = 500
 )
 
 // Bitflyer is the overarching type across this package

@@ -108,9 +108,8 @@ func (b *Bitstamp) SetDefaults() {
 	}
 
 	b.Requester = request.New(b.Name,
-		request.NewRateLimit(time.Minute*10, bitstampAuthRate),
-		request.NewRateLimit(time.Minute*10, bitstampUnauthRate),
-		common.NewHTTPClientWithTimeout(exchange.DefaultHTTPTimeout))
+		common.NewHTTPClientWithTimeout(exchange.DefaultHTTPTimeout),
+		request.NewBasicRateLimit(bitstampRateInterval, bitstampRequestRate))
 
 	b.API.Endpoints.URLDefault = bitstampAPIURL
 	b.API.Endpoints.URL = b.API.Endpoints.URLDefault
