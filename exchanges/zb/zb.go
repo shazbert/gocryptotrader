@@ -36,8 +36,8 @@ const (
 	zbWithdraw                        = "withdraw"
 	zbDepositAddress                  = "getUserAddress"
 
-	zbAuthRate   = 100
-	zbUnauthRate = 100
+	zbRateInterval = time.Second
+	zbReqRate      = 60
 )
 
 // ZB is the overarching type across this package

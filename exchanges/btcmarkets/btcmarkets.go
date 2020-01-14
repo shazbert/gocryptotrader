@@ -58,6 +58,11 @@ const (
 	btcmarketsWithdrawLimit        = 10
 	btcmarketsCreateNewReportLimit = 1
 
+	orderFunc request.Functionality = iota
+	batchFunc
+	withdrawFunc
+	newReportFunc
+
 	orderFailed             = "Failed"
 	orderPartiallyCancelled = "Partially Cancelled"
 	orderCancelled          = "Cancelled"
@@ -385,7 +390,7 @@ func (b *BTCMarkets) NewOrder(marketID string, price, amount float64, orderType,
 		btcMarketsOrders,
 		req,
 		&resp,
-		request.Order)
+		orderFunc)
 }
 
 // GetOrders returns current order information on the exchange
@@ -634,7 +639,7 @@ func (b *BTCMarkets) CreateNewReport(reportType, format string) (CreateReportRes
 		btcMarketsReports,
 		req,
 		&resp,
-		request.NewReport)
+		newReportFunc)
 }
 
 // GetReport finds details bout a past report
@@ -674,7 +679,7 @@ func (b *BTCMarkets) RequestWithdraw(assetName string, amount float64,
 		btcMarketsWithdrawals,
 		req,
 		&resp,
-		request.Withdraw)
+		withdrawFunc)
 }
 
 // BatchPlaceCancelOrders places and cancels batch orders
@@ -697,7 +702,7 @@ func (b *BTCMarkets) BatchPlaceCancelOrders(cancelOrders []CancelBatch, placeOrd
 		btcMarketsBatchOrders,
 		orderRequests,
 		&resp,
-		request.Batch)
+		batchFunc)
 }
 
 // GetBatchTrades gets batch trades
@@ -722,7 +727,7 @@ func (b *BTCMarkets) CancelBatchOrders(ids []string) (BatchCancelResponse, error
 		btcMarketsBatchOrders+"/"+marketIDs,
 		nil,
 		&resp,
-		request.Batch)
+		batchFunc)
 }
 
 // SendHTTPRequest sends an unauthenticated HTTP request

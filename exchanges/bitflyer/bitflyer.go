@@ -68,6 +68,9 @@ const (
 	bitflyerPrivateLowVolumeRequestRate = 100
 	bitflyerPrivateSendOrderRequestRate = 300
 	bitflyerPublicRequestRate           = 500
+
+	orders request.Functionality = iota
+	lowVolume
 )
 
 // Bitflyer is the overarching type across this package

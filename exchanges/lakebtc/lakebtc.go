@@ -30,9 +30,6 @@ const (
 	lakeBTCGetTrades           = "getTrades"
 	lakeBTCGetExternalAccounts = "getExternalAccounts"
 	lakeBTCCreateWithdraw      = "createWithdraw"
-
-	lakeBTCAuthRate = 0
-	lakeBTCUnauth   = 0
 )
 
 // LakeBTC is the overarching type across the LakeBTC package

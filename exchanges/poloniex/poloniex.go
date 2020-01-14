@@ -48,8 +48,9 @@ const (
 	poloniexLendingHistory       = "returnLendingHistory"
 	poloniexAutoRenew            = "toggleAutoRenew"
 
-	poloniexAuthRate   = 6
-	poloniexUnauthRate = 6
+	poloniexRateInterval = time.Second
+	poloniexAuthRate     = 6
+	poloniexUnauthRate   = 6
 
 	poloniexDateLayout = "2006-01-02 15:04:05"
 )
