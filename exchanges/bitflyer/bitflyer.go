@@ -69,7 +69,7 @@ const (
 	bitflyerPrivateSendOrderRequestRate = 300
 	bitflyerPublicRequestRate           = 500
 
-	orders request.Functionality = iota
+	orders request.EndpointLimit = iota
 	lowVolume
 )
 
