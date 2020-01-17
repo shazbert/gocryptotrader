@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"time"
 
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	exchange "github.com/thrasher-corp/gocryptotrader/exchanges"
@@ -62,12 +61,6 @@ const (
 	privOpenInterest               = "/me/getpositions"
 	privMarginChange               = "/me/getcollateralhistory"
 	privTradingCommission          = "/me/gettradingcommission"
-
-	biflyerRateInterval                 = time.Minute * 5
-	bitflyerPrivateRequestRate          = 500
-	bitflyerPrivateLowVolumeRequestRate = 100
-	bitflyerPrivateSendOrderRequestRate = 300
-	bitflyerPublicRequestRate           = 500
 
 	orders request.EndpointLimit = iota
 	lowVolume

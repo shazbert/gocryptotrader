@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/common/crypto"
@@ -43,11 +42,6 @@ const (
 	geminiWithdraw           = "withdraw/"
 	geminiHeartbeat          = "heartbeat"
 	geminiVolume             = "notionalvolume"
-
-	// gemini limit rates
-	geminiRateInterval = time.Minute
-	geminiAuthRate     = 600
-	geminiUnauthRate   = 120
 
 	// Too many requests returns this
 	geminiRateError = "429"
