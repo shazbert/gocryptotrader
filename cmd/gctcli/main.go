@@ -133,6 +133,8 @@ func main() {
 		getTickerStreamCommand,
 		getExchangeTickerStreamCommand,
 		getAuditEventCommand,
+		getHistoricCandlesCommand,
+		gctScriptCommand,
 	}
 
 	err := app.Run(os.Args)

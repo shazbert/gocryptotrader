@@ -14,6 +14,7 @@ import (
 
 	"github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/common/crypto"
+	"github.com/thrasher-corp/gocryptotrader/currency"
 	exchange "github.com/thrasher-corp/gocryptotrader/exchanges"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/request"
@@ -1195,4 +1196,9 @@ func (c *Coinbene) SendAuthHTTPRequest(method, path, epPath string, isSwap bool,
 		}
 	}
 	return json.Unmarshal(resp, result)
+}
+
+// GetHistoriCandles returns _rangesize_ number of candles for the given _granularity_ and _pair_ starting from the latest available
+func (c *Coinbene) GetHistoricCandles(pair currency.Pair, rangesize, granularity int64) ([]exchange.Candle, error) {
+	return nil, common.ErrFunctionNotSupported
 }
