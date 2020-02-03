@@ -756,3 +756,13 @@ func (e *Base) PrintEnabledPairs() {
 
 // GetBase returns the exchange base
 func (e *Base) GetBase() *Base { return e }
+
+// DisableRateLimiter disables the rate limiting system for the exchange
+func (e *Base) DisableRateLimiter() error {
+	return e.Requester.DisableRateLimiter()
+}
+
+// EnableRateLimiter enables the rate limiting system for the exchange
+func (e *Base) EnableRateLimiter() error {
+	return e.Requester.EnableRateLimiter()
+}
