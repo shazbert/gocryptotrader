@@ -1,6 +1,7 @@
 package binance
 
 import (
+	"errors"
 	"time"
 
 	"github.com/thrasher-corp/gocryptotrader/exchanges/request"
@@ -13,12 +14,29 @@ const (
 	// 1200 requests per minute
 	binanceGlobalInterval    = time.Minute
 	binanceGlobalRequestRate = 1200
+	binanceGlobalBurst       = 50
 	// Order related limits which are segregated from the global rate limits
-	// 10 requests per second and max 100000 requests per day.
-	binanceOrderInterval         = time.Second
-	binanceOrderRequestRate      = 10
+	// 100 requests per 10 seconds and max 100000 requests per day.
+	binanceOrderInterval         = 10 * time.Second
+	binanceOrderRequestRate      = 100
+	binanceOrderBurst            = 40
 	binanceOrderDailyInterval    = time.Hour * 24
 	binanceOrderDailyMaxRequests = 100000
+)
+
+const (
+	limitDefault request.EndpointLimit = iota
+	limitHistoricalTrades
+	limitOrderbookDepth100
+	limitOrderbookDepth500
+	limitOrderbookDepth1000
+	limitOrderbookDepth5000
+	limitOrderbookTickerAll
+	limitPriceChangeAll
+	limitSymbolPriceAll
+	limitOpenOrdersAll
+	limitOrder
+	limitOrdersAll
 )
 
 // RateLimit implements the request.Limiter interface
@@ -29,18 +47,87 @@ type RateLimit struct {
 
 // Limit executes rate limiting functionality for Binance
 func (r *RateLimit) Limit(f request.EndpointLimit) error {
-	if f == request.Auth {
-		time.Sleep(r.Orders.Reserve().Delay())
-		return nil
+	var limiter *rate.Limiter
+	var tokens int
+	switch f {
+	case limitHistoricalTrades:
+		limiter, tokens = r.GlobalRate, 5
+	case limitOrderbookDepth100:
+		limiter, tokens = r.GlobalRate, 1
+	case limitOrderbookDepth500:
+		limiter, tokens = r.GlobalRate, 5
+	case limitOrderbookDepth1000:
+		limiter, tokens = r.GlobalRate, 10
+	case limitOrderbookDepth5000:
+		limiter, tokens = r.GlobalRate, 50
+	case limitOrderbookTickerAll:
+		limiter, tokens = r.GlobalRate, 2
+	case limitPriceChangeAll:
+		limiter, tokens = r.GlobalRate, 40
+	case limitSymbolPriceAll:
+		limiter, tokens = r.GlobalRate, 2
+	case limitOpenOrdersAll:
+		limiter, tokens = r.Orders, 40
+	case limitOrder:
+		limiter, tokens = r.Orders, 1
+	case limitOrdersAll:
+		limiter, tokens = r.Orders, 5
+	default:
+		limiter, tokens = r.GlobalRate, 1
 	}
-	time.Sleep(r.GlobalRate.Reserve().Delay())
+
+	res := limiter.ReserveN(time.Now(), tokens)
+	if !res.OK() {
+		// Never expecting to hit this case, but if we do, the burst rate is lower than the amount required
+		return errors.New("unable to allocate quota to remain within request limit")
+	}
+
+	time.Sleep(res.Delay())
 	return nil
 }
 
 // SetRateLimit returns the rate limit for the exchange
 func SetRateLimit() *RateLimit {
+	// Burst sizes are set to the maximum reservation that can be used for that limit
 	return &RateLimit{
-		GlobalRate: request.NewRateLimit(binanceGlobalInterval, binanceOrderDailyMaxRequests),
-		Orders:     request.NewRateLimit(binanceOrderInterval, binanceOrderRequestRate),
+		GlobalRate: request.NewBurstableRateLimit(binanceGlobalInterval, binanceGlobalRequestRate, binanceGlobalBurst),
+		Orders:     request.NewBurstableRateLimit(binanceOrderInterval, binanceOrderRequestRate, binanceOrderBurst),
 	}
+}
+
+func bestPriceLimit(symbol string) request.EndpointLimit {
+	if symbol == "" {
+		return limitOrderbookTickerAll
+	}
+
+	return limitDefault
+}
+
+func openOrdersLimit(symbol string) request.EndpointLimit {
+	if symbol == "" {
+		return limitOpenOrdersAll
+	}
+
+	return limitOrder
+}
+
+func orderbookLimit(depth int) request.EndpointLimit {
+	switch {
+	case depth <= 100:
+		return limitOrderbookDepth100
+	case depth <= 500:
+		return limitOrderbookDepth500
+	case depth <= 1000:
+		return limitOrderbookDepth1000
+	}
+
+	return limitOrderbookDepth5000
+}
+
+func symbolPriceLimit(symbol string) request.EndpointLimit {
+	if symbol == "" {
+		return limitSymbolPriceAll
+	}
+
+	return limitDefault
 }

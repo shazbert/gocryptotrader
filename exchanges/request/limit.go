@@ -38,6 +38,20 @@ type Limiter interface {
 	Limit(EndpointLimit) error
 }
 
+// NewBurstableRateLimit creates a new RateLimit based of time interval and how many
+// actions allowed and breaks it down to an actions-per-second basis. This limiter has
+// 'burst' capacity to handle cases where the request weight can be greater than 1.
+func NewBurstableRateLimit(interval time.Duration, actions, burst int) *rate.Limiter {
+	if actions <= 0 || interval <= 0 {
+		// Returns an un-restricted rate limiter
+		return rate.NewLimiter(rate.Inf, 1)
+	}
+
+	i := 1 / interval.Seconds()
+	rps := i * float64(actions)
+	return rate.NewLimiter(rate.Limit(rps), burst)
+}
+
 // NewRateLimit creates a new RateLimit based of time interval and how many
 // actions allowed and breaks it down to an actions-per-second basis -- Burst
 // rate is kept as one as this is not supported for out-bound requests.

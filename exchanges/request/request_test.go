@@ -54,6 +54,43 @@ func TestMain(m *testing.M) {
 	os.Exit(issues)
 }
 
+func TestBurstableNewRateLimit(t *testing.T) {
+	t.Parallel()
+	r := NewBurstableRateLimit(time.Second*10, 5, 3)
+	if r.Limit() != 0.5 {
+		t.Fatal(unexpected)
+	}
+	if r.Burst() != 3 {
+		t.Fatal(unexpected)
+	}
+
+	// Ensures rate limiting factor is the same
+	r = NewBurstableRateLimit(time.Second*4, 2, 2)
+	if r.Limit() != 0.5 {
+		t.Fatal(unexpected)
+	}
+	if r.Burst() != 2 {
+		t.Fatal(unexpected)
+	}
+
+	// Test for open rate limit
+	r = NewBurstableRateLimit(time.Second*2, 0, 100)
+	if r.Limit() != rate.Inf {
+		t.Fatal(unexpected)
+	}
+	if r.Burst() != 1 {
+		t.Fatal(unexpected)
+	}
+
+	r = NewBurstableRateLimit(0, 69, 42)
+	if r.Limit() != rate.Inf {
+		t.Fatal(unexpected)
+	}
+	if r.Burst() != 1 {
+		t.Fatal(unexpected)
+	}
+}
+
 func TestNewRateLimit(t *testing.T) {
 	t.Parallel()
 	r := NewRateLimit(time.Second*10, 5)
