@@ -47,7 +47,6 @@ type RateLimit struct {
 func (r *RateLimit) Limit(f request.EndpointLimit) error {
 	var limiter *rate.Limiter
 	var tokens int
-	// var burst int
 	switch f {
 	case limitHistoricalTrades:
 		limiter, tokens = r.GlobalRate, 5

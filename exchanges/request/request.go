@@ -158,8 +158,6 @@ func (r *Requester) doRequest(req *http.Request, p *Item) error {
 			}
 		}
 
-		fmt.Printf("%s header return count %s\n", r.Name, resp.Header["X-Mbx-Used-Weight-1m"])
-
 		if resp.StatusCode < http.StatusOK ||
 			resp.StatusCode > http.StatusAccepted {
 			return fmt.Errorf("%s unsuccessful HTTP status code: %d raw response: %s",
