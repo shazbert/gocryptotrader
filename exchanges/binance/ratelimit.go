@@ -14,12 +14,10 @@ const (
 	// 1200 requests per minute
 	binanceGlobalInterval    = time.Minute
 	binanceGlobalRequestRate = 1200
-	binanceGlobalBurst       = 50
 	// Order related limits which are segregated from the global rate limits
 	// 100 requests per 10 seconds and max 100000 requests per day.
 	binanceOrderInterval         = 10 * time.Second
 	binanceOrderRequestRate      = 100
-	binanceOrderBurst            = 40
 	binanceOrderDailyInterval    = time.Hour * 24
 	binanceOrderDailyMaxRequests = 100000
 )
@@ -49,6 +47,7 @@ type RateLimit struct {
 func (r *RateLimit) Limit(f request.EndpointLimit) error {
 	var limiter *rate.Limiter
 	var tokens int
+	// var burst int
 	switch f {
 	case limitHistoricalTrades:
 		limiter, tokens = r.GlobalRate, 5
@@ -76,22 +75,25 @@ func (r *RateLimit) Limit(f request.EndpointLimit) error {
 		limiter, tokens = r.GlobalRate, 1
 	}
 
-	res := limiter.ReserveN(time.Now(), tokens)
-	if !res.OK() {
-		// Never expecting to hit this case, but if we do, the burst rate is lower than the amount required
-		return errors.New("unable to allocate quota to remain within request limit")
+	var finalDelay time.Duration
+	for i := 0; i < tokens; i++ {
+		res := limiter.ReserveN(time.Now(), 1)
+		if !res.OK() {
+			// Never expecting to hit this case, but if we do, the burst rate is
+			// lower than the amount required
+			return errors.New("unable to allocate quota to remain within request limit")
+		}
+		finalDelay = res.Delay()
 	}
-
-	time.Sleep(res.Delay())
+	time.Sleep(finalDelay)
 	return nil
 }
 
 // SetRateLimit returns the rate limit for the exchange
 func SetRateLimit() *RateLimit {
-	// Burst sizes are set to the maximum reservation that can be used for that limit
 	return &RateLimit{
-		GlobalRate: request.NewBurstableRateLimit(binanceGlobalInterval, binanceGlobalRequestRate, binanceGlobalBurst),
-		Orders:     request.NewBurstableRateLimit(binanceOrderInterval, binanceOrderRequestRate, binanceOrderBurst),
+		GlobalRate: request.NewRateLimit(binanceGlobalInterval, binanceGlobalRequestRate),
+		Orders:     request.NewRateLimit(binanceOrderInterval, binanceOrderRequestRate),
 	}
 }
 
