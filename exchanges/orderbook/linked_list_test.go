@@ -19,9 +19,10 @@ func TestDepth(t *testing.T) {
 
 	depth.DisplayBids()
 	fmt.Println("Stack PTR to reuse:", depth.stack.nodes)
-	depth.AddBid(Item{Price: 1340, Amount: 1})
 
+	depth.AddBid(Item{Price: 1340, Amount: 1})
 	depth.DisplayBids()
+
 	fmt.Println("Stack PTR to reuse:", depth.stack.nodes)
 
 	err = depth.RemoveBidByPrice(1340)

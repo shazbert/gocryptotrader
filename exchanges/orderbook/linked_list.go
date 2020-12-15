@@ -4,131 +4,155 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 )
+
+// linkedList defines a depth linked list
+type linkedList struct {
+	length int
+	head   *Node
+	tail   *Node
+}
+
+// Add adds a new node to the linked list
+func (ll *linkedList) Add(node *Node) {
+	fmt.Printf("Current Head: %p\n", ll.head)
+	fmt.Printf("Current Tail: %p\n", ll.tail)
+	if ll.head == nil {
+		ll.head = node
+		ll.tail = node
+	} else {
+		node.prev = ll.tail
+		ll.tail.next = node
+		ll.tail = node
+	}
+
+	fmt.Printf("After Head: %p\n", ll.head)
+	fmt.Printf("After prev: %p\n", ll.head.prev)
+	fmt.Printf("After next: %p\n", ll.head.next)
+	fmt.Printf("After Tail: %p\n", ll.tail)
+	fmt.Printf("After Tail prev: %p\n", ll.tail.prev)
+	fmt.Printf("After Tail next: %p\n", ll.tail.next)
+	fmt.Println()
+
+	ll.length++
+}
+
+// RemoveByPrice removes depth level by price and returns the node to be pushed
+// onto the stack
+func (ll *linkedList) RemoveByPrice(price float64) (*Node, error) {
+	tip := ll.head
+	for tip != nil {
+		if tip.value.Price == price {
+			tip.prev.next = tip.next
+			if tip.next != nil {
+				tip.next.prev = tip.prev
+			}
+			return tip, nil
+		}
+		tip = tip.next
+	}
+	return nil, errors.New("not found cannot remove")
+}
+
+// Liquidity returns total depth liquitidy
+func (ll *linkedList) Liquidity() (Liquidity float64) {
+	tip := ll.head
+	for tip != nil {
+		Liquidity += tip.value.Amount
+		tip = tip.next
+	}
+	return
+}
+
+// Value returns total value on price.amount on full depth
+func (ll *linkedList) Value() (value float64) {
+	tip := ll.head
+	for tip != nil {
+		value += tip.value.Amount * tip.value.Price
+		tip = tip.next
+	}
+	return
+}
+
+// Display displays depth content
+func (ll *linkedList) Display() {
+	tip := ll.head
+	for tip != nil {
+		fmt.Printf("-> %+v ", tip.value)
+		tip = tip.next
+	}
+	fmt.Println()
+}
 
 // Node defines a linked list node for an orderbook item
 type Node struct {
-	value   Item
-	next    *Node
-	prev    *Node
-	head    *Node
-	headOpp *Node
-	tail    *Node
-}
+	value Item
+	next  *Node
+	prev  *Node
 
-func (n *Node) Next() *Node     { return n.next }
-func (n *Node) Previous() *Node { return n.prev }
-func (n *Node) Head() *Node     { return n.head }
-func (n *Node) OppHead() *Node  { return n.headOpp }
-func (n *Node) Tail() *Node     { return n.headOpp }
+	// Denotes time pushed to stack, this will influence cleanup routine when
+	// there is a pause or minimal actions during period
+	shelfed time.Time
+}
 
 // Depth defines a linked list of orderbook items
 type Depth struct {
-	askLength, bidLength int
-	headAsk, headBid     *Node
-	stack                Stack
+	ask linkedList
+	bid linkedList
+
+	// TODO: Determine performance of shared to bid/ask stack
+	stack Stack
 	sync.Mutex
 }
 
 // LenAsk returns length of asks
 func (d *Depth) LenAsk() int {
-	return d.askLength
+	d.Lock()
+	defer d.Unlock()
+	return d.ask.length
 }
 
 // LenBids returns length of bids
 func (d *Depth) LenBids() int {
-	return d.bidLength
+	d.Lock()
+	defer d.Unlock()
+	return d.bid.length
 }
 
 // AddBid adds a bid to the list
 func (d *Depth) AddBid(item Item) error {
+	d.Lock()
+	defer d.Unlock()
 	n := d.stack.Pop()
 	n.value = item
-	n.headOpp = d.headAsk
-	if d.headBid == nil {
-		n.head = n
-		d.headBid = n
-		d.headBid.tail = n
-		d.bidLength++
-		return nil
-	}
-
-	n.head = d.headBid
-	n.prev = d.headBid.tail
-	d.headBid.tail.next = n
-	d.headBid.tail = n
+	d.bid.Add(n)
 	return nil
 }
 
 // RemoveBidByPrice removes a bid
 func (d *Depth) RemoveBidByPrice(price float64) error {
-	if d.headBid == nil {
-		return errors.New("head bids not found")
+	d.Lock()
+	defer d.Unlock()
+	n, err := d.bid.RemoveByPrice(price)
+	if err != nil {
+		return err
 	}
-
-	elem := d.headBid.Next()
-	for elem != nil {
-		if elem.value.Price == price {
-			// Drop association
-			elem.prev.next = elem.next
-			// Push unused node onto stack
-			d.stack.Push(elem)
-			return nil
-		}
-		elem = elem.Next()
-	}
-	return errors.New("node not found")
+	d.stack.Push(n)
+	return nil
 }
 
 // DisplayBids does a helpful display!!! YAY!
 func (d *Depth) DisplayBids() {
-	currentHead := d.headBid
-	for currentHead != nil {
-		fmt.Printf("%v ->", currentHead.value)
-		currentHead = currentHead.next
-	}
-	fmt.Println()
+	d.Lock()
+	defer d.Unlock()
+	d.bid.Display()
 }
 
-// func (l *doublyLinkedList) PushBack(n *node) {
-// 	if l.head == nil {
-// 		l.head = n
-// 		fmt.Println(l.head)
-// 		l.tail = n
-// 	} else {
-// 		l.tail.next = n
-// 		l.tail = n
-// 	}
-// 	l.length++
-// }
-
-// func (d *Depth) Delete(key int) {
-// 	fmt.Println("deleting key:", key)
-// 	fmt.Println(l.head)
-// 	if l.head.value == key {
-// 		l.head = l.head.next
-// 		l.length--
-// 		return
-// 	}
-// 	var prev *node
-// 	curr := l.head
-// 	for curr != nil && curr.value != key {
-// 		prev = curr
-// 		curr = curr.next
-// 	}
-
-// 	if curr == nil {
-// 		fmt.Println("Key Not found")
-// 	}
-// 	prev.next = curr.next
-// 	l.length--
-// 	fmt.Println("node deleted")
-// }
-
-// Stack defines a FIFO list of empty nodes FIFO
+// Stack defines a FIFO list of reusable nodes
 type Stack struct {
 	nodes []*Node
-	count int
+	count int32
 }
 
 // NewStack returns a ptr to a new Stack instance
@@ -136,10 +160,10 @@ func NewStack() *Stack {
 	return &Stack{}
 }
 
-// Push pushes a new node pointer into the stack
+// Push pushes a node pointer into the stack to be reused
 func (s *Stack) Push(n *Node) {
-	// TODO: benchmark clean
-	*n = Node{}
+	n.shelfed = time.Now()
+	n.next = nil // cleanup
 	s.nodes = append(s.nodes[:s.count], n)
 	s.count++
 }
@@ -148,9 +172,27 @@ func (s *Stack) Push(n *Node) {
 // will produce a lovely fresh node
 func (s *Stack) Pop() *Node {
 	if s.count == 0 {
-		// Create empty node
+		// Create an empty node
 		return &Node{}
 	}
 	s.count--
 	return s.nodes[s.count]
+}
+
+// cleanupKrew test cleanup every 30 seconds
+func (s *Stack) cleanupKrew() {
+	t := time.NewTicker(time.Second * 30)
+	for {
+		select {
+		case <-t.C:
+			for i := 0; i < len(s.nodes); i++ {
+				if time.Since(s.nodes[i].shelfed) > time.Second*30 {
+					copy(s.nodes[i:], s.nodes[i+1:])
+					s.nodes[len(s.nodes)-1] = nil
+					s.nodes = s.nodes[:len(s.nodes)-1]
+					i--
+				}
+			}
+		}
+	}
 }
