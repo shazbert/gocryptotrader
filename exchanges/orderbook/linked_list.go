@@ -3,17 +3,9 @@ package orderbook
 import (
 	"errors"
 	"fmt"
-	"runtime"
 	"sync"
 	"time"
 )
-
-func init() {
-	runtime_registerPoolCleanup(func() { fmt.Println("Hello, World!") })
-}
-
-// Implemented in runtime.
-func runtime_registerPoolCleanup(cleanup func())
 
 // linkedList defines a depth linked list
 type linkedList struct {
@@ -174,7 +166,6 @@ func (s *Stack) Push(n *Node) {
 // Pop returns the last pointer off the stack and reduces the count and if empty
 // will produce a lovely fresh node
 func (s *Stack) Pop() *Node {
-	_ = runtime.GOMAXPROCS(0)
 	if s.count == 0 {
 		// Create an empty node
 		// fmt.Println("Stack popped new ADDR")
