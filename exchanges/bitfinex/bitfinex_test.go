@@ -15,6 +15,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/orderbook"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/sharedtestvalues"
 	"github.com/thrasher-corp/gocryptotrader/portfolio/withdraw"
 )
@@ -1472,5 +1473,81 @@ func TestGetHistoricTrades(t *testing.T) {
 	_, err = b.GetHistoricTrades(currencyPair, asset.Spot, time.Now().Add(-time.Hour*24*100), time.Now().Add(-time.Hour*24*99))
 	if err != nil {
 		t.Error(err)
+	}
+}
+
+var testOb = orderbook.Base{
+	Asks: []orderbook.Item{
+		{Price: 0.05005, Amount: 0.00000500},
+		{Price: 0.05010, Amount: 0.00000500},
+		{Price: 0.05015, Amount: 0.00000500},
+		{Price: 0.05020, Amount: 0.00000500},
+		{Price: 0.05025, Amount: 0.00000500},
+		{Price: 0.05030, Amount: 0.00000500},
+		{Price: 0.05035, Amount: 0.00000500},
+		{Price: 0.05040, Amount: 0.00000500},
+		{Price: 0.05045, Amount: 0.00000500},
+		{Price: 0.05050, Amount: 0.00000500},
+	},
+	Bids: []orderbook.Item{
+		{Price: 0.05000, Amount: 0.00000500},
+		{Price: 0.04995, Amount: 0.00000500},
+		{Price: 0.04990, Amount: 0.00000500},
+		{Price: 0.04980, Amount: 0.00000500},
+		{Price: 0.04975, Amount: 0.00000500},
+		{Price: 0.04970, Amount: 0.00000500},
+		{Price: 0.04965, Amount: 0.00000500},
+		{Price: 0.04960, Amount: 0.00000500},
+		{Price: 0.04955, Amount: 0.00000500},
+		{Price: 0.04950, Amount: 0.00000500},
+	},
+}
+
+func TestChecksum(t *testing.T) {
+	err := validateCRC32(&testOb, 190468240)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestReOrderbyID(t *testing.T) {
+	asks := []orderbook.Item{
+		{ID: 4, Price: 100, Amount: 0.00000500},
+		{ID: 3, Price: 100, Amount: 0.00000500},
+		{ID: 2, Price: 100, Amount: 0.00000500},
+		{ID: 1, Price: 100, Amount: 0.00000500},
+		{ID: 5, Price: 101, Amount: 0.00000500},
+		{ID: 6, Price: 102, Amount: 0.00000500},
+		{ID: 8, Price: 103, Amount: 0.00000500},
+		{ID: 7, Price: 103, Amount: 0.00000500},
+		{ID: 9, Price: 104, Amount: 0.00000500},
+		{ID: 10, Price: 105, Amount: 0.00000500},
+	}
+	reOrderByID(asks)
+
+	for i := range asks {
+		if asks[i].ID != int64(i+1) {
+			t.Fatal("order by ID failure")
+		}
+	}
+
+	bids := []orderbook.Item{
+		{ID: 4, Price: 100, Amount: 0.00000500},
+		{ID: 3, Price: 100, Amount: 0.00000500},
+		{ID: 2, Price: 100, Amount: 0.00000500},
+		{ID: 1, Price: 100, Amount: 0.00000500},
+		{ID: 5, Price: 99, Amount: 0.00000500},
+		{ID: 6, Price: 98, Amount: 0.00000500},
+		{ID: 8, Price: 97, Amount: 0.00000500},
+		{ID: 7, Price: 97, Amount: 0.00000500},
+		{ID: 9, Price: 96, Amount: 0.00000500},
+		{ID: 10, Price: 95, Amount: 0.00000500},
+	}
+	reOrderByID(bids)
+
+	for i := range bids {
+		if bids[i].ID != int64(i+1) {
+			t.Fatal("order by ID failure")
+		}
 	}
 }
