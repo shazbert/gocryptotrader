@@ -81,6 +81,40 @@ func TestDepth(t *testing.T) {
 
 }
 
+var bids = Items{
+	Item{Price: 1336, Amount: 1},
+	Item{Price: 1337, Amount: 1},
+	Item{Price: 1338, Amount: 1},
+	Item{Price: 1339, Amount: 1},
+}
+
+func TestLoad(t *testing.T) {
+	a := bids
+	d := Depth{}
+	err := d.bid.Load(a, &d.stack)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	d.bid.Display()
+	fmt.Println("Liguidity:", d.bid.Liquidity())
+	fmt.Println("Value:", d.bid.Value())
+
+	b := Items{
+		Item{Price: 1336, Amount: 1},
+		Item{Price: 1337, Amount: 1},
+	}
+
+	err = d.bid.Load(b, &d.stack)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	d.bid.Display()
+	fmt.Println("Liguidity:", d.bid.Liquidity())
+	fmt.Println("Value:", d.bid.Value())
+}
+
 //  158	   9521717 ns/op	 9600104 B/op	  100001 allocs/op
 func BenchmarkWithoutStack(b *testing.B) {
 	var n *Node

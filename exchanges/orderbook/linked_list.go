@@ -28,6 +28,7 @@ func (ll *linkedList) Add(node *Node) {
 }
 
 type byDecision func(Item) bool
+type outOfOrder func(float64, float64) bool
 
 // RemoveByPrice removes depth level by price and returns the node to be pushed
 // onto the stack
@@ -55,10 +56,42 @@ func (ll *linkedList) Remove(fn byDecision) (*Node, error) {
 	return nil, errors.New("not found cannot remove")
 }
 
-// Liquidity returns total depth liquitidy
-func (ll *linkedList) Liquidity() (Liquidity float64) {
+// Load iterates across new items and refreshes linked list
+func (ll *linkedList) Load(items Items, stack *Stack) error {
+	if ll.head == nil {
+		fmt.Println("POP")
+		ll.head = stack.Pop()
+		ll.tail = ll.head
+	}
+	tip := &ll.head
+	var prev *Node
+	for i := 0; i < len(items); i++ {
+		if *tip == nil { // Exceed node length pop and assign reference
+			*tip = stack.Pop()
+			fmt.Println("POP")
+			(*(*tip)).prev = prev
+		}
+		(*(*tip)).value = items[i] // Change node value
+		ll.tail = *tip             // Re-address tail
+		prev = *tip
+		tip = &(*tip).next
+	}
+
+	// Push unused nodes back onto stack
+	for *tip != nil {
+		// Prune reference to previous
+		(*(*tip)).prev.next = nil
+		tip = &(*tip).next
+		fmt.Println("PUSH")
+		stack.Push(*tip)
+	}
+	return nil
+}
+
+// Liquidity returns total depth liquidity
+func (ll *linkedList) Liquidity() (liquidity float64) {
 	for tip := ll.head; tip != nil; tip = tip.next {
-		Liquidity += tip.value.Amount
+		liquidity += tip.value.Amount
 	}
 	return
 }
@@ -66,6 +99,15 @@ func (ll *linkedList) Liquidity() (Liquidity float64) {
 // Value returns total value on price.amount on full depth
 func (ll *linkedList) Value() (value float64) {
 	for tip := ll.head; tip != nil; tip = tip.next {
+		value += tip.value.Amount * tip.value.Price
+	}
+	return
+}
+
+// Amount returns total depth liquidity and value
+func (ll *linkedList) Amount() (liquidity, value float64) {
+	for tip := ll.head; tip != nil; tip = tip.next {
+		liquidity += tip.value.Amount
 		value += tip.value.Amount * tip.value.Price
 	}
 	return
@@ -91,59 +133,6 @@ type Node struct {
 	sync.Pool
 }
 
-// Depth defines a linked list of orderbook items
-type Depth struct {
-	ask linkedList
-	bid linkedList
-
-	// TODO: Determine performance of shared to bid/ask stack
-	stack Stack
-	sync.Mutex
-}
-
-// LenAsk returns length of asks
-func (d *Depth) LenAsk() int {
-	d.Lock()
-	defer d.Unlock()
-	return d.ask.length
-}
-
-// LenBids returns length of bids
-func (d *Depth) LenBids() int {
-	d.Lock()
-	defer d.Unlock()
-	return d.bid.length
-}
-
-// AddBid adds a bid to the list
-func (d *Depth) AddBid(item Item) error {
-	d.Lock()
-	defer d.Unlock()
-	n := d.stack.Pop()
-	n.value = item
-	d.bid.Add(n)
-	return nil
-}
-
-// RemoveBidByPrice removes a bid
-func (d *Depth) RemoveBidByPrice(price float64) error {
-	d.Lock()
-	defer d.Unlock()
-	n, err := d.bid.Remove(func(i Item) bool { return i.Price == price })
-	if err != nil {
-		return err
-	}
-	d.stack.Push(n)
-	return nil
-}
-
-// DisplayBids does a helpful display!!! YAY!
-func (d *Depth) DisplayBids() {
-	d.Lock()
-	defer d.Unlock()
-	d.bid.Display()
-}
-
 // Stack defines a FIFO list of reusable nodes
 type Stack struct {
 	nodes []*Node
@@ -157,7 +146,6 @@ func NewStack() *Stack {
 
 // Push pushes a node pointer into the stack to be reused
 func (s *Stack) Push(n *Node) {
-	// fmt.Printf("Stack insert %+v ADDR: %p\n\n", n, n)
 	*n = Node{shelfed: time.Now()} // purge and insert timing
 	s.nodes = append(s.nodes[:s.count], n)
 	s.count++
@@ -168,11 +156,9 @@ func (s *Stack) Push(n *Node) {
 func (s *Stack) Pop() *Node {
 	if s.count == 0 {
 		// Create an empty node
-		// fmt.Println("Stack popped new ADDR")
 		return &Node{}
 	}
 	s.count--
-	// fmt.Printf("Stack popped ADDR %p\n", s.nodes[s.count])
 	return s.nodes[s.count]
 }
 
