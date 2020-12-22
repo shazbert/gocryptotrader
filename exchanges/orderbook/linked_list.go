@@ -59,31 +59,46 @@ func (ll *linkedList) Remove(fn byDecision) (*Node, error) {
 // Load iterates across new items and refreshes linked list
 func (ll *linkedList) Load(items Items, stack *Stack) error {
 	if ll.head == nil {
-		fmt.Println("POP")
 		ll.head = stack.Pop()
 		ll.tail = ll.head
 	}
+
 	tip := &ll.head
 	var prev *Node
 	for i := 0; i < len(items); i++ {
-		if *tip == nil { // Exceed node length pop and assign reference
-			*tip = stack.Pop()
+		if *tip == nil {
+			// Exceeded node length, pop from stack and reference to previous
+			// node
 			fmt.Println("POP")
-			(*(*tip)).prev = prev
+			n := stack.Pop()
+			*tip = n
+			prev.next = n
 		}
-		(*(*tip)).value = items[i] // Change node value
-		ll.tail = *tip             // Re-address tail
+
+		fmt.Printf("Current ADDR: %p\n", *tip)
+		fmt.Printf("PREV: %+v\n", prev)
+
+		(*tip).value = items[i] // Change node value
+		(*tip).prev = prev
+
 		prev = *tip
+		ll.tail = *tip
+
+		fmt.Printf("current tail %p\n", ll.tail)
+
 		tip = &(*tip).next
 	}
 
 	// Push unused nodes back onto stack
 	for *tip != nil {
 		// Prune reference to previous
-		(*(*tip)).prev.next = nil
-		tip = &(*tip).next
-		fmt.Println("PUSH")
+		fmt.Printf("PUSH %+v\n", (*tip).prev)
 		stack.Push(*tip)
+		(*tip).prev.next = nil
+		if (*tip).next == nil {
+			break
+		}
+		tip = &(*tip).next
 	}
 	return nil
 }
