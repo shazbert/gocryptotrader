@@ -7,6 +7,19 @@ import (
 	"time"
 )
 
+// var stack audit
+
+// type audit []*Stack
+
+// func (a *audit) Clean() {}
+
+// func (a *audit) Register() *Stack {
+// 	s := new(Stack)
+// 	a = append(a)
+// 	return s
+
+// }
+
 // linkedList defines a depth linked list
 type linkedList struct {
 	length int
@@ -69,14 +82,14 @@ func (ll *linkedList) Load(items Items, stack *Stack) error {
 		if *tip == nil {
 			// Exceeded node length, pop from stack and reference to previous
 			// node
-			fmt.Println("POP")
+			// fmt.Println("POP")
 			n := stack.Pop()
 			*tip = n
 			prev.next = n
 		}
 
-		fmt.Printf("Current ADDR: %p\n", *tip)
-		fmt.Printf("PREV: %+v\n", prev)
+		// fmt.Printf("Current ADDR: %p\n", *tip)
+		// fmt.Printf("PREV: %+v\n", prev)
 
 		(*tip).value = items[i] // Change node value
 		(*tip).prev = prev
@@ -84,7 +97,7 @@ func (ll *linkedList) Load(items Items, stack *Stack) error {
 		prev = *tip
 		ll.tail = *tip
 
-		fmt.Printf("current tail %p\n", ll.tail)
+		// fmt.Printf("current tail %p\n", ll.tail)
 
 		tip = &(*tip).next
 	}
@@ -151,6 +164,7 @@ type Node struct {
 // Stack defines a FIFO list of reusable nodes
 type Stack struct {
 	nodes []*Node
+	s     *uint32
 	count int32
 }
 

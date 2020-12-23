@@ -139,3 +139,9 @@ func (d *Depth) Process(bid, ask Items, fundingRate, notAggregated bool) error {
 	// return service.Update(b)
 	return nil
 }
+
+// invalidate will pop entire bid and ask node chain onto stack when an error
+// occurs, so as to not be able to traverse potential invalid books.
+func (d *Depth) invalidate() {
+
+}
