@@ -40,12 +40,22 @@ func (d *Depth) LenBids() int {
 }
 
 // AddBid adds a bid to the list
-func (d *Depth) AddBid(item Item) error {
+func (d *Depth) AddBid(i Item) error {
 	d.Lock()
 	defer d.Unlock()
 	n := d.stack.Pop()
-	n.value = item
-	d.bid.Add(n)
+	n.value = i
+	d.bid.Add(func(i Item) bool { return true }, n)
+	return nil
+}
+
+// AddBids adds a collection of bids to the linked list
+func (d *Depth) AddBids(i Item) error {
+	d.Lock()
+	defer d.Unlock()
+	n := d.stack.Pop()
+	n.value = i
+	d.bid.Add(func(i Item) bool { return true }, n)
 	return nil
 }
 

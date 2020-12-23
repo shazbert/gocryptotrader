@@ -24,21 +24,21 @@ import (
 type linkedList struct {
 	length int
 	head   *Node
-	tail   *Node
+	// tail   *Node
 }
 
-// Add adds a new node to the linked list
-func (ll *linkedList) Add(node *Node) {
-	if ll.head == nil {
-		ll.head = node
-		ll.tail = node
-	} else {
-		node.prev = ll.tail
-		ll.tail.next = node
-		ll.tail = node
-	}
-	ll.length++
-}
+// // Add adds a new node to the linked list
+// func (ll *linkedList) Add(node *Node) {
+// 	if ll.head == nil {
+// 		ll.head = node
+// 		ll.tail = node
+// 	} else {
+// 		node.prev = ll.tail
+// 		ll.tail.next = node
+// 		ll.tail = node
+// 	}
+// 	ll.length++
+// }
 
 type byDecision func(Item) bool
 type outOfOrder func(float64, float64) bool
@@ -56,7 +56,7 @@ func (ll *linkedList) Remove(fn byDecision) (*Node, error) {
 				return tip, nil
 			}
 			if tip.next == nil { // tip is at tail
-				ll.tail = tip.prev
+				// ll.tail = tip.prev
 				tip.prev.next = nil
 				return tip, nil
 			}
@@ -69,50 +69,61 @@ func (ll *linkedList) Remove(fn byDecision) (*Node, error) {
 	return nil, errors.New("not found cannot remove")
 }
 
+// Add adds depth level by decision
+func (ll *linkedList) Add(fn byDecision, n *Node) error {
+	// for tip := ll.head; tip != nil; tip = tip.next {
+	// 	if fn(tip.value) {
+	// 		if tip.prev == nil { // tip is at head
+	// 			ll.head = tip.next
+	// 			if tip.next != nil {
+	// 				tip.next.prev = nil
+	// 			}
+	// 			return tip, nil
+	// 		}
+	// 		if tip.next == nil { // tip is at tail
+	// 			ll.tail = tip.prev
+	// 			tip.prev.next = nil
+	// 			return tip, nil
+	// 		}
+	// 		// Split reference
+	// 		tip.prev.next = tip.next
+	// 		tip.next.prev = tip.prev
+	// 		return tip, nil
+	// 	}
+	// }
+	// return nil, errors.New("not found cannot remove")
+	return nil
+}
+
 // Load iterates across new items and refreshes linked list
 func (ll *linkedList) Load(items Items, stack *Stack) error {
-	if ll.head == nil {
-		ll.head = stack.Pop()
-		ll.tail = ll.head
-	}
-
-	tip := &ll.head
+	var tip = &ll.head
 	var prev *Node
 	for i := 0; i < len(items); i++ {
 		if *tip == nil {
-			// Exceeded node length, pop from stack and reference to previous
-			// node
-			// fmt.Println("POP")
-			n := stack.Pop()
-			*tip = n
-			prev.next = n
+			// Extend node chain
+			*tip = stack.Pop()
 		}
-
-		// fmt.Printf("Current ADDR: %p\n", *tip)
-		// fmt.Printf("PREV: %+v\n", prev)
-
-		(*tip).value = items[i] // Change node value
+		// Set item value
+		(*tip).value = items[i]
+		// Set current node prev to last node
 		(*tip).prev = prev
-
-		prev = *tip
-		ll.tail = *tip
-
-		// fmt.Printf("current tail %p\n", ll.tail)
-
-		tip = &(*tip).next
+		// Set previous to current node
+		prev = (*tip)
+		// Set tip to next node
+		tip = &(*tip).next // This sets up a pointer to the previous nodes' next
+		// field thus creating a link if a new node is created
 	}
 
-	// Push unused nodes back onto stack
-	for *tip != nil {
-		// Prune reference to previous
-		fmt.Printf("PUSH %+v\n", (*tip).prev)
-		stack.Push(*tip)
-		(*tip).prev.next = nil
-		if (*tip).next == nil {
-			break
-		}
-		tip = &(*tip).next
+	// Push unused pointers back on stack
+	for push := prev.next; push != nil; {
+		pending := push.next
+		stack.Push(push)
+		push = pending
 	}
+
+	// Cleave reference
+	prev.next = nil
 	return nil
 }
 
@@ -144,7 +155,7 @@ func (ll *linkedList) Amount() (liquidity, value float64) {
 // Display displays depth content
 func (ll *linkedList) Display() {
 	for tip := ll.head; tip != nil; tip = tip.next {
-		fmt.Printf("-> %+v ", tip.value)
+		fmt.Printf("NODE: %+v %p \n", tip, tip)
 	}
 	fmt.Println()
 }
@@ -175,7 +186,10 @@ func NewStack() *Stack {
 
 // Push pushes a node pointer into the stack to be reused
 func (s *Stack) Push(n *Node) {
-	*n = Node{shelfed: time.Now()} // purge and insert timing
+	n.shelfed = time.Now()
+	n.next = nil
+	n.prev = nil
+	n.value = Item{}
 	s.nodes = append(s.nodes[:s.count], n)
 	s.count++
 }

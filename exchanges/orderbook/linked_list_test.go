@@ -97,12 +97,12 @@ func TestLoad(t *testing.T) {
 	}
 
 	d.bid.Display()
-	fmt.Println("Liguidity:", d.bid.Liquidity())
-	fmt.Println("Value:", d.bid.Value())
+	// d.ask.Display()
+	// fmt.Println("Liguidity:", d.bid.Liquidity())
+	// fmt.Println("Value:", d.bid.Value())
 
 	b := Items{
-		Item{Price: 1336, Amount: 1},
-		Item{Price: 1337, Amount: 1},
+		Item{Price: 5000, Amount: 1},
 	}
 
 	err = d.bid.Load(b, &d.stack)
@@ -111,8 +111,8 @@ func TestLoad(t *testing.T) {
 	}
 
 	d.bid.Display()
-	fmt.Println("Liguidity:", d.bid.Liquidity())
-	fmt.Println("Value:", d.bid.Value())
+	// fmt.Println("Liguidity:", d.bid.Liquidity())
+	// fmt.Println("Value:", d.bid.Value())
 }
 
 //  158	   9521717 ns/op	 9600104 B/op	  100001 allocs/op
