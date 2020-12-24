@@ -71,27 +71,27 @@ func (ll *linkedList) Remove(fn byDecision) (*Node, error) {
 
 // Add adds depth level by decision
 func (ll *linkedList) Add(fn byDecision, n *Node) error {
-	// for tip := ll.head; tip != nil; tip = tip.next {
-	// 	if fn(tip.value) {
-	// 		if tip.prev == nil { // tip is at head
-	// 			ll.head = tip.next
-	// 			if tip.next != nil {
-	// 				tip.next.prev = nil
-	// 			}
-	// 			return tip, nil
-	// 		}
-	// 		if tip.next == nil { // tip is at tail
-	// 			ll.tail = tip.prev
-	// 			tip.prev.next = nil
-	// 			return tip, nil
-	// 		}
-	// 		// Split reference
-	// 		tip.prev.next = tip.next
-	// 		tip.next.prev = tip.prev
-	// 		return tip, nil
-	// 	}
-	// }
-	// return nil, errors.New("not found cannot remove")
+	for tip := ll.head; tip != nil; tip = tip.next {
+		if fn(tip.value) {
+			if tip.prev == nil { // tip is at head
+				ll.head = tip.next
+				if tip.next != nil {
+					tip.next.prev = nil
+				}
+				return tip, nil
+			}
+			if tip.next == nil { // tip is at tail
+				ll.tail = tip.prev
+				tip.prev.next = nil
+				return tip, nil
+			}
+			// Split reference
+			tip.prev.next = tip.next
+			tip.next.prev = tip.prev
+			return tip, nil
+		}
+	}
+	return nil, errors.New("not found cannot remove")
 	return nil
 }
 
