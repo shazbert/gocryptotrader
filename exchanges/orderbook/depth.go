@@ -88,7 +88,7 @@ func (d *Depth) alert() {
 	close(d.wait)
 	d.wait = make(chan struct{})
 	atomic.SwapUint32(d.waiting, 0)
-	d.wMtx.Lock()
+	d.wMtx.Unlock()
 }
 
 // Wait pauses routine until depth change has been established
