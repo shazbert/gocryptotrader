@@ -43,31 +43,28 @@ func (d *Depth) LenBids() int {
 func (d *Depth) AddBid(i Item) error {
 	d.Lock()
 	defer d.Unlock()
-	n := d.stack.Pop()
-	n.value = i
-	d.bid.Add(func(i Item) bool { return true }, n)
-	return nil
+	return d.bid.Add(func(i Item) bool { return true }, i, &d.stack)
 }
 
-// AddBids adds a collection of bids to the linked list
-func (d *Depth) AddBids(i Item) error {
-	d.Lock()
-	defer d.Unlock()
-	n := d.stack.Pop()
-	n.value = i
-	d.bid.Add(func(i Item) bool { return true }, n)
-	return nil
-}
+// // AddBids adds a collection of bids to the linked list
+// func (d *Depth) AddBids(i Item) error {
+// 	d.Lock()
+// 	defer d.Unlock()
+// 	n := d.stack.Pop()
+// 	n.value = i
+// 	d.bid.Add(func(i Item) bool { return true }, n)
+// 	return nil
+// }
 
 // RemoveBidByPrice removes a bid
 func (d *Depth) RemoveBidByPrice(price float64) error {
-	d.Lock()
-	defer d.Unlock()
-	n, err := d.bid.Remove(func(i Item) bool { return i.Price == price })
-	if err != nil {
-		return err
-	}
-	d.stack.Push(n)
+	// d.Lock()
+	// defer d.Unlock()
+	// n, err := d.bid.Remove(func(i Item) bool { return i.Price == price })
+	// if err != nil {
+	// 	return err
+	// }
+	// d.stack.Push(n)
 	return nil
 }
 
@@ -115,24 +112,24 @@ func (d *Depth) TotalAsksAmount() (liquidity, value float64) {
 	return d.ask.Amount()
 }
 
-// Update updates the bids and asks
-func (d *Depth) Update(bids, asks []Item) error {
-	d.Lock()
-	defer d.Unlock()
+// // Update updates the bids and asks
+// func (d *Depth) Update(bids, asks []Item) error {
+// 	d.Lock()
+// 	defer d.Unlock()
 
-	err := d.bid.Load(bids, &d.stack)
-	if err != nil {
-		return err
-	}
+// 	err := d.bid.Load(bids, &d.stack)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	err = d.ask.Load(asks, &d.stack)
-	if err != nil {
-		return err
-	}
-	// Update occurred alert routines
-	d.alert()
-	return nil
-}
+// 	err = d.ask.Load(asks, &d.stack)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	// Update occurred, alert routines
+// 	d.alert()
+// 	return nil
+// }
 
 // Process processes incoming orderbook snapshots
 func (d *Depth) Process(bid, ask Items, fundingRate, notAggregated bool) error {

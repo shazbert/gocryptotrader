@@ -3,7 +3,6 @@ package orderbook
 import (
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 )
 
@@ -24,79 +23,19 @@ import (
 type linkedList struct {
 	length int
 	head   *Node
-	// tail   *Node
 }
 
-// // Add adds a new node to the linked list
-// func (ll *linkedList) Add(node *Node) {
-// 	if ll.head == nil {
-// 		ll.head = node
-// 		ll.tail = node
-// 	} else {
-// 		node.prev = ll.tail
-// 		ll.tail.next = node
-// 		ll.tail = node
-// 	}
-// 	ll.length++
-// }
-
-type byDecision func(Item) bool
-type outOfOrder func(float64, float64) bool
-
-// RemoveByPrice removes depth level by price and returns the node to be pushed
-// onto the stack
-func (ll *linkedList) Remove(fn byDecision) (*Node, error) {
-	for tip := ll.head; tip != nil; tip = tip.next {
-		if fn(tip.value) {
-			if tip.prev == nil { // tip is at head
-				ll.head = tip.next
-				if tip.next != nil {
-					tip.next.prev = nil
-				}
-				return tip, nil
-			}
-			if tip.next == nil { // tip is at tail
-				// ll.tail = tip.prev
-				tip.prev.next = nil
-				return tip, nil
-			}
-			// Split reference
-			tip.prev.next = tip.next
-			tip.next.prev = tip.prev
-			return tip, nil
-		}
-	}
-	return nil, errors.New("not found cannot remove")
-}
-
-// Add adds depth level by decision
-func (ll *linkedList) Add(fn byDecision, n *Node) error {
-	for tip := ll.head; tip != nil; tip = tip.next {
-		if fn(tip.value) {
-			if tip.prev == nil { // tip is at head
-				ll.head = tip.next
-				if tip.next != nil {
-					tip.next.prev = nil
-				}
-				return tip, nil
-			}
-			if tip.next == nil { // tip is at tail
-				ll.tail = tip.prev
-				tip.prev.next = nil
-				return tip, nil
-			}
-			// Split reference
-			tip.prev.next = tip.next
-			tip.next.prev = tip.prev
-			return tip, nil
-		}
-	}
-	return nil, errors.New("not found cannot remove")
-	return nil
-}
+var errNoOrderbookItems = errors.New("cannot load orderbook depth, no items")
+var errNoStack = errors.New("cannot load orderbook depth, stack is nil")
 
 // Load iterates across new items and refreshes linked list
 func (ll *linkedList) Load(items Items, stack *Stack) error {
+	if len(items) == 0 {
+		return errNoOrderbookItems
+	}
+	if stack == nil {
+		return errNoStack
+	}
 	var tip = &ll.head
 	var prev *Node
 	for i := 0; i < len(items); i++ {
@@ -127,6 +66,66 @@ func (ll *linkedList) Load(items Items, stack *Stack) error {
 	return nil
 }
 
+// byDecision defines functionality for item data
+type byDecision func(Item) bool
+
+// RemoveByPrice removes depth level by price and returns the node to be pushed
+// onto the stack
+func (ll *linkedList) Remove(fn byDecision, stack *Stack) (*Node, error) {
+	for tip := ll.head; tip != nil; tip = tip.next {
+		if fn(tip.value) {
+			if tip.prev == nil { // tip is at head
+				ll.head = tip.next
+				if tip.next != nil {
+					tip.next.prev = nil
+				}
+				return tip, nil
+			}
+			if tip.next == nil { // tip is at tail
+				// ll.tail = tip.prev
+				tip.prev.next = nil
+				return tip, nil
+			}
+			// Split reference
+			tip.prev.next = tip.next
+			tip.next.prev = tip.prev
+			return tip, nil
+		}
+	}
+	return nil, errors.New("not found cannot remove")
+}
+
+// Add adds depth level by decision
+func (ll *linkedList) Add(fn byDecision, item Item, stack *Stack) error {
+	for tip := &ll.head; ; tip = &(*tip).next {
+		if *tip == nil {
+			*tip = stack.Pop()
+			(*tip).value = item
+			return nil
+		}
+
+		if fn((*tip).value) {
+			n := stack.Pop()
+			n.value = item
+			n.next = (*tip).next
+			n.prev = *tip
+			(*tip).next = n
+			return nil
+		}
+	}
+}
+
+// Ammend changes depth level by decision and item value
+func (ll *linkedList) Ammend(fn byDecision, item Item) error {
+	for tip := ll.head; tip != nil; tip = tip.next {
+		if fn(tip.value) {
+			tip.value = item
+			return nil
+		}
+	}
+	return errors.New("value could not be changed")
+}
+
 // Liquidity returns total depth liquidity
 func (ll *linkedList) Liquidity() (liquidity float64) {
 	for tip := ll.head; tip != nil; tip = tip.next {
@@ -152,6 +151,14 @@ func (ll *linkedList) Amount() (liquidity, value float64) {
 	return
 }
 
+// Retrieve returns a full slice of contents from the linked list
+func (ll *linkedList) Retrieve() (items Items) {
+	for tip := ll.head; tip != nil; tip = tip.next {
+		items = append(items, tip.value)
+	}
+	return
+}
+
 // Display displays depth content
 func (ll *linkedList) Display() {
 	for tip := ll.head; tip != nil; tip = tip.next {
@@ -159,6 +166,8 @@ func (ll *linkedList) Display() {
 	}
 	fmt.Println()
 }
+
+type outOfOrder func(float64, float64) bool
 
 // Node defines a linked list node for an orderbook item
 type Node struct {
@@ -169,7 +178,7 @@ type Node struct {
 	// Denotes time pushed to stack, this will influence cleanup routine when
 	// there is a pause or minimal actions during period
 	shelfed time.Time
-	sync.Pool
+	// sync.Pool
 }
 
 // Stack defines a FIFO list of reusable nodes
