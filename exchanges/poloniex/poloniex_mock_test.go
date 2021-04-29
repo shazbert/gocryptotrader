@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/thrasher-corp/gocryptotrader/config"
-	"github.com/thrasher-corp/gocryptotrader/exchanges/mock"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/sharedtestvalues"
 )
 
@@ -39,19 +38,19 @@ func TestMain(m *testing.M) {
 		log.Fatal("Poloniex setup error", err)
 	}
 
-	serverDetails, newClient, err := mock.NewVCRServer(mockfile)
-	if err != nil {
-		log.Fatalf("Mock server error %s", err)
-	}
+	// serverDetails, newClient, err := mock.NewVCRServer(mockfile)
+	// if err != nil {
+	// 	log.Fatalf("Mock server error %s", err)
+	// }
 
-	p.HTTPClient = newClient
-	endpoints := p.API.Endpoints.GetURLMap()
-	for k := range endpoints {
-		err = p.API.Endpoints.SetRunning(k, serverDetails)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-	log.Printf(sharedtestvalues.MockTesting, p.Name)
+	// p.HTTPClient = newClient
+	// endpoints := p.API.Endpoints.GetURLMap()
+	// for k := range endpoints {
+	// 	err = p.API.Endpoints.SetRunning(k, serverDetails)
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// }
+	// log.Printf(sharedtestvalues.MockTesting, p.Name)
 	os.Exit(m.Run())
 }

@@ -21,12 +21,12 @@ const (
 )
 
 // Wrapper instance of GCT to use for modules
-var Wrapper GCT
+var Wrapper Exchange
 
-// GCT interface requirements
-type GCT interface {
-	Exchange
-}
+// // GCT interface requirements
+// type GCT interface {
+// 	Exchange
+// }
 
 // Exchange interface requirements
 type Exchange interface {
@@ -37,8 +37,8 @@ type Exchange interface {
 	Pairs(exch string, enabledOnly bool, item asset.Item) (*currency.Pairs, error)
 	QueryOrder(exch, orderid string, pair currency.Pair, assetType asset.Item) (*order.Detail, error)
 	SubmitOrder(submit *order.Submit) (*order.SubmitResponse, error)
-	CancelOrder(exch, orderid string, pair currency.Pair, item asset.Item) (bool, error)
-	AccountInformation(exch string, assetType asset.Item) (account.Holdings, error)
+	CancelOrder(exch, orderid string) (bool, error)
+	AccountInformation(exch, accountName string, assetType asset.Item) (*account.Holdings, error)
 	DepositAddress(exch string, currencyCode currency.Code) (string, error)
 	WithdrawalFiatFunds(bankAccountID string, request *withdraw.Request) (out string, err error)
 	WithdrawalCryptoFunds(request *withdraw.Request) (out string, err error)
@@ -46,6 +46,6 @@ type Exchange interface {
 }
 
 // SetModuleWrapper link the wrapper and interface to use for modules
-func SetModuleWrapper(wrapper GCT) {
+func SetModuleWrapper(wrapper Exchange) {
 	Wrapper = wrapper
 }

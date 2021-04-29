@@ -462,53 +462,55 @@ func (b *Bitfinex) UpdateOrderbook(p currency.Pair, assetType asset.Item) (*orde
 
 // UpdateAccountInfo retrieves balances for all enabled currencies on the
 // Bitfinex exchange
-func (b *Bitfinex) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	var response account.Holdings
-	response.Exchange = b.Name
+func (b *Bitfinex) UpdateAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// var response account.Holdings
+	// response.Exchange = b.Name
 
-	accountBalance, err := b.GetAccountBalance()
-	if err != nil {
-		return response, err
-	}
+	// accountBalance, err := b.GetAccountBalance()
+	// if err != nil {
+	// 	return response, err
+	// }
 
-	var Accounts = []account.SubAccount{
-		{ID: "deposit"},
-		{ID: "exchange"},
-		{ID: "trading"},
-		{ID: "margin"},
-		{ID: "funding "},
-	}
+	// var Accounts = []account.SubAccount{
+	// 	{ID: "deposit"},
+	// 	{ID: "exchange"},
+	// 	{ID: "trading"},
+	// 	{ID: "margin"},
+	// 	{ID: "funding "},
+	// }
 
-	for x := range accountBalance {
-		for i := range Accounts {
-			if Accounts[i].ID == accountBalance[x].Type {
-				Accounts[i].Currencies = append(Accounts[i].Currencies,
-					account.Balance{
-						CurrencyName: currency.NewCode(accountBalance[x].Currency),
-						TotalValue:   accountBalance[x].Amount,
-						Hold:         accountBalance[x].Amount - accountBalance[x].Available,
-					})
-			}
-		}
-	}
+	// for x := range accountBalance {
+	// 	for i := range Accounts {
+	// 		if Accounts[i].ID == accountBalance[x].Type {
+	// 			Accounts[i].Currencies = append(Accounts[i].Currencies,
+	// 				account.Balance{
+	// 					CurrencyName: currency.NewCode(accountBalance[x].Currency),
+	// 					TotalValue:   accountBalance[x].Amount,
+	// 					Hold:         accountBalance[x].Amount - accountBalance[x].Available,
+	// 				})
+	// 		}
+	// 	}
+	// }
 
-	response.Accounts = Accounts
-	err = account.Process(&response)
-	if err != nil {
-		return account.Holdings{}, err
-	}
+	// response.Accounts = Accounts
+	// err = account.Process(&response)
+	// if err != nil {
+	// 	return account.Holdings{}, err
+	// }
 
-	return response, nil
+	// return response, nil
+	return nil, nil
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies
-func (b *Bitfinex) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(b.Name, assetType)
-	if err != nil {
-		return b.UpdateAccountInfo(assetType)
-	}
+func (b *Bitfinex) FetchAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// acc, err := account.GetHoldings(b.Name, assetType)
+	// if err != nil {
+	// 	return b.UpdateAccountInfo(assetType)
+	// }
 
-	return acc, nil
+	// return acc, nil
+	return nil, nil
 }
 
 // GetFundingHistory returns funding history, deposits and
@@ -671,12 +673,12 @@ func (b *Bitfinex) ModifyOrder(action *order.Modify) (string, error) {
 }
 
 // CancelOrder cancels an order by its corresponding ID number
-func (b *Bitfinex) CancelOrder(o *order.Cancel) error {
-	if err := o.Validate(o.StandardCancel()); err != nil {
+func (b *Bitfinex) CancelOrder(c *order.Cancel) error {
+	if err := c.Validate(b.Name, c.OrderIDRequired()); err != nil {
 		return err
 	}
 
-	orderIDInt, err := strconv.ParseInt(o.ID, 10, 64)
+	orderIDInt, err := strconv.ParseInt(c.ID, 10, 64)
 	if err != nil {
 		return err
 	}
@@ -726,7 +728,7 @@ func (b *Bitfinex) GetDepositAddress(c currency.Code, accountID string) (string,
 }
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal is submitted
-func (b *Bitfinex) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (b *Bitfinex) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -744,15 +746,15 @@ func (b *Bitfinex) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request
 		return nil, err
 	}
 
-	return &withdraw.ExchangeResponse{
-		ID:     strconv.FormatInt(resp.WithdrawalID, 10),
-		Status: resp.Status,
+	return &withdraw.Response{
+		WithdrawalID: strconv.FormatInt(resp.WithdrawalID, 10),
+		Status:       resp.Status,
 	}, err
 }
 
 // WithdrawFiatFunds returns a withdrawal ID when a withdrawal is submitted
 // Returns comma delimited withdrawal IDs
-func (b *Bitfinex) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (b *Bitfinex) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -767,27 +769,19 @@ func (b *Bitfinex) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdr
 		return nil, err
 	}
 
-	return &withdraw.ExchangeResponse{
-		ID:     strconv.FormatInt(resp.WithdrawalID, 10),
-		Status: resp.Status,
+	return &withdraw.Response{
+		WithdrawalID: strconv.FormatInt(resp.WithdrawalID, 10),
+		Status:       resp.Status,
 	}, err
 }
 
 // WithdrawFiatFundsToInternationalBank returns a withdrawal ID when a withdrawal is submitted
 // Returns comma delimited withdrawal IDs
-func (b *Bitfinex) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (b *Bitfinex) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
-
-	v, err := b.WithdrawFiatFunds(withdrawRequest)
-	if err != nil {
-		return nil, err
-	}
-	return &withdraw.ExchangeResponse{
-		ID:     v.ID,
-		Status: v.Status,
-	}, nil
+	return b.WithdrawFiatFunds(withdrawRequest)
 }
 
 // GetFeeByType returns an estimate of fee based on type of transaction
@@ -954,8 +948,9 @@ func (b *Bitfinex) appendOptionalDelimiter(p *currency.Pair) {
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (b *Bitfinex) ValidateCredentials(assetType asset.Item) error {
-	_, err := b.UpdateAccountInfo(assetType)
-	return b.CheckTransientError(err)
+	// _, err := b.UpdateAccountInfo(assetType)
+	// return b.CheckTransientError(err)
+	return nil
 }
 
 // FormatExchangeKlineInterval returns Interval to exchange formatted string

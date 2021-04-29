@@ -28,11 +28,6 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/portfolio/withdraw"
 )
 
-const (
-	spotURL   = "spotURL"
-	spotWSURL = "websocketURL"
-)
-
 // GetDefaultConfig returns a default exchange config
 func (b *BTSE) GetDefaultConfig() (*config.ExchangeConfig, error) {
 	b.SetDefaults()
@@ -379,46 +374,48 @@ func (b *BTSE) UpdateOrderbook(p currency.Pair, assetType asset.Item) (*orderboo
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the
 // BTSE exchange
-func (b *BTSE) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	var a account.Holdings
-	balance, err := b.GetWalletInformation()
-	if err != nil {
-		return a, err
-	}
+func (b *BTSE) UpdateAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// var a account.Holdings
+	// balance, err := b.GetWalletInformation()
+	// if err != nil {
+	// 	return a, err
+	// }
 
-	var currencies []account.Balance
-	for b := range balance {
-		currencies = append(currencies,
-			account.Balance{
-				CurrencyName: currency.NewCode(balance[b].Currency),
-				TotalValue:   balance[b].Total,
-				Hold:         balance[b].Available,
-			},
-		)
-	}
-	a.Exchange = b.Name
-	a.Accounts = []account.SubAccount{
-		{
-			Currencies: currencies,
-		},
-	}
+	// var currencies []account.Balance
+	// for b := range balance {
+	// 	currencies = append(currencies,
+	// 		account.Balance{
+	// 			CurrencyName: currency.NewCode(balance[b].Currency),
+	// 			TotalValue:   balance[b].Total,
+	// 			Hold:         balance[b].Available,
+	// 		},
+	// 	)
+	// }
+	// a.Exchange = b.Name
+	// a.Accounts = []account.SubAccount{
+	// 	{
+	// 		Currencies: currencies,
+	// 	},
+	// }
 
-	err = account.Process(&a)
-	if err != nil {
-		return account.Holdings{}, err
-	}
+	// err = account.Process(&a)
+	// if err != nil {
+	// 	return account.Holdings{}, err
+	// }
 
-	return a, nil
+	// return a, nil
+	return nil, nil
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies
-func (b *BTSE) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(b.Name, assetType)
-	if err != nil {
-		return b.UpdateAccountInfo(assetType)
-	}
+func (b *BTSE) FetchAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// acc, err := account.GetHoldings(b.Name, assetType)
+	// if err != nil {
+	// 	return b.UpdateAccountInfo(assetType)
+	// }
 
-	return acc, nil
+	// return acc, nil
+	return nil, nil
 }
 
 // GetFundingHistory returns funding history, deposits and
@@ -530,47 +527,41 @@ func (b *BTSE) SubmitOrder(s *order.Submit) (order.SubmitResponse, error) {
 
 // ModifyOrder will allow of changing orderbook placement and limit to
 // market conversion
-func (b *BTSE) ModifyOrder(action *order.Modify) (string, error) {
+func (b *BTSE) ModifyOrder(_ *order.Modify) (string, error) {
 	return "", common.ErrFunctionNotSupported
 }
 
 // CancelOrder cancels an order by its corresponding ID number
-func (b *BTSE) CancelOrder(o *order.Cancel) error {
-	if err := o.Validate(o.StandardCancel()); err != nil {
-		return err
-	}
-
-	fPair, err := b.FormatExchangeCurrency(o.Pair,
-		o.AssetType)
+func (b *BTSE) CancelOrder(c *order.Cancel) error {
+	err := c.Validate(b.Name, c.PairRequired(), c.AssetRequired(), c.IDOrClientIDRequired())
 	if err != nil {
 		return err
 	}
 
-	_, err = b.CancelExistingOrder(o.ID, fPair.String(), o.ClientOrderID)
+	fPair, err := b.FormatExchangeCurrency(c.Pair, c.AssetType)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	_, err = b.CancelExistingOrder(c.ID, fPair.String(), c.ClientOrderID)
+	return err
 }
 
 // CancelBatchOrders cancels an orders by their corresponding ID numbers
-func (b *BTSE) CancelBatchOrders(o []order.Cancel) (order.CancelBatchResponse, error) {
+func (b *BTSE) CancelBatchOrders(_ []order.Cancel) (order.CancelBatchResponse, error) {
 	return order.CancelBatchResponse{}, common.ErrNotYetImplemented
 }
 
 // CancelAllOrders cancels all orders associated with a currency pair
 // If product ID is sent, all orders of that specified market will be cancelled
 // If not specified, all orders of all markets will be cancelled
-func (b *BTSE) CancelAllOrders(orderCancellation *order.Cancel) (order.CancelAllResponse, error) {
-	if err := orderCancellation.Validate(); err != nil {
+func (b *BTSE) CancelAllOrders(c *order.Cancel) (order.CancelAllResponse, error) {
+	if err := c.Validate(b.Name, c.PairRequired(), c.AssetRequired()); err != nil {
 		return order.CancelAllResponse{}, err
 	}
 
 	var resp order.CancelAllResponse
-
-	fPair, err := b.FormatExchangeCurrency(orderCancellation.Pair,
-		orderCancellation.AssetType)
+	fPair, err := b.FormatExchangeCurrency(c.Pair, c.AssetType)
 	if err != nil {
 		return resp, err
 	}
@@ -695,7 +686,7 @@ func (b *BTSE) GetDepositAddress(cryptocurrency currency.Code, accountID string)
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (b *BTSE) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (b *BTSE) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -708,21 +699,20 @@ func (b *BTSE) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*
 	if err != nil {
 		return nil, err
 	}
-	return &withdraw.ExchangeResponse{
-		Name: b.Name,
-		ID:   resp.WithdrawID,
+	return &withdraw.Response{
+		WithdrawalID: resp.WithdrawID,
 	}, nil
 }
 
 // WithdrawFiatFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (b *BTSE) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (b *BTSE) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
 // WithdrawFiatFundsToInternationalBank returns a withdrawal ID when a withdrawal is
 // submitted
-func (b *BTSE) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (b *BTSE) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
@@ -898,8 +888,9 @@ func (b *BTSE) GetFeeByType(feeBuilder *exchange.FeeBuilder) (float64, error) {
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (b *BTSE) ValidateCredentials(assetType asset.Item) error {
-	_, err := b.UpdateAccountInfo(assetType)
-	return b.CheckTransientError(err)
+	// _, err := b.UpdateAccountInfo(assetType)
+	// return b.CheckTransientError(err)
+	return nil
 }
 
 // FormatExchangeKlineInterval formats kline interval to exchange requested type

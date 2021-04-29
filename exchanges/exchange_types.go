@@ -6,6 +6,7 @@ import (
 
 	"github.com/thrasher-corp/gocryptotrader/config"
 	"github.com/thrasher-corp/gocryptotrader/currency"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/account"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/protocol"
@@ -224,6 +225,7 @@ type Base struct {
 	settingsMutex               sync.RWMutex
 	OrderbookVerificationBypass bool
 	order.ExecutionLimits
+	*account.Holdings
 }
 
 // url lookup consts

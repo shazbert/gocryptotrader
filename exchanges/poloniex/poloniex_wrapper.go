@@ -384,41 +384,46 @@ func (p *Poloniex) UpdateOrderbook(c currency.Pair, assetType asset.Item) (*orde
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the
 // Poloniex exchange
-func (p *Poloniex) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	var response account.Holdings
-	response.Exchange = p.Name
-	accountBalance, err := p.GetBalances()
+func (p *Poloniex) UpdateAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	if accountName != "exchange" {
+		return nil, fmt.Errorf("%s update account info error: invalid account name supplied [%s]",
+			p.Name,
+			accountName)
+	}
+	if assetType != asset.Spot {
+		return nil,
+			fmt.Errorf("%s update account info error: %s %w",
+				p.Name,
+				assetType,
+				asset.ErrNotSupported)
+	}
+	accountBalance, err := p.GetCompleteBalances()
 	if err != nil {
-		return response, err
+		return nil, err
 	}
 
-	var currencies []account.Balance
-	for x, y := range accountBalance.Currency {
-		var exchangeCurrency account.Balance
-		exchangeCurrency.CurrencyName = currency.NewCode(x)
-		exchangeCurrency.TotalValue = y
-		currencies = append(currencies, exchangeCurrency)
+	m := make(map[*currency.Item]account.Value)
+	for code, balance := range accountBalance {
+		m[currency.NewCode(code).Item] = account.Value{
+			Total:  balance.Available + balance.OnOrders,
+			Locked: balance.OnOrders,
+		}
 	}
 
-	response.Accounts = append(response.Accounts, account.SubAccount{
-		Currencies: currencies,
-	})
-
-	err = account.Process(&response)
+	err = p.LoadHoldings(accountName, assetType, m)
 	if err != nil {
-		return account.Holdings{}, err
+		return nil, err
 	}
 
-	return response, nil
+	return p.Holdings, nil
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies
-func (p *Poloniex) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(p.Name, assetType)
+func (p *Poloniex) FetchAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	acc, err := p.GetHoldings()
 	if err != nil {
-		return p.UpdateAccountInfo(assetType)
+		return p.UpdateAccountInfo(accountName, assetType)
 	}
-
 	return acc, nil
 }
 
@@ -429,7 +434,7 @@ func (p *Poloniex) GetFundingHistory() ([]exchange.FundHistory, error) {
 }
 
 // GetWithdrawalsHistory returns previous withdrawals data
-func (p *Poloniex) GetWithdrawalsHistory(c currency.Code) (resp []exchange.WithdrawalHistory, err error) {
+func (p *Poloniex) GetWithdrawalsHistory(_ currency.Code) (resp []exchange.WithdrawalHistory, err error) {
 	return nil, common.ErrNotYetImplemented
 }
 
@@ -565,7 +570,7 @@ func (p *Poloniex) ModifyOrder(action *order.Modify) (string, error) {
 
 // CancelOrder cancels an order by its corresponding ID number
 func (p *Poloniex) CancelOrder(o *order.Cancel) error {
-	if err := o.Validate(o.StandardCancel()); err != nil {
+	if err := o.Validate(p.Name, o.OrderIDRequired()); err != nil {
 		return err
 	}
 
@@ -685,29 +690,38 @@ func (p *Poloniex) GetDepositAddress(cryptocurrency currency.Code, _ string) (st
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (p *Poloniex) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
-	if err := withdrawRequest.Validate(); err != nil {
+func (p *Poloniex) WithdrawCryptocurrencyFunds(req *withdraw.Request) (*withdraw.Response, error) {
+	if err := req.Validate(); err != nil {
 		return nil, err
 	}
 
-	v, err := p.Withdraw(withdrawRequest.Currency.String(), withdrawRequest.Crypto.Address, withdrawRequest.Amount)
+	v, err := p.Withdraw(req.Currency.String(),
+		req.Crypto.Address,
+		req.Crypto.AddressTag,
+		req.Amount)
 	if err != nil {
 		return nil, err
 	}
-	return &withdraw.ExchangeResponse{
-		Status: v.Response,
+
+	return &withdraw.Response{
+		Status:       v.Response,
+		WithdrawalID: strconv.FormatInt(v.WithdrawalNumber, 10),
+		// Poloniex does not send an update on amount through websocket, so
+		// immediately draw down on holdings for a realistic reflection of
+		// account balance.
+		ReduceAccountHoldings: true,
 	}, err
 }
 
-// WithdrawFiatFunds returns a withdrawal ID when a
+// WithdrawFiatFunds returns a withdrawal ID when as
 // withdrawal is submitted
-func (p *Poloniex) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (p *Poloniex) WithdrawFiatFunds(_ *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
 // WithdrawFiatFundsToInternationalBank returns a withdrawal ID when a
 // withdrawal is submitted
-func (p *Poloniex) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (p *Poloniex) WithdrawFiatFundsToInternationalBank(_ *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
@@ -737,32 +751,38 @@ func (p *Poloniex) GetActiveOrders(req *order.GetOrdersRequest) ([]order.Detail,
 	}
 
 	var orders []order.Detail
-	for key := range resp.Data {
+	for key, values := range resp.Data {
 		var symbol currency.Pair
 		symbol, err = currency.NewPairDelimiter(key, format.Delimiter)
 		if err != nil {
 			return nil, err
 		}
-		for i := range resp.Data[key] {
-			orderSide := order.Side(strings.ToUpper(resp.Data[key][i].Type))
+		for i := range values {
+			orderSide := order.Side(strings.ToUpper(values[i].Type))
 			orderDate, err := time.Parse(common.SimpleTimeFormat, resp.Data[key][i].Date)
 			if err != nil {
 				log.Errorf(log.ExchangeSys,
 					"Exchange %v Func %v Order %v Could not parse date to unix with value of %v",
 					p.Name,
 					"GetActiveOrders",
-					resp.Data[key][i].OrderNumber,
-					resp.Data[key][i].Date)
+					values[i].OrderNumber,
+					values[i].Date)
+			}
+
+			oType := order.Limit
+			if values[i].Margin == 1 {
+				oType = order.Margin
 			}
 
 			orders = append(orders, order.Detail{
 				ID:       strconv.FormatInt(resp.Data[key][i].OrderNumber, 10),
 				Side:     orderSide,
-				Amount:   resp.Data[key][i].Amount,
+				Amount:   values[i].Amount,
 				Date:     orderDate,
-				Price:    resp.Data[key][i].Rate,
+				Price:    values[i].Rate,
 				Pair:     symbol,
 				Exchange: p.Name,
+				Type:     oType,
 			})
 		}
 	}
@@ -835,8 +855,9 @@ func (p *Poloniex) GetOrderHistory(req *order.GetOrdersRequest) ([]order.Detail,
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (p *Poloniex) ValidateCredentials(assetType asset.Item) error {
-	_, err := p.UpdateAccountInfo(assetType)
-	return p.CheckTransientError(err)
+	// _, err := p.UpdateAccountInfo(assetType)
+	// return p.CheckTransientError(err)
+	return nil
 }
 
 // GetHistoricCandles returns candles between a time period for a set time interval
@@ -885,4 +906,14 @@ func (p *Poloniex) GetHistoricCandles(pair currency.Pair, a asset.Item, start, e
 // GetHistoricCandlesExtended returns candles between a time period for a set time interval
 func (p *Poloniex) GetHistoricCandlesExtended(pair currency.Pair, a asset.Item, start, end time.Time, interval kline.Interval) (kline.Item, error) {
 	return p.GetHistoricCandles(pair, a, start, end, interval)
+}
+
+// GetAccounts returns the exchange accounts
+func (p *Poloniex) GetAccounts() ([]string, error) {
+	// There are 3 account types supported by the API but there is not a
+	// consistant way to determine each individual levels for exchange, margin
+	// and lending. Opted to amalgamate all into the exchange account and
+	// individual levels will need to be tracked internally rather than by
+	// external calls.
+	return []string{"exchange"}, nil
 }

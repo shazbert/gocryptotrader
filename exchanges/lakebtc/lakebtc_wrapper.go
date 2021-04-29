@@ -314,48 +314,50 @@ func (l *LakeBTC) UpdateOrderbook(p currency.Pair, assetType asset.Item) (*order
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the
 // LakeBTC exchange
-func (l *LakeBTC) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	var response account.Holdings
-	response.Exchange = l.Name
-	accountInfo, err := l.GetAccountInformation()
-	if err != nil {
-		return response, err
-	}
+func (l *LakeBTC) UpdateAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// var response account.Holdings
+	// response.Exchange = l.Name
+	// accountInfo, err := l.GetAccountInformation()
+	// if err != nil {
+	// 	return response, err
+	// }
 
-	var currencies []account.Balance
-	for x, y := range accountInfo.Balance {
-		for z, w := range accountInfo.Locked {
-			if z != x {
-				continue
-			}
-			var exchangeCurrency account.Balance
-			exchangeCurrency.CurrencyName = currency.NewCode(x)
-			exchangeCurrency.TotalValue, _ = strconv.ParseFloat(y, 64)
-			exchangeCurrency.Hold, _ = strconv.ParseFloat(w, 64)
-			currencies = append(currencies, exchangeCurrency)
-		}
-	}
+	// var currencies []account.Balance
+	// for x, y := range accountInfo.Balance {
+	// 	for z, w := range accountInfo.Locked {
+	// 		if z != x {
+	// 			continue
+	// 		}
+	// 		var exchangeCurrency account.Balance
+	// 		exchangeCurrency.CurrencyName = currency.NewCode(x)
+	// 		exchangeCurrency.TotalValue, _ = strconv.ParseFloat(y, 64)
+	// 		exchangeCurrency.Hold, _ = strconv.ParseFloat(w, 64)
+	// 		currencies = append(currencies, exchangeCurrency)
+	// 	}
+	// }
 
-	response.Accounts = append(response.Accounts, account.SubAccount{
-		Currencies: currencies,
-	})
+	// response.Accounts = append(response.Accounts, account.SubAccount{
+	// 	Currencies: currencies,
+	// })
 
-	err = account.Process(&response)
-	if err != nil {
-		return account.Holdings{}, err
-	}
+	// err = account.Process(&response)
+	// if err != nil {
+	// 	return account.Holdings{}, err
+	// }
 
-	return response, nil
+	// return response, nil
+	return nil, nil
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies
-func (l *LakeBTC) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(l.Name, assetType)
-	if err != nil {
-		return l.UpdateAccountInfo(assetType)
-	}
+func (l *LakeBTC) FetchAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// acc, err := account.GetHoldings(l.Name, assetType)
+	// if err != nil {
+	// 	return l.UpdateAccountInfo(assetType)
+	// }
 
-	return acc, nil
+	// return acc, nil
+	return nil, nil
 }
 
 // GetFundingHistory returns funding history, deposits and
@@ -442,17 +444,17 @@ func (l *LakeBTC) SubmitOrder(s *order.Submit) (order.SubmitResponse, error) {
 
 // ModifyOrder will allow of changing orderbook placement and limit to
 // market conversion
-func (l *LakeBTC) ModifyOrder(action *order.Modify) (string, error) {
+func (l *LakeBTC) ModifyOrder(_ *order.Modify) (string, error) {
 	return "", common.ErrFunctionNotSupported
 }
 
 // CancelOrder cancels an order by its corresponding ID number
-func (l *LakeBTC) CancelOrder(o *order.Cancel) error {
-	if err := o.Validate(o.StandardCancel()); err != nil {
+func (l *LakeBTC) CancelOrder(c *order.Cancel) error {
+	if err := c.Validate(l.Name, c.OrderIDRequired()); err != nil {
 		return err
 	}
 
-	orderIDInt, err := strconv.ParseInt(o.ID, 10, 64)
+	orderIDInt, err := strconv.ParseInt(c.ID, 10, 64)
 	if err != nil {
 		return err
 	}
@@ -461,7 +463,7 @@ func (l *LakeBTC) CancelOrder(o *order.Cancel) error {
 }
 
 // CancelBatchOrders cancels an orders by their corresponding ID numbers
-func (l *LakeBTC) CancelBatchOrders(o []order.Cancel) (order.CancelBatchResponse, error) {
+func (l *LakeBTC) CancelBatchOrders(_ []order.Cancel) (order.CancelBatchResponse, error) {
 	return order.CancelBatchResponse{}, common.ErrNotYetImplemented
 }
 
@@ -504,7 +506,7 @@ func (l *LakeBTC) GetDepositAddress(cryptocurrency currency.Code, _ string) (str
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (l *LakeBTC) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (l *LakeBTC) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -518,20 +520,20 @@ func (l *LakeBTC) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request)
 		return nil, err
 	}
 
-	return &withdraw.ExchangeResponse{
-		ID: strconv.FormatInt(resp.ID, 10),
+	return &withdraw.Response{
+		WithdrawalID: strconv.FormatInt(resp.ID, 10),
 	}, nil
 }
 
 // WithdrawFiatFunds returns a withdrawal ID when a
 // withdrawal is submitted
-func (l *LakeBTC) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (l *LakeBTC) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
 // WithdrawFiatFundsToInternationalBank returns a withdrawal ID when a
 // withdrawal is submitted
-func (l *LakeBTC) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (l *LakeBTC) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
@@ -640,8 +642,9 @@ func (l *LakeBTC) GetOrderHistory(req *order.GetOrdersRequest) ([]order.Detail, 
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (l *LakeBTC) ValidateCredentials(assetType asset.Item) error {
-	_, err := l.UpdateAccountInfo(assetType)
-	return l.CheckTransientError(err)
+	// _, err := l.UpdateAccountInfo(assetType)
+	// return l.CheckTransientError(err)
+	return nil
 }
 
 // GetHistoricCandles returns candles between a time period for a set time interval

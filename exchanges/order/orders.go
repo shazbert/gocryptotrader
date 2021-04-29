@@ -12,49 +12,6 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/exchanges/validate"
 )
 
-// Validate checks the supplied data and returns whether or not it's valid
-func (s *Submit) Validate(opt ...validate.Checker) error {
-	if s == nil {
-		return ErrSubmissionIsNil
-	}
-
-	if s.Pair.IsEmpty() {
-		return ErrPairIsEmpty
-	}
-
-	if s.AssetType == "" {
-		return ErrAssetNotSet
-	}
-
-	if s.Side != Buy &&
-		s.Side != Sell &&
-		s.Side != Bid &&
-		s.Side != Ask {
-		return ErrSideIsInvalid
-	}
-
-	if s.Type != Market && s.Type != Limit {
-		return ErrTypeIsInvalid
-	}
-
-	if s.Amount <= 0 {
-		return fmt.Errorf("submit validation error %w, suppled: %.8f", ErrAmountIsInvalid, s.Amount)
-	}
-
-	if s.Type == Limit && s.Price <= 0 {
-		return ErrPriceMustBeSetIfLimitOrder
-	}
-
-	for _, o := range opt {
-		err := o.Check()
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // UpdateOrderFromDetail Will update an order detail (used in order management)
 // by comparing passed in and existing values
 func (d *Detail) UpdateOrderFromDetail(m *Detail) {
@@ -697,45 +654,6 @@ func (o *ClassificationError) Error() string {
 	return fmt.Sprintf("%s - classification error: %v",
 		o.Exchange,
 		o.Err)
-}
-
-// StandardCancel defines an option in the validator to make sure an ID is set
-// for a standard cancel
-func (c *Cancel) StandardCancel() validate.Checker {
-	return validate.Check(func() error {
-		if c.ID == "" {
-			return errors.New("ID not set")
-		}
-		return nil
-	})
-}
-
-// Validate checks internal struct requirements
-func (c *Cancel) Validate(opt ...validate.Checker) error {
-	if c == nil {
-		return ErrCancelOrderIsNil
-	}
-
-	if c.Pair.IsEmpty() {
-		return ErrPairIsEmpty
-	}
-
-	if c.AssetType == "" {
-		return ErrAssetNotSet
-	}
-
-	var errs common.Errors
-	for _, o := range opt {
-		err := o.Check()
-		if err != nil {
-			errs = append(errs, err)
-		}
-	}
-
-	if errs != nil {
-		return errs
-	}
-	return nil
 }
 
 // Validate checks internal struct requirements

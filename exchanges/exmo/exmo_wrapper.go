@@ -324,49 +324,51 @@ func (e *EXMO) UpdateOrderbook(p currency.Pair, assetType asset.Item) (*orderboo
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the
 // Exmo exchange
-func (e *EXMO) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	var response account.Holdings
-	response.Exchange = e.Name
-	result, err := e.GetUserInfo()
-	if err != nil {
-		return response, err
-	}
+func (e *EXMO) UpdateAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// var response account.Holdings
+	// response.Exchange = e.Name
+	// result, err := e.GetUserInfo()
+	// if err != nil {
+	// 	return response, err
+	// }
 
-	var currencies []account.Balance
-	for x, y := range result.Balances {
-		var exchangeCurrency account.Balance
-		exchangeCurrency.CurrencyName = currency.NewCode(x)
-		for z, w := range result.Reserved {
-			if z == x {
-				avail, _ := strconv.ParseFloat(y, 64)
-				reserved, _ := strconv.ParseFloat(w, 64)
-				exchangeCurrency.TotalValue = avail + reserved
-				exchangeCurrency.Hold = reserved
-			}
-		}
-		currencies = append(currencies, exchangeCurrency)
-	}
+	// var currencies []account.Balance
+	// for x, y := range result.Balances {
+	// 	var exchangeCurrency account.Balance
+	// 	exchangeCurrency.CurrencyName = currency.NewCode(x)
+	// 	for z, w := range result.Reserved {
+	// 		if z == x {
+	// 			avail, _ := strconv.ParseFloat(y, 64)
+	// 			reserved, _ := strconv.ParseFloat(w, 64)
+	// 			exchangeCurrency.TotalValue = avail + reserved
+	// 			exchangeCurrency.Hold = reserved
+	// 		}
+	// 	}
+	// 	currencies = append(currencies, exchangeCurrency)
+	// }
 
-	response.Accounts = append(response.Accounts, account.SubAccount{
-		Currencies: currencies,
-	})
+	// response.Accounts = append(response.Accounts, account.SubAccount{
+	// 	Currencies: currencies,
+	// })
 
-	err = account.Process(&response)
-	if err != nil {
-		return account.Holdings{}, err
-	}
+	// err = account.Process(&response)
+	// if err != nil {
+	// 	return account.Holdings{}, err
+	// }
 
-	return response, nil
+	// return response, nil
+	return nil, nil
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies
-func (e *EXMO) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(e.Name, assetType)
-	if err != nil {
-		return e.UpdateAccountInfo(assetType)
-	}
+func (e *EXMO) FetchAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// acc, err := account.GetHoldings(e.Name, assetType)
+	// if err != nil {
+	// 	return e.UpdateAccountInfo(assetType)
+	// }
 
-	return acc, nil
+	// return acc, nil
+	return nil, nil
 }
 
 // GetFundingHistory returns funding history, deposits and
@@ -467,17 +469,17 @@ func (e *EXMO) SubmitOrder(s *order.Submit) (order.SubmitResponse, error) {
 
 // ModifyOrder will allow of changing orderbook placement and limit to
 // market conversion
-func (e *EXMO) ModifyOrder(action *order.Modify) (string, error) {
+func (e *EXMO) ModifyOrder(_ *order.Modify) (string, error) {
 	return "", common.ErrFunctionNotSupported
 }
 
 // CancelOrder cancels an order by its corresponding ID number
-func (e *EXMO) CancelOrder(o *order.Cancel) error {
-	if err := o.Validate(o.StandardCancel()); err != nil {
+func (e *EXMO) CancelOrder(c *order.Cancel) error {
+	if err := c.Validate(e.Name, c.OrderIDRequired()); err != nil {
 		return err
 	}
 
-	orderIDInt, err := strconv.ParseInt(o.ID, 10, 64)
+	orderIDInt, err := strconv.ParseInt(c.ID, 10, 64)
 	if err != nil {
 		return err
 	}
@@ -534,7 +536,7 @@ func (e *EXMO) GetDepositAddress(cryptocurrency currency.Code, _ string) (string
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (e *EXMO) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (e *EXMO) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -544,20 +546,20 @@ func (e *EXMO) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*
 		withdrawRequest.Crypto.AddressTag,
 		withdrawRequest.Amount)
 
-	return &withdraw.ExchangeResponse{
-		ID: strconv.FormatInt(resp, 10),
+	return &withdraw.Response{
+		WithdrawalID: strconv.FormatInt(resp, 10),
 	}, err
 }
 
 // WithdrawFiatFunds returns a withdrawal ID when a
 // withdrawal is submitted
-func (e *EXMO) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (e *EXMO) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
 // WithdrawFiatFundsToInternationalBank returns a withdrawal ID when a
 // withdrawal is submitted
-func (e *EXMO) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (e *EXMO) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
@@ -660,8 +662,9 @@ func (e *EXMO) GetOrderHistory(req *order.GetOrdersRequest) ([]order.Detail, err
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (e *EXMO) ValidateCredentials(assetType asset.Item) error {
-	_, err := e.UpdateAccountInfo(assetType)
-	return e.CheckTransientError(err)
+	// _, err := e.UpdateAccountInfo(assetType)
+	// return e.CheckTransientError(err)
+	return nil
 }
 
 // GetHistoricCandles returns candles between a time period for a set time interval

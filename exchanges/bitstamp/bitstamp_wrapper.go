@@ -361,42 +361,44 @@ func (b *Bitstamp) UpdateOrderbook(p currency.Pair, assetType asset.Item) (*orde
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the
 // Bitstamp exchange
-func (b *Bitstamp) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	var response account.Holdings
-	response.Exchange = b.Name
-	accountBalance, err := b.GetBalance()
-	if err != nil {
-		return response, err
-	}
+func (b *Bitstamp) UpdateAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// var response account.Holdings
+	// response.Exchange = b.Name
+	// accountBalance, err := b.GetBalance()
+	// if err != nil {
+	// 	return response, err
+	// }
 
-	var currencies []account.Balance
-	for k, v := range accountBalance {
-		currencies = append(currencies, account.Balance{
-			CurrencyName: currency.NewCode(k),
-			TotalValue:   v.Available,
-			Hold:         v.Reserved,
-		})
-	}
-	response.Accounts = append(response.Accounts, account.SubAccount{
-		Currencies: currencies,
-	})
+	// var currencies []account.Balance
+	// for k, v := range accountBalance {
+	// 	currencies = append(currencies, account.Balance{
+	// 		CurrencyName: currency.NewCode(k),
+	// 		TotalValue:   v.Available,
+	// 		Hold:         v.Reserved,
+	// 	})
+	// }
+	// response.Accounts = append(response.Accounts, account.SubAccount{
+	// 	Currencies: currencies,
+	// })
 
-	err = account.Process(&response)
-	if err != nil {
-		return account.Holdings{}, err
-	}
+	// err = account.Process(&response)
+	// if err != nil {
+	// 	return account.Holdings{}, err
+	// }
 
-	return response, nil
+	// return response, nil
+	return nil, nil
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies
-func (b *Bitstamp) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(b.Name, assetType)
-	if err != nil {
-		return b.UpdateAccountInfo(assetType)
-	}
+func (b *Bitstamp) FetchAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// acc, err := account.GetHoldings(b.Name, assetType)
+	// if err != nil {
+	// 	return b.UpdateAccountInfo(assetType)
+	// }
 
-	return acc, nil
+	// return acc, nil
+	return nil, nil
 }
 
 // GetFundingHistory returns funding history, deposits and
@@ -494,12 +496,12 @@ func (b *Bitstamp) ModifyOrder(action *order.Modify) (string, error) {
 }
 
 // CancelOrder cancels an order by its corresponding ID number
-func (b *Bitstamp) CancelOrder(o *order.Cancel) error {
-	if err := o.Validate(o.StandardCancel()); err != nil {
+func (b *Bitstamp) CancelOrder(c *order.Cancel) error {
+	if err := c.Validate(b.Name, c.OrderIDRequired()); err != nil {
 		return err
 	}
 
-	orderIDInt, err := strconv.ParseInt(o.ID, 10, 64)
+	orderIDInt, err := strconv.ParseInt(c.ID, 10, 64)
 	if err != nil {
 		return err
 	}
@@ -538,7 +540,7 @@ func (b *Bitstamp) GetDepositAddress(cryptocurrency currency.Code, _ string) (st
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (b *Bitstamp) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (b *Bitstamp) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -559,14 +561,14 @@ func (b *Bitstamp) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request
 		return nil, errors.New(details.String())
 	}
 
-	return &withdraw.ExchangeResponse{
-		ID: resp.ID,
+	return &withdraw.Response{
+		WithdrawalID: resp.ID,
 	}, nil
 }
 
 // WithdrawFiatFunds returns a withdrawal ID when a
 // withdrawal is submitted
-func (b *Bitstamp) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (b *Bitstamp) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -593,15 +595,15 @@ func (b *Bitstamp) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdr
 		return nil, errors.New(details.String())
 	}
 
-	return &withdraw.ExchangeResponse{
-		ID:     resp.ID,
-		Status: resp.Status,
+	return &withdraw.Response{
+		WithdrawalID: resp.ID,
+		Status:       resp.Status,
 	}, nil
 }
 
 // WithdrawFiatFundsToInternationalBank returns a withdrawal ID when a
 // withdrawal is submitted
-func (b *Bitstamp) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (b *Bitstamp) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -634,9 +636,9 @@ func (b *Bitstamp) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdra
 		return nil, errors.New(details.String())
 	}
 
-	return &withdraw.ExchangeResponse{
-		ID:     resp.ID,
-		Status: resp.Status,
+	return &withdraw.Response{
+		WithdrawalID: resp.ID,
+		Status:       resp.Status,
 	}, nil
 }
 
@@ -783,8 +785,10 @@ func (b *Bitstamp) GetOrderHistory(req *order.GetOrdersRequest) ([]order.Detail,
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (b *Bitstamp) ValidateCredentials(assetType asset.Item) error {
-	_, err := b.UpdateAccountInfo(assetType)
-	return b.CheckTransientError(err)
+	// _, err := b.UpdateAccountInfo(assetType)
+	// return b.CheckTransientError(err)
+
+	return nil
 }
 
 // GetHistoricCandles returns candles between a time period for a set time interval

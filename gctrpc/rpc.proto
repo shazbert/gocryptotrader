@@ -1,9 +1,10 @@
 syntax = "proto3";
+
 import "google/api/annotations.proto";
 import "google/protobuf/timestamp.proto";
 
 package gctrpc;
-option go_package = "github.com/thrasher-corp/gocryptotrader/gctrpc";
+option go_package = "../gctrpc";
 
 message GetInfoRequest {}
 
@@ -341,6 +342,8 @@ message SubmitOrderRequest {
     double price = 6;
     string client_id = 7;
     string asset_type = 8;
+    string account = 9;
+    bool total_amount_not_required = 10;
 }
 
 message Trades {
@@ -381,12 +384,7 @@ message WhaleBombRequest {
 
 message CancelOrderRequest {
     string exchange = 1;
-    string account_id = 2;
-    string order_id = 3;
-    CurrencyPair pair = 4;
-    string asset_type = 5;
-    string wallet_address = 6;
-    string side = 7;
+    string order_id = 2;
 }
 
 message CancelBatchOrdersRequest {
@@ -411,12 +409,9 @@ message CancelAllOrdersRequest {
 }
 
 message CancelAllOrdersResponse {
-    message Orders {
-        string exchange = 1;
-        map<string, string> order_status = 2;
-    }
-    repeated Orders orders = 1;
-    int64 count = 2;
+    string exchange = 1;
+    map<string, string> order_status = 2;
+    int64 count = 3;
 }
 
 message GetEventsRequest {}
@@ -487,14 +482,19 @@ message WithdrawCryptoRequest {
     string address = 2;
     string address_tag  = 3;
     string currency = 4;
-    double amount = 5;
-    double fee = 6;
-    string description = 7;
+    string asset_type = 5;
+    double amount = 6;
+    double fee = 7;
+    string description = 8;
+    string account = 9;
 }
 
 message WithdrawResponse {
-    string id = 1;
-    string status = 2;
+    string gct_withdrawal_uuid = 1;
+    string gct_exchange_uuid = 2;
+    string exchange_withdrawal_id = 3;
+    string withdrawal_transaction_id = 4;
+    string status = 5;
 }
 
 message WithdrawalEventByIDRequest {
@@ -524,7 +524,8 @@ message WithdrawalEventsByExchangeResponse {
 }
 
 message WithdrawalEventResponse {
-    string id = 2;
+    string gct_withdrawal_uuid = 1;
+    string gct_exchange_uuid = 2;
     WithdrawlExchangeEvent exchange = 3;
     WithdrawalRequestEvent request = 4;
     google.protobuf.Timestamp created_at = 5;
@@ -532,18 +533,21 @@ message WithdrawalEventResponse {
 }
 
 message WithdrawlExchangeEvent {
-    string name = 1;
-    string id = 2;
+    string withdrawal_id = 1;
+    string transaction_id = 2;
     string status = 3;
 }
 
 message WithdrawalRequestEvent {
+    string exchange = 1;
     string currency = 2;
-    string description = 3;
-    double amount = 4;
-    int32 type = 5;
-    FiatWithdrawalEvent fiat = 6;
-    CryptoWithdrawalEvent crypto = 7;
+    string asset = 3;
+    string account = 4;
+    string description = 5;
+    double amount = 6;
+    int32 type = 7;
+    FiatWithdrawalEvent fiat = 8;
+    CryptoWithdrawalEvent crypto = 9;
 }
 
 message FiatWithdrawalEvent {
@@ -559,7 +563,6 @@ message CryptoWithdrawalEvent {
     string address = 1;
     string address_tag = 2;
     double fee = 3;
-    string tx_id = 4;
 }
 
 message GetLoggerDetailsRequest {

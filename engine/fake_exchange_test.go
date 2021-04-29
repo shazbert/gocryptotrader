@@ -31,46 +31,46 @@ type FakePassingExchange struct {
 
 // addPassingFakeExchange adds an exchange to engine tests where all funcs return a positive result
 func addPassingFakeExchange(baseExchangeName string, bot *Engine) error {
-	testExch := bot.GetExchangeByName(baseExchangeName)
-	if testExch == nil {
-		return ErrExchangeNotFound
-	}
+	// testExch := bot.GetExchangeByName(baseExchangeName)
+	// if testExch == nil {
+	// 	return ErrExchangeNotFound
+	// }
 
-	base := testExch.GetBase()
-	bot.Config.Exchanges = append(bot.Config.Exchanges, config.ExchangeConfig{
-		Name:    fakePassExchange,
-		Enabled: true,
-		Verbose: false,
-	})
-	b := true
-	var pairStoreData = currency.PairStore{
-		AssetEnabled: &b,
-	}
-	var currencyMap = make(map[asset.Item]*currency.PairStore)
-	currencyMap[asset.Spot] = &pairStoreData
+	// base := testExch.GetBase()
+	// bot.Config.Exchanges = append(bot.Config.Exchanges, config.ExchangeConfig{
+	// 	Name:    fakePassExchange,
+	// 	Enabled: true,
+	// 	Verbose: false,
+	// })
+	// b := true
+	// var pairStoreData = currency.PairStore{
+	// 	AssetEnabled: &b,
+	// }
+	// var currencyMap = make(map[asset.Item]*currency.PairStore)
+	// currencyMap[asset.Spot] = &pairStoreData
 
-	bot.exchangeManager.add(&FakePassingExchange{
-		Base: exchange.Base{
-			Name: fakePassExchange,
-			CurrencyPairs: currency.PairsManager{
-				Pairs: currencyMap},
-			Enabled:                       true,
-			LoadedByConfig:                true,
-			SkipAuthCheck:                 true,
-			API:                           base.API,
-			Features:                      base.Features,
-			HTTPTimeout:                   base.HTTPTimeout,
-			HTTPUserAgent:                 base.HTTPUserAgent,
-			HTTPRecording:                 base.HTTPRecording,
-			HTTPDebugging:                 base.HTTPDebugging,
-			WebsocketResponseCheckTimeout: base.WebsocketResponseCheckTimeout,
-			WebsocketResponseMaxLimit:     base.WebsocketResponseMaxLimit,
-			WebsocketOrderbookBufferLimit: base.WebsocketOrderbookBufferLimit,
-			Websocket:                     base.Websocket,
-			Requester:                     base.Requester,
-			Config:                        base.Config,
-		},
-	})
+	// bot.exchangeManager.add(&FakePassingExchange{
+	// 	Base: exchange.Base{
+	// 		Name: fakePassExchange,
+	// 		CurrencyPairs: currency.PairsManager{
+	// 			Pairs: currencyMap},
+	// 		Enabled:                       true,
+	// 		LoadedByConfig:                true,
+	// 		SkipAuthCheck:                 true,
+	// 		API:                           base.API,
+	// 		Features:                      base.Features,
+	// 		HTTPTimeout:                   base.HTTPTimeout,
+	// 		HTTPUserAgent:                 base.HTTPUserAgent,
+	// 		HTTPRecording:                 base.HTTPRecording,
+	// 		HTTPDebugging:                 base.HTTPDebugging,
+	// 		WebsocketResponseCheckTimeout: base.WebsocketResponseCheckTimeout,
+	// 		WebsocketResponseMaxLimit:     base.WebsocketResponseMaxLimit,
+	// 		WebsocketOrderbookBufferLimit: base.WebsocketOrderbookBufferLimit,
+	// 		Websocket:                     base.Websocket,
+	// 		Requester:                     base.Requester,
+	// 		Config:                        base.Config,
+	// 	},
+	// })
 	return nil
 }
 
@@ -109,34 +109,34 @@ func (h *FakePassingExchange) GetAvailablePairs(_ asset.Item) (currency.Pairs, e
 func (h *FakePassingExchange) FetchAccountInfo(_ asset.Item) (account.Holdings, error) {
 	return account.Holdings{
 		Exchange: h.Name,
-		Accounts: []account.SubAccount{
-			{
-				Currencies: []account.Balance{
-					{
-						CurrencyName: currency.BTC,
-						TotalValue:   10.,
-						Hold:         0,
-					},
-				},
-			},
-		},
+		// Accounts: []account.SubAccount{
+		// 	{
+		// 		Currencies: []account.Balance{
+		// 			{
+		// 				CurrencyName: currency.BTC,
+		// 				TotalValue:   10.,
+		// 				Hold:         0,
+		// 			},
+		// 		},
+		// 	},
+		// },
 	}, nil
 }
 
 func (h *FakePassingExchange) UpdateAccountInfo(_ asset.Item) (account.Holdings, error) {
 	return account.Holdings{
 		Exchange: h.Name,
-		Accounts: []account.SubAccount{
-			{
-				Currencies: []account.Balance{
-					{
-						CurrencyName: currency.BTC,
-						TotalValue:   20.,
-						Hold:         0,
-					},
-				},
-			},
-		},
+		// Accounts: []account.SubAccount{
+		// 	{
+		// 		Currencies: []account.Balance{
+		// 			{
+		// 				CurrencyName: currency.BTC,
+		// 				TotalValue:   20.,
+		// 				Hold:         0,
+		// 			},
+		// 		},
+		// 	},
+		// },
 	}, nil
 }
 
@@ -239,12 +239,12 @@ func (h *FakePassingExchange) GetHistoricCandlesExtended(_ currency.Pair, _ asse
 }
 func (h *FakePassingExchange) DisableRateLimiter() error { return nil }
 func (h *FakePassingExchange) EnableRateLimiter() error  { return nil }
-func (h *FakePassingExchange) WithdrawCryptocurrencyFunds(_ *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (h *FakePassingExchange) WithdrawCryptocurrencyFunds(_ *withdraw.Request) (*withdraw.Response, error) {
 	return nil, nil
 }
-func (h *FakePassingExchange) WithdrawFiatFunds(_ *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (h *FakePassingExchange) WithdrawFiatFunds(_ *withdraw.Request) (*withdraw.Response, error) {
 	return nil, nil
 }
-func (h *FakePassingExchange) WithdrawFiatFundsToInternationalBank(_ *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (h *FakePassingExchange) WithdrawFiatFundsToInternationalBank(_ *withdraw.Request) (*withdraw.Response, error) {
 	return nil, nil
 }

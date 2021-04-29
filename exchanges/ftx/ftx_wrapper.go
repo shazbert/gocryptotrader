@@ -375,41 +375,43 @@ func (f *FTX) UpdateOrderbook(p currency.Pair, assetType asset.Item) (*orderbook
 }
 
 // UpdateAccountInfo retrieves balances for all enabled currencies
-func (f *FTX) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	var resp account.Holdings
-	data, err := f.GetBalances()
-	if err != nil {
-		return resp, err
-	}
-	var acc account.SubAccount
-	for i := range data {
-		c := currency.NewCode(data[i].Coin)
-		hold := data[i].Total - data[i].Free
-		total := data[i].Total
-		acc.Currencies = append(acc.Currencies,
-			account.Balance{CurrencyName: c,
-				TotalValue: total,
-				Hold:       hold})
-	}
-	resp.Accounts = append(resp.Accounts, acc)
-	resp.Exchange = f.Name
+func (f *FTX) UpdateAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// var resp account.Holdings
+	// data, err := f.GetBalances()
+	// if err != nil {
+	// 	return resp, err
+	// }
+	// var acc account.SubAccount
+	// for i := range data {
+	// 	c := currency.NewCode(data[i].Coin)
+	// 	hold := data[i].Total - data[i].Free
+	// 	total := data[i].Total
+	// 	acc.Currencies = append(acc.Currencies,
+	// 		account.Balance{CurrencyName: c,
+	// 			TotalValue: total,
+	// 			Hold:       hold})
+	// }
+	// resp.Accounts = append(resp.Accounts, acc)
+	// resp.Exchange = f.Name
 
-	err = account.Process(&resp)
-	if err != nil {
-		return account.Holdings{}, err
-	}
+	// err = account.Process(&resp)
+	// if err != nil {
+	// 	return account.Holdings{}, err
+	// }
 
-	return resp, nil
+	// return resp, nil
+	return nil, nil
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies
-func (f *FTX) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(f.Name, assetType)
-	if err != nil {
-		return f.UpdateAccountInfo(assetType)
-	}
+func (f *FTX) FetchAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// acc, err := account.GetHoldings(f.Name, assetType)
+	// if err != nil {
+	// 	return f.UpdateAccountInfo(assetType)
+	// }
 
-	return acc, nil
+	// return acc, nil
+	return nil, nil
 }
 
 // GetFundingHistory returns funding history, deposits and
@@ -605,33 +607,34 @@ func (f *FTX) ModifyOrder(action *order.Modify) (string, error) {
 }
 
 // CancelOrder cancels an order by its corresponding ID number
-func (f *FTX) CancelOrder(o *order.Cancel) error {
-	if err := o.Validate(o.StandardCancel()); err != nil {
+func (f *FTX) CancelOrder(c *order.Cancel) error {
+	if err := c.Validate(f.Name, c.IDOrClientIDRequired()); err != nil {
 		return err
 	}
 
-	if o.ClientOrderID != "" {
-		_, err := f.DeleteOrderByClientID(o.ClientOrderID)
+	if c.ClientOrderID != "" {
+		_, err := f.DeleteOrderByClientID(c.ClientOrderID)
 		return err
 	}
 
-	_, err := f.DeleteOrder(o.ID)
+	_, err := f.DeleteOrder(c.ID)
 	return err
 }
 
 // CancelBatchOrders cancels an orders by their corresponding ID numbers
-func (f *FTX) CancelBatchOrders(o []order.Cancel) (order.CancelBatchResponse, error) {
+func (f *FTX) CancelBatchOrders(_ []order.Cancel) (order.CancelBatchResponse, error) {
 	return order.CancelBatchResponse{}, common.ErrNotYetImplemented
 }
 
 // CancelAllOrders cancels all orders associated with a currency pair
-func (f *FTX) CancelAllOrders(orderCancellation *order.Cancel) (order.CancelAllResponse, error) {
-	if err := orderCancellation.Validate(); err != nil {
+func (f *FTX) CancelAllOrders(c *order.Cancel) (order.CancelAllResponse, error) {
+	err := c.Validate(f.Name, c.PairRequired(), c.AssetRequired())
+	if err != nil {
 		return order.CancelAllResponse{}, err
 	}
 
 	var resp order.CancelAllResponse
-	formattedPair, err := f.FormatExchangeCurrency(orderCancellation.Pair, orderCancellation.AssetType)
+	formattedPair, err := f.FormatExchangeCurrency(c.Pair, c.AssetType)
 	if err != nil {
 		return resp, err
 	}
@@ -745,7 +748,7 @@ func (f *FTX) GetDepositAddress(cryptocurrency currency.Code, _ string) (string,
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (f *FTX) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (f *FTX) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -760,21 +763,21 @@ func (f *FTX) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*w
 		return nil, err
 	}
 
-	return &withdraw.ExchangeResponse{
-		ID:     strconv.FormatInt(resp.ID, 10),
-		Status: resp.Status,
+	return &withdraw.Response{
+		WithdrawalID: strconv.FormatInt(resp.ID, 10),
+		Status:       resp.Status,
 	}, nil
 }
 
 // WithdrawFiatFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (f *FTX) WithdrawFiatFunds(_ *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (f *FTX) WithdrawFiatFunds(_ *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
 // WithdrawFiatFundsToInternationalBank returns a withdrawal ID when a
 // withdrawal is submitted
-func (f *FTX) WithdrawFiatFundsToInternationalBank(_ *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (f *FTX) WithdrawFiatFundsToInternationalBank(_ *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
@@ -1006,8 +1009,9 @@ func (f *FTX) AuthenticateWebsocket() error {
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (f *FTX) ValidateCredentials(assetType asset.Item) error {
-	_, err := f.UpdateAccountInfo(assetType)
-	return f.CheckTransientError(err)
+	// _, err := f.UpdateAccountInfo(assetType)
+	// return f.CheckTransientError(err)
+	return nil
 }
 
 // GetHistoricCandles returns candles between a time period for a set time interval

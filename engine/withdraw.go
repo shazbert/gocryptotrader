@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	withdrawDataStore "github.com/thrasher-corp/gocryptotrader/database/repository/withdraw"
 	exchange "github.com/thrasher-corp/gocryptotrader/exchanges"
 	"github.com/thrasher-corp/gocryptotrader/gctrpc"
 	"github.com/thrasher-corp/gocryptotrader/log"
 	"github.com/thrasher-corp/gocryptotrader/portfolio/withdraw"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -23,7 +23,7 @@ const (
 
 // SubmitWithdrawal performs validation and submits a new withdraw request to
 // exchange
-func (bot *Engine) SubmitWithdrawal(req *withdraw.Request) (*withdraw.Response, error) {
+func (bot *Engine) SubmitWithdrawal(req *withdraw.Request) (*withdraw.Details, error) {
 	if req == nil {
 		return nil, withdraw.ErrRequestCannotBeNil
 	}
@@ -33,53 +33,69 @@ func (bot *Engine) SubmitWithdrawal(req *withdraw.Request) (*withdraw.Response, 
 		return nil, ErrExchangeNotFound
 	}
 
-	resp := &withdraw.Response{
-		Exchange: withdraw.ExchangeResponse{
-			Name: req.Exchange,
-		},
-		RequestDetails: *req,
-	}
-
-	var err error
+	info := &withdraw.Details{Request: req}
 	if bot.Settings.EnableDryRun {
 		log.Warnln(log.Global, "Dry run enabled, no withdrawal request will be submitted or have an event created")
-		resp.ID = withdraw.DryRunID
-		resp.Exchange.Status = "dryrun"
-		resp.Exchange.ID = withdraw.DryRunID.String()
+		info.InternalWithdrawalID = withdraw.DryRunID
+		info.Response.Status = "dryrun"
+		info.Response.WithdrawalID = withdraw.DryRunID.String()
+		// Opted for dry run information to not be deployed into database as we
+		// will have conflicting UUIDS
+		return info, nil
+	}
+
+	claim, err := exch.Claim(req.Account, req.Asset, req.Currency, req.Amount, true)
+	if err != nil {
+		return nil, err
+	}
+	var resp *withdraw.Response
+	if req.Type == withdraw.Fiat {
+		resp, err = exch.WithdrawFiatFunds(req)
+	} else if req.Type == withdraw.Crypto {
+		resp, err = exch.WithdrawCryptocurrencyFunds(req)
+	}
+	if err != nil {
+		info.Response.Status = err.Error()
+		err = claim.Release()
+		if err != nil {
+			log.Errorln(log.Global, err)
+		}
 	} else {
-		var ret *withdraw.ExchangeResponse
-		if req.Type == withdraw.Fiat {
-			ret, err = exch.WithdrawFiatFunds(req)
+		info.Response = *resp
+		if resp.ReduceAccountHoldings {
+			// In the event we cannot wait for pending to be reduced
+			// (i.e. exchange does not support this feature) we can
+			// immediately reduce holdings now.
+			err = claim.ReleaseAndReduce()
 			if err != nil {
-				resp.Exchange.ID = StatusError
-				resp.Exchange.Status = err.Error()
-			} else {
-				resp.Exchange.Status = ret.Status
-				resp.Exchange.ID = ret.ID
+				log.Errorln(log.Global, err)
 			}
-		} else if req.Type == withdraw.Crypto {
-			ret, err = exch.WithdrawCryptocurrencyFunds(req)
+		} else {
+			err = claim.ReleaseToPending()
 			if err != nil {
-				resp.Exchange.ID = StatusError
-				resp.Exchange.Status = err.Error()
-			} else {
-				resp.Exchange.Status = ret.Status
-				resp.Exchange.ID = ret.ID
+				log.Errorln(log.Global, err)
 			}
 		}
-		withdrawDataStore.Event(resp)
 	}
-	if err == nil {
-		withdraw.Cache.Add(resp.ID, resp)
-	}
-	return resp, nil
+	// Even on error, all withdrawal events will be saved to database.
+	withdrawDataStore.Event(info)
+
+	// Is an LRU cache neccessary for withdrawal information? TODO: might remove
+	// this feature as historical events can be fetched from DB.
+	withdraw.Cache.Add(info.InternalWithdrawalID, resp)
+
+	return info, nil
 }
 
 // WithdrawalEventByID returns a withdrawal request by ID
-func WithdrawalEventByID(id string) (*withdraw.Response, error) {
+func WithdrawalEventByID(id string) (*withdraw.Details, error) {
 	v := withdraw.Cache.Get(id)
 	if v != nil {
-		return v.(*withdraw.Response), nil
+		info, ok := v.(*withdraw.Details)
+		if !ok {
+			return nil, fmt.Errorf("type assertion failure when retrieving from the LRU cache")
+		}
+		return info, nil
 	}
 
 	l, err := withdrawDataStore.GetEventByUUID(id)
@@ -91,75 +107,29 @@ func WithdrawalEventByID(id string) (*withdraw.Response, error) {
 }
 
 // WithdrawalEventByExchange returns a withdrawal request by ID
-func WithdrawalEventByExchange(exchange string, limit int) ([]*withdraw.Response, error) {
+func WithdrawalEventByExchange(exchange string, limit int) ([]*withdraw.Details, error) {
 	return withdrawDataStore.GetEventsByExchange(exchange, limit)
 }
 
 // WithdrawEventByDate returns a withdrawal request by ID
-func WithdrawEventByDate(exchange string, start, end time.Time, limit int) ([]*withdraw.Response, error) {
+func WithdrawEventByDate(exchange string, start, end time.Time, limit int) ([]*withdraw.Details, error) {
 	return withdrawDataStore.GetEventsByDate(exchange, start, end, limit)
 }
 
 // WithdrawalEventByExchangeID returns a withdrawal request by Exchange ID
-func WithdrawalEventByExchangeID(exchange, id string) (*withdraw.Response, error) {
+func WithdrawalEventByExchangeID(exchange, id string) (*withdraw.Details, error) {
 	return withdrawDataStore.GetEventByExchangeID(exchange, id)
 }
 
-func parseMultipleEvents(ret []*withdraw.Response) *gctrpc.WithdrawalEventsByExchangeResponse {
+func parseMultipleEvents(ret []*withdraw.Details) *gctrpc.WithdrawalEventsByExchangeResponse {
 	v := &gctrpc.WithdrawalEventsByExchangeResponse{}
 	for x := range ret {
-		tempEvent := &gctrpc.WithdrawalEventResponse{
-			Id: ret[x].ID.String(),
-			Exchange: &gctrpc.WithdrawlExchangeEvent{
-				Name:   ret[x].Exchange.Name,
-				Id:     ret[x].Exchange.ID,
-				Status: ret[x].Exchange.Status,
-			},
-			Request: &gctrpc.WithdrawalRequestEvent{
-				Currency:    ret[x].RequestDetails.Currency.String(),
-				Description: ret[x].RequestDetails.Description,
-				Amount:      ret[x].RequestDetails.Amount,
-				Type:        int32(ret[x].RequestDetails.Type),
-			},
-		}
-
-		createdAtPtype, err := ptypes.TimestampProto(ret[x].CreatedAt)
-		if err != nil {
-			log.Errorf(log.Global, "failed to convert time: %v", err)
-		}
-		tempEvent.CreatedAt = createdAtPtype
-
-		updatedAtPtype, err := ptypes.TimestampProto(ret[x].UpdatedAt)
-		if err != nil {
-			log.Errorf(log.Global, "failed to convert time: %v", err)
-		}
-		tempEvent.UpdatedAt = updatedAtPtype
-
-		if ret[x].RequestDetails.Type == withdraw.Crypto {
-			tempEvent.Request.Crypto = new(gctrpc.CryptoWithdrawalEvent)
-			tempEvent.Request.Crypto = &gctrpc.CryptoWithdrawalEvent{
-				Address:    ret[x].RequestDetails.Crypto.Address,
-				AddressTag: ret[x].RequestDetails.Crypto.AddressTag,
-				Fee:        ret[x].RequestDetails.Crypto.FeeAmount,
-			}
-		} else if ret[x].RequestDetails.Type == withdraw.Fiat {
-			if ret[x].RequestDetails.Fiat != (withdraw.FiatRequest{}) {
-				tempEvent.Request.Fiat = new(gctrpc.FiatWithdrawalEvent)
-				tempEvent.Request.Fiat = &gctrpc.FiatWithdrawalEvent{
-					BankName:      ret[x].RequestDetails.Fiat.Bank.BankName,
-					AccountName:   ret[x].RequestDetails.Fiat.Bank.AccountName,
-					AccountNumber: ret[x].RequestDetails.Fiat.Bank.AccountNumber,
-					Bsb:           ret[x].RequestDetails.Fiat.Bank.BSBNumber,
-					Swift:         ret[x].RequestDetails.Fiat.Bank.SWIFTCode,
-					Iban:          ret[x].RequestDetails.Fiat.Bank.IBAN,
-				}
-			}
-		}
-		v.Event = append(v.Event, tempEvent)
+		v.Event = append(v.Event, getGRPCWithdrawalEventResponse(ret[x]))
 	}
 	return v
 }
 
+// todo: change ret
 func parseWithdrawalsHistory(ret []exchange.WithdrawalHistory, exchName string, limit int) *gctrpc.WithdrawalEventsByExchangeResponse {
 	v := &gctrpc.WithdrawalEventsByExchangeResponse{}
 	for x := range ret {
@@ -167,85 +137,70 @@ func parseWithdrawalsHistory(ret []exchange.WithdrawalHistory, exchName string, 
 			return v
 		}
 
-		tempEvent := &gctrpc.WithdrawalEventResponse{
-			Id: ret[x].TransferID,
+		v.Event = append(v.Event, &gctrpc.WithdrawalEventResponse{
 			Exchange: &gctrpc.WithdrawlExchangeEvent{
-				Name:   exchName,
-				Status: ret[x].Status,
+				WithdrawalId:  ret[x].TransferID,
+				TransactionId: ret[x].CryptoTxID,
+				Status:        ret[x].Status,
 			},
 			Request: &gctrpc.WithdrawalRequestEvent{
 				Currency:    ret[x].Currency,
 				Description: ret[x].Description,
 				Amount:      ret[x].Amount,
+				Crypto: &gctrpc.CryptoWithdrawalEvent{
+					Address: ret[x].CryptoToAddress,
+					Fee:     ret[x].Fee,
+				},
 			},
-		}
-
-		updatedAtPtype, err := ptypes.TimestampProto(ret[x].Timestamp)
-		if err != nil {
-			log.Errorf(log.Global, "failed to convert time: %v", err)
-		}
-
-		tempEvent.UpdatedAt = updatedAtPtype
-		tempEvent.Request.Crypto = &gctrpc.CryptoWithdrawalEvent{
-			Address: ret[x].CryptoToAddress,
-			Fee:     ret[x].Fee,
-			TxId:    ret[x].CryptoTxID,
-		}
-
-		v.Event = append(v.Event, tempEvent)
+			UpdatedAt: timestamppb.New(ret[x].Timestamp),
+		})
 	}
 	return v
 }
 
-func parseSingleEvents(ret *withdraw.Response) *gctrpc.WithdrawalEventsByExchangeResponse {
-	tempEvent := &gctrpc.WithdrawalEventResponse{
-		Id: ret.ID.String(),
+func parseSingleEvents(ret *withdraw.Details) *gctrpc.WithdrawalEventsByExchangeResponse {
+	return &gctrpc.WithdrawalEventsByExchangeResponse{
+		Event: []*gctrpc.WithdrawalEventResponse{getGRPCWithdrawalEventResponse(ret)},
+	}
+}
+
+func getGRPCWithdrawalEventResponse(info *withdraw.Details) *gctrpc.WithdrawalEventResponse {
+	grpcEvent := &gctrpc.WithdrawalEventResponse{
+		GctWithdrawalUuid: info.InternalWithdrawalID.String(),
 		Exchange: &gctrpc.WithdrawlExchangeEvent{
-			Name:   ret.Exchange.Name,
-			Id:     ret.Exchange.Name,
-			Status: ret.Exchange.Status,
+			WithdrawalId:  info.Response.WithdrawalID,
+			TransactionId: info.Response.TransactionID,
+			Status:        info.Response.Status,
 		},
 		Request: &gctrpc.WithdrawalRequestEvent{
-			Currency:    ret.RequestDetails.Currency.String(),
-			Description: ret.RequestDetails.Description,
-			Amount:      ret.RequestDetails.Amount,
-			Type:        int32(ret.RequestDetails.Type),
+			Exchange:    info.Request.Exchange,
+			Currency:    info.Request.Currency.String(),
+			Description: info.Request.Description,
+			Amount:      info.Request.Amount,
+			Type:        int32(info.Request.Type),
 		},
+		CreatedAt: timestamppb.New(info.CreatedAt),
+		UpdatedAt: timestamppb.New(info.UpdatedAt),
 	}
-	createdAtPtype, err := ptypes.TimestampProto(ret.CreatedAt)
-	if err != nil {
-		log.Errorf(log.Global, "failed to convert time: %v", err)
-	}
-	tempEvent.CreatedAt = createdAtPtype
 
-	updatedAtPtype, err := ptypes.TimestampProto(ret.UpdatedAt)
-	if err != nil {
-		log.Errorf(log.Global, "failed to convert time: %v", err)
-	}
-	tempEvent.UpdatedAt = updatedAtPtype
-
-	if ret.RequestDetails.Type == withdraw.Crypto {
-		tempEvent.Request.Crypto = new(gctrpc.CryptoWithdrawalEvent)
-		tempEvent.Request.Crypto = &gctrpc.CryptoWithdrawalEvent{
-			Address:    ret.RequestDetails.Crypto.Address,
-			AddressTag: ret.RequestDetails.Crypto.AddressTag,
-			Fee:        ret.RequestDetails.Crypto.FeeAmount,
+	switch info.Request.Type {
+	case withdraw.Crypto:
+		grpcEvent.Request.Crypto = &gctrpc.CryptoWithdrawalEvent{
+			Address:    info.Request.Crypto.Address,
+			AddressTag: info.Request.Crypto.AddressTag,
+			Fee:        info.Request.Crypto.FeeAmount,
 		}
-	} else if ret.RequestDetails.Type == withdraw.Fiat {
-		if ret.RequestDetails.Fiat != (withdraw.FiatRequest{}) {
-			tempEvent.Request.Fiat = new(gctrpc.FiatWithdrawalEvent)
-			tempEvent.Request.Fiat = &gctrpc.FiatWithdrawalEvent{
-				BankName:      ret.RequestDetails.Fiat.Bank.BankName,
-				AccountName:   ret.RequestDetails.Fiat.Bank.AccountName,
-				AccountNumber: ret.RequestDetails.Fiat.Bank.AccountNumber,
-				Bsb:           ret.RequestDetails.Fiat.Bank.BSBNumber,
-				Swift:         ret.RequestDetails.Fiat.Bank.SWIFTCode,
-				Iban:          ret.RequestDetails.Fiat.Bank.IBAN,
-			}
+	case withdraw.Fiat:
+		grpcEvent.Request.Fiat = &gctrpc.FiatWithdrawalEvent{
+			BankName:      info.Request.Fiat.Bank.BankName,
+			AccountName:   info.Request.Fiat.Bank.AccountName,
+			AccountNumber: info.Request.Fiat.Bank.AccountNumber,
+			Bsb:           info.Request.Fiat.Bank.BSBNumber,
+			Swift:         info.Request.Fiat.Bank.SWIFTCode,
+			Iban:          info.Request.Fiat.Bank.IBAN,
 		}
+	default:
+		// TODO: Maybe we can add a warning but not a serious issue
 	}
-
-	return &gctrpc.WithdrawalEventsByExchangeResponse{
-		Event: []*gctrpc.WithdrawalEventResponse{tempEvent},
-	}
+	return grpcEvent
 }

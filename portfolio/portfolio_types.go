@@ -19,6 +19,7 @@ type Address struct {
 	Description        string
 	WhiteListed        bool
 	ColdStorage        bool
+	TagRequired        bool
 	SupportedExchanges string
 }
 

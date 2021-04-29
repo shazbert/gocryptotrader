@@ -552,65 +552,67 @@ func (k *Kraken) UpdateOrderbook(p currency.Pair, assetType asset.Item) (*orderb
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the
 // Kraken exchange - to-do
-func (k *Kraken) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	var info account.Holdings
-	var balances []account.Balance
-	info.Exchange = k.Name
-	switch assetType {
-	case asset.Spot:
-		bal, err := k.GetBalance()
-		if err != nil {
-			return info, err
-		}
-		for key := range bal {
-			translatedCurrency := assetTranslator.LookupAltname(key)
-			if translatedCurrency == "" {
-				log.Warnf(log.ExchangeSys, "%s unable to translate currency: %s\n",
-					k.Name,
-					key)
-				continue
-			}
-			balances = append(balances, account.Balance{
-				CurrencyName: currency.NewCode(translatedCurrency),
-				TotalValue:   bal[key],
-			})
-		}
-		info.Accounts = append(info.Accounts, account.SubAccount{
-			Currencies: balances,
-		})
-	case asset.Futures:
-		bal, err := k.GetFuturesAccountData()
-		if err != nil {
-			return info, err
-		}
-		for name := range bal.Accounts {
-			for code := range bal.Accounts[name].Balances {
-				balances = append(balances, account.Balance{
-					CurrencyName: currency.NewCode(name),
-					TotalValue:   bal.Accounts[name].Balances[code],
-				})
-			}
-			info.Accounts = append(info.Accounts, account.SubAccount{
-				ID:         name,
-				AssetType:  asset.Futures,
-				Currencies: balances,
-			})
-		}
-	}
-	err := account.Process(&info)
-	if err != nil {
-		return account.Holdings{}, err
-	}
-	return info, nil
+func (k *Kraken) UpdateAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// var info account.Holdings
+	// var balances []account.Balance
+	// info.Exchange = k.Name
+	// switch assetType {
+	// case asset.Spot:
+	// 	bal, err := k.GetBalance()
+	// 	if err != nil {
+	// 		return info, err
+	// 	}
+	// 	for key := range bal {
+	// 		translatedCurrency := assetTranslator.LookupAltname(key)
+	// 		if translatedCurrency == "" {
+	// 			log.Warnf(log.ExchangeSys, "%s unable to translate currency: %s\n",
+	// 				k.Name,
+	// 				key)
+	// 			continue
+	// 		}
+	// 		balances = append(balances, account.Balance{
+	// 			CurrencyName: currency.NewCode(translatedCurrency),
+	// 			TotalValue:   bal[key],
+	// 		})
+	// 	}
+	// 	info.Accounts = append(info.Accounts, account.SubAccount{
+	// 		Currencies: balances,
+	// 	})
+	// case asset.Futures:
+	// 	bal, err := k.GetFuturesAccountData()
+	// 	if err != nil {
+	// 		return info, err
+	// 	}
+	// 	for name := range bal.Accounts {
+	// 		for code := range bal.Accounts[name].Balances {
+	// 			balances = append(balances, account.Balance{
+	// 				CurrencyName: currency.NewCode(name),
+	// 				TotalValue:   bal.Accounts[name].Balances[code],
+	// 			})
+	// 		}
+	// 		info.Accounts = append(info.Accounts, account.SubAccount{
+	// 			ID:         name,
+	// 			AssetType:  asset.Futures,
+	// 			Currencies: balances,
+	// 		})
+	// 	}
+	// }
+	// err := account.Process(&info)
+	// if err != nil {
+	// 	return account.Holdings{}, err
+	// }
+	// return info, nil
+	return nil, nil
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies
-func (k *Kraken) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(k.Name, assetType)
-	if err != nil {
-		return k.UpdateAccountInfo(assetType)
-	}
-	return acc, nil
+func (k *Kraken) FetchAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// acc, err := account.GetHoldings(k.Name, assetType)
+	// if err != nil {
+	// 	return k.UpdateAccountInfo(assetType)
+	// }
+	// return acc, nil
+	return nil, nil
 }
 
 // GetFundingHistory returns funding history, deposits and
@@ -752,19 +754,19 @@ func (k *Kraken) ModifyOrder(action *order.Modify) (string, error) {
 }
 
 // CancelOrder cancels an order by its corresponding ID number
-func (k *Kraken) CancelOrder(o *order.Cancel) error {
-	if err := o.Validate(o.StandardCancel()); err != nil {
+func (k *Kraken) CancelOrder(c *order.Cancel) error {
+	if err := c.Validate(k.Name, c.OrderIDRequired(), c.AssetRequired()); err != nil {
 		return err
 	}
-	switch o.AssetType {
+	switch c.AssetType {
 	case asset.Spot:
 		if k.Websocket.CanUseAuthenticatedWebsocketForWrapper() {
-			return k.wsCancelOrders([]string{o.ID})
+			return k.wsCancelOrders([]string{c.ID})
 		}
-		_, err := k.CancelExistingOrder(o.ID)
+		_, err := k.CancelExistingOrder(c.ID)
 		return err
 	case asset.Futures:
-		_, err := k.FuturesCancelOrder(o.ID, "")
+		_, err := k.FuturesCancelOrder(c.ID, "")
 		if err != nil {
 			return err
 		}
@@ -773,13 +775,13 @@ func (k *Kraken) CancelOrder(o *order.Cancel) error {
 }
 
 // CancelBatchOrders cancels an orders by their corresponding ID numbers
-func (k *Kraken) CancelBatchOrders(orders []order.Cancel) (order.CancelBatchResponse, error) {
+func (k *Kraken) CancelBatchOrders(c []order.Cancel) (order.CancelBatchResponse, error) {
 	var ordersList []string
-	for i := range orders {
-		if err := orders[i].Validate(orders[i].StandardCancel()); err != nil {
+	for i := range c {
+		if err := c[i].Validate(k.Name, c[i].OrderIDRequired()); err != nil {
 			return order.CancelBatchResponse{}, err
 		}
-		ordersList = append(ordersList, orders[i].ID)
+		ordersList = append(ordersList, c[i].ID)
 	}
 
 	if k.Websocket.CanUseAuthenticatedWebsocketForWrapper() {
@@ -791,14 +793,14 @@ func (k *Kraken) CancelBatchOrders(orders []order.Cancel) (order.CancelBatchResp
 }
 
 // CancelAllOrders cancels all orders associated with a currency pair
-func (k *Kraken) CancelAllOrders(req *order.Cancel) (order.CancelAllResponse, error) {
-	if err := req.Validate(); err != nil {
+func (k *Kraken) CancelAllOrders(c *order.Cancel) (order.CancelAllResponse, error) {
+	if err := c.Validate(k.Name, c.AssetRequired()); err != nil {
 		return order.CancelAllResponse{}, err
 	}
 	cancelAllOrdersResponse := order.CancelAllResponse{
 		Status: make(map[string]string),
 	}
-	switch req.AssetType {
+	switch c.AssetType {
 	case asset.Spot:
 		if k.Websocket.CanUseAuthenticatedWebsocketForWrapper() {
 			resp, err := k.wsCancelAllOrders()
@@ -827,7 +829,10 @@ func (k *Kraken) CancelAllOrders(req *order.Cancel) (order.CancelAllResponse, er
 			}
 		}
 	case asset.Futures:
-		cancelData, err := k.FuturesCancelAllOrders(req.Pair)
+		if err := c.Validate(k.Name, c.PairRequired()); err != nil {
+			return order.CancelAllResponse{}, err
+		}
+		cancelData, err := k.FuturesCancelAllOrders(c.Pair)
 		if err != nil {
 			return cancelAllOrdersResponse, err
 		}
@@ -975,7 +980,7 @@ func (k *Kraken) GetDepositAddress(cryptocurrency currency.Code, _ string) (stri
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal
 // Populate exchange.WithdrawRequest.TradePassword with withdrawal key name, as set up on your account
-func (k *Kraken) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (k *Kraken) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -983,14 +988,14 @@ func (k *Kraken) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) 
 	if err != nil {
 		return nil, err
 	}
-	return &withdraw.ExchangeResponse{
-		ID: v,
+	return &withdraw.Response{
+		WithdrawalID: v,
 	}, nil
 }
 
 // WithdrawFiatFunds returns a withdrawal ID when a
 // withdrawal is submitted
-func (k *Kraken) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (k *Kraken) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -998,14 +1003,14 @@ func (k *Kraken) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw
 	if err != nil {
 		return nil, err
 	}
-	return &withdraw.ExchangeResponse{
+	return &withdraw.Response{
 		Status: v,
 	}, nil
 }
 
 // WithdrawFiatFundsToInternationalBank returns a withdrawal ID when a
 // withdrawal is submitted
-func (k *Kraken) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (k *Kraken) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -1013,7 +1018,7 @@ func (k *Kraken) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.
 	if err != nil {
 		return nil, err
 	}
-	return &withdraw.ExchangeResponse{
+	return &withdraw.Response{
 		Status: v,
 	}, nil
 }
@@ -1355,8 +1360,9 @@ func (k *Kraken) AuthenticateWebsocket() error {
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (k *Kraken) ValidateCredentials(assetType asset.Item) error {
-	_, err := k.UpdateAccountInfo(assetType)
-	return k.CheckTransientError(err)
+	// _, err := k.UpdateAccountInfo(assetType)
+	// return k.CheckTransientError(err)
+	return nil
 }
 
 // FormatExchangeKlineInterval returns Interval to exchange formatted string

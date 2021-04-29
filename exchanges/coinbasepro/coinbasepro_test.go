@@ -129,7 +129,7 @@ func TestAuthRequests(t *testing.T) {
 	if err != nil {
 		t.Error("GetAccounts() error", err)
 	}
-	accountResponse, err := c.GetAccount("13371337-1337-1337-1337-133713371337")
+	accountResponse, err := c.GetTradingAccount("13371337-1337-1337-1337-133713371337")
 	if accountResponse.ID != "" {
 		t.Error("Expecting no data returned")
 	}

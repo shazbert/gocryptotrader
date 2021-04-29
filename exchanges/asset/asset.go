@@ -99,15 +99,20 @@ func (a Item) IsValid() bool {
 	return false
 }
 
+var errAssetNotSupplied = errors.New("asset not supplied")
+
 // New takes an input matches to relevant package assets
 func New(input string) (Item, error) {
+	if input == "" {
+		return "", fmt.Errorf("cannot create new asset type: %w", errAssetNotSupplied)
+	}
 	input = strings.ToLower(input)
 	for i := range supported {
 		if string(supported[i]) == input {
 			return supported[i], nil
 		}
 	}
-	return "", fmt.Errorf("%w %v, only supports %v",
+	return "", fmt.Errorf("cannot create new asset type: %w ['%v'], only supports %v",
 		ErrNotSupported,
 		input,
 		supported)

@@ -517,3 +517,13 @@ func IsWhiteListed(address string) (ret bool) {
 	}
 	return
 }
+
+// IsTagOrMemoRequired checks if address is needs a tag or memo
+func IsTagOrMemoRequired(address string) bool {
+	for x := range Portfolio.Addresses {
+		if Portfolio.Addresses[x].Address == address {
+			return Portfolio.Addresses[x].TagRequired
+		}
+	}
+	return false
+}

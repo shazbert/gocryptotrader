@@ -26,7 +26,6 @@ type IBotExchange interface {
 	GetName() string
 	IsEnabled() bool
 	SetEnabled(bool)
-	ValidateCredentials(a asset.Item) error
 	FetchTicker(p currency.Pair, a asset.Item) (*ticker.Price, error)
 	UpdateTicker(p currency.Pair, a asset.Item) (*ticker.Price, error)
 	FetchOrderbook(p currency.Pair, a asset.Item) (*orderbook.Base, error)
@@ -35,8 +34,8 @@ type IBotExchange interface {
 	UpdateTradablePairs(forceUpdate bool) error
 	GetEnabledPairs(a asset.Item) (currency.Pairs, error)
 	GetAvailablePairs(a asset.Item) (currency.Pairs, error)
-	FetchAccountInfo(a asset.Item) (account.Holdings, error)
-	UpdateAccountInfo(a asset.Item) (account.Holdings, error)
+	FetchAccountInfo(accountName string, a asset.Item) (*account.Holdings, error)
+	UpdateAccountInfo(accountName string, a asset.Item) (*account.Holdings, error)
 	GetAuthenticatedAPISupport(endpoint uint8) bool
 	SetPairs(pairs currency.Pairs, a asset.Item, enabled bool) error
 	GetAssetTypes() asset.Items
@@ -60,9 +59,9 @@ type IBotExchange interface {
 	GetOrderHistory(getOrdersRequest *order.GetOrdersRequest) ([]order.Detail, error)
 	GetWithdrawalsHistory(code currency.Code) ([]WithdrawalHistory, error)
 	GetActiveOrders(getOrdersRequest *order.GetOrdersRequest) ([]order.Detail, error)
-	WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error)
-	WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error)
-	WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error)
+	WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error)
+	WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error)
+	WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.Response, error)
 	SetHTTPClientUserAgent(ua string)
 	GetHTTPClientUserAgent() string
 	SetClientProxyAddress(addr string) error
@@ -90,4 +89,8 @@ type IBotExchange interface {
 	GetOrderExecutionLimits(a asset.Item, cp currency.Pair) (*order.Limits, error)
 	CheckOrderExecutionLimits(a asset.Item, cp currency.Pair, price, amount float64, orderType order.Type) error
 	UpdateOrderExecutionLimits(a asset.Item) error
+
+	// Exchange account holdings related functionality
+	GetAccounts() ([]string, error)
+	Claim(account string, a asset.Item, c currency.Code, amount float64, totalRequired bool) (*account.Claim, error)
 }

@@ -46,8 +46,7 @@ const (
 )
 
 var (
-	errLookupInstrumentID       = errors.New("unable to lookup instrument ID")
-	errLookupInstrumentCurrency = errors.New("unable to lookup instrument")
+	errLookupInstrumentID = errors.New("unable to lookup instrument ID")
 )
 
 // COINUT is the overarching type across the coinut package
@@ -175,10 +174,10 @@ func (c *COINUT) CancelExistingOrder(instrumentID, orderID int64) (bool, error) 
 func (c *COINUT) CancelOrders(orders []CancelOrders) (CancelOrdersResponse, error) {
 	var result CancelOrdersResponse
 	params := make(map[string]interface{})
-	type Request struct {
-		InstrumentID int `json:"inst_id"`
-		OrderID      int `json:"order_id"`
-	}
+	// type Request struct { // WHAT?
+	// 	InstrumentID int `json:"inst_id"`
+	// 	OrderID      int `json:"order_id"`
+	// }
 
 	var entries []CancelOrders
 	entries = append(entries, orders...)

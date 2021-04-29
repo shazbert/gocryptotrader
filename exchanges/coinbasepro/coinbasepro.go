@@ -238,7 +238,7 @@ func (c *CoinbasePro) GetServerTime() (ServerTime, error) {
 }
 
 // GetAccounts returns a list of trading accounts associated with the APIKEYS
-func (c *CoinbasePro) GetAccounts() ([]AccountResponse, error) {
+func (c *CoinbasePro) GetTradingAccounts() ([]AccountResponse, error) {
 	var resp []AccountResponse
 
 	return resp,
@@ -247,7 +247,7 @@ func (c *CoinbasePro) GetAccounts() ([]AccountResponse, error) {
 
 // GetAccount returns information for a single account. Use this endpoint when
 // account_id is known
-func (c *CoinbasePro) GetAccount(accountID string) (AccountResponse, error) {
+func (c *CoinbasePro) GetTradingAccount(accountID string) (AccountResponse, error) {
 	resp := AccountResponse{}
 	path := fmt.Sprintf("%s/%s", coinbaseproAccounts, accountID)
 

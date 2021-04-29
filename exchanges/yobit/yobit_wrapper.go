@@ -278,49 +278,50 @@ func (y *Yobit) UpdateOrderbook(p currency.Pair, assetType asset.Item) (*orderbo
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the
 // Yobit exchange
-func (y *Yobit) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	var response account.Holdings
-	response.Exchange = y.Name
-	accountBalance, err := y.GetAccountInformation()
-	if err != nil {
-		return response, err
-	}
+func (y *Yobit) UpdateAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	var response *account.Holdings
+	// response.Exchange = y.Name
+	// accountBalance, err := y.GetAccountInformation()
+	// if err != nil {
+	// 	return response, err
+	// }
 
-	var currencies []account.Balance
-	for x, y := range accountBalance.FundsInclOrders {
-		var exchangeCurrency account.Balance
-		exchangeCurrency.CurrencyName = currency.NewCode(x)
-		exchangeCurrency.TotalValue = y
-		exchangeCurrency.Hold = 0
-		for z, w := range accountBalance.Funds {
-			if z == x {
-				exchangeCurrency.Hold = y - w
-			}
-		}
+	// var currencies []account.Balance
+	// for x, y := range accountBalance.FundsInclOrders {
+	// 	var exchangeCurrency account.Balance
+	// 	exchangeCurrency.CurrencyName = currency.NewCode(x)
+	// 	exchangeCurrency.TotalValue = y
+	// 	exchangeCurrency.Hold = 0
+	// 	for z, w := range accountBalance.Funds {
+	// 		if z == x {
+	// 			exchangeCurrency.Hold = y - w
+	// 		}
+	// 	}
 
-		currencies = append(currencies, exchangeCurrency)
-	}
+	// 	currencies = append(currencies, exchangeCurrency)
+	// }
 
-	response.Accounts = append(response.Accounts, account.SubAccount{
-		Currencies: currencies,
-	})
+	// response.Accounts = append(response.Accounts, account.SubAccount{
+	// 	Currencies: currencies,
+	// })
 
-	err = account.Process(&response)
-	if err != nil {
-		return account.Holdings{}, err
-	}
+	// err = account.Process(&response)
+	// if err != nil {
+	// 	return account.Holdings{}, err
+	// }
 
 	return response, nil
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies
-func (y *Yobit) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(y.Name, assetType)
-	if err != nil {
-		return y.UpdateAccountInfo(assetType)
-	}
+func (y *Yobit) FetchAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// acc, err := account.GetHoldings(y.Name, assetType)
+	// if err != nil {
+	// 	return y.UpdateAccountInfo(assetType)
+	// }
 
-	return acc, nil
+	// return acc, nil
+	return nil, nil
 }
 
 // GetFundingHistory returns funding history, deposits and
@@ -419,7 +420,7 @@ func (y *Yobit) ModifyOrder(action *order.Modify) (string, error) {
 
 // CancelOrder cancels an order by its corresponding ID number
 func (y *Yobit) CancelOrder(o *order.Cancel) error {
-	if err := o.Validate(o.StandardCancel()); err != nil {
+	if err := o.Validate(y.Name, o.OrderIDRequired()); err != nil {
 		return err
 	}
 
@@ -496,7 +497,7 @@ func (y *Yobit) GetDepositAddress(cryptocurrency currency.Code, _ string) (strin
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (y *Yobit) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (y *Yobit) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -510,18 +511,18 @@ func (y *Yobit) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (
 	if len(resp.Error) > 0 {
 		return nil, errors.New(resp.Error)
 	}
-	return &withdraw.ExchangeResponse{}, nil
+	return &withdraw.Response{}, nil
 }
 
 // WithdrawFiatFunds returns a withdrawal ID when a
 // withdrawal is submitted
-func (y *Yobit) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (y *Yobit) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
 // WithdrawFiatFundsToInternationalBank returns a withdrawal ID when a
 // withdrawal is submitted
-func (y *Yobit) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (y *Yobit) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
@@ -644,8 +645,9 @@ func (y *Yobit) GetOrderHistory(req *order.GetOrdersRequest) ([]order.Detail, er
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (y *Yobit) ValidateCredentials(assetType asset.Item) error {
-	_, err := y.UpdateAccountInfo(assetType)
-	return y.CheckTransientError(err)
+	// _, err := y.UpdateAccountInfo(assetType)
+	// return y.CheckTransientError(err)
+	return nil
 }
 
 // GetHistoricCandles returns candles between a time period for a set time interval

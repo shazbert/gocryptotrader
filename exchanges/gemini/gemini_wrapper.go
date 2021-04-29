@@ -304,43 +304,45 @@ func (g *Gemini) UpdateTradablePairs(forceUpdate bool) error {
 
 // UpdateAccountInfo Retrieves balances for all enabled currencies for the
 // Gemini exchange
-func (g *Gemini) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	var response account.Holdings
-	response.Exchange = g.Name
-	accountBalance, err := g.GetBalances()
-	if err != nil {
-		return response, err
-	}
+func (g *Gemini) UpdateAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// var response account.Holdings
+	// response.Exchange = g.Name
+	// accountBalance, err := g.GetBalances()
+	// if err != nil {
+	// 	return response, err
+	// }
 
-	var currencies []account.Balance
-	for i := range accountBalance {
-		var exchangeCurrency account.Balance
-		exchangeCurrency.CurrencyName = currency.NewCode(accountBalance[i].Currency)
-		exchangeCurrency.TotalValue = accountBalance[i].Amount
-		exchangeCurrency.Hold = accountBalance[i].Available
-		currencies = append(currencies, exchangeCurrency)
-	}
+	// var currencies []account.Balance
+	// for i := range accountBalance {
+	// 	var exchangeCurrency account.Balance
+	// 	exchangeCurrency.CurrencyName = currency.NewCode(accountBalance[i].Currency)
+	// 	exchangeCurrency.TotalValue = accountBalance[i].Amount
+	// 	exchangeCurrency.Hold = accountBalance[i].Available
+	// 	currencies = append(currencies, exchangeCurrency)
+	// }
 
-	response.Accounts = append(response.Accounts, account.SubAccount{
-		Currencies: currencies,
-	})
+	// response.Accounts = append(response.Accounts, account.SubAccount{
+	// 	Currencies: currencies,
+	// })
 
-	err = account.Process(&response)
-	if err != nil {
-		return account.Holdings{}, err
-	}
+	// err = account.Process(&response)
+	// if err != nil {
+	// 	return account.Holdings{}, err
+	// }
 
-	return response, nil
+	// return response, nil
+	return nil, nil
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies
-func (g *Gemini) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(g.Name, assetType)
-	if err != nil {
-		return g.UpdateAccountInfo(assetType)
-	}
+func (g *Gemini) FetchAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// acc, err := account.GetHoldings(g.Name, assetType)
+	// if err != nil {
+	// 	return g.UpdateAccountInfo(assetType)
+	// }
 
-	return acc, nil
+	// return acc, nil
+	return nil, nil
 }
 
 // UpdateTicker updates and returns the ticker for a currency pair
@@ -551,17 +553,17 @@ func (g *Gemini) SubmitOrder(s *order.Submit) (order.SubmitResponse, error) {
 
 // ModifyOrder will allow of changing orderbook placement and limit to
 // market conversion
-func (g *Gemini) ModifyOrder(action *order.Modify) (string, error) {
+func (g *Gemini) ModifyOrder(_ *order.Modify) (string, error) {
 	return "", common.ErrFunctionNotSupported
 }
 
 // CancelOrder cancels an order by its corresponding ID number
-func (g *Gemini) CancelOrder(o *order.Cancel) error {
-	if err := o.Validate(o.StandardCancel()); err != nil {
+func (g *Gemini) CancelOrder(c *order.Cancel) error {
+	if err := c.Validate(g.Name, c.OrderIDRequired()); err != nil {
 		return err
 	}
 
-	orderIDInt, err := strconv.ParseInt(o.ID, 10, 64)
+	orderIDInt, err := strconv.ParseInt(c.ID, 10, 64)
 	if err != nil {
 		return err
 	}
@@ -571,7 +573,7 @@ func (g *Gemini) CancelOrder(o *order.Cancel) error {
 }
 
 // CancelBatchOrders cancels an orders by their corresponding ID numbers
-func (g *Gemini) CancelBatchOrders(o []order.Cancel) (order.CancelBatchResponse, error) {
+func (g *Gemini) CancelBatchOrders(_ []order.Cancel) (order.CancelBatchResponse, error) {
 	return order.CancelBatchResponse{}, common.ErrNotYetImplemented
 }
 
@@ -593,9 +595,8 @@ func (g *Gemini) CancelAllOrders(_ *order.Cancel) (order.CancelAllResponse, erro
 }
 
 // GetOrderInfo returns order information based on order ID
-func (g *Gemini) GetOrderInfo(orderID string, pair currency.Pair, assetType asset.Item) (order.Detail, error) {
-	var orderDetail order.Detail
-	return orderDetail, common.ErrNotYetImplemented
+func (g *Gemini) GetOrderInfo(_ string, _ currency.Pair, _ asset.Item) (order.Detail, error) {
+	return order.Detail{}, common.ErrNotYetImplemented
 }
 
 // GetDepositAddress returns a deposit address for a specified currency
@@ -609,7 +610,7 @@ func (g *Gemini) GetDepositAddress(cryptocurrency currency.Code, _ string) (stri
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (g *Gemini) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (g *Gemini) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -622,20 +623,20 @@ func (g *Gemini) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) 
 		return nil, errors.New(resp.Message)
 	}
 
-	return &withdraw.ExchangeResponse{
-		ID: resp.TXHash,
+	return &withdraw.Response{
+		WithdrawalID: resp.TXHash,
 	}, err
 }
 
 // WithdrawFiatFunds returns a withdrawal ID when a
 // withdrawal is submitted
-func (g *Gemini) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (g *Gemini) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
 // WithdrawFiatFundsToInternationalBank returns a withdrawal ID when a
 // withdrawal is submitted
-func (g *Gemini) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (g *Gemini) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
@@ -769,8 +770,9 @@ func (g *Gemini) GetOrderHistory(req *order.GetOrdersRequest) ([]order.Detail, e
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (g *Gemini) ValidateCredentials(assetType asset.Item) error {
-	_, err := g.UpdateAccountInfo(assetType)
-	return g.CheckTransientError(err)
+	// _, err := g.UpdateAccountInfo(assetType)
+	// return g.CheckTransientError(err)
+	return nil
 }
 
 // GetHistoricCandles returns candles between a time period for a set time interval

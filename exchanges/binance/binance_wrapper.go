@@ -562,90 +562,92 @@ func (b *Binance) UpdateOrderbook(p currency.Pair, assetType asset.Item) (*order
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the
 // Binance exchange
-func (b *Binance) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	var info account.Holdings
-	var acc account.SubAccount
-	info.Exchange = b.Name
-	switch assetType {
-	case asset.Spot:
-		raw, err := b.GetAccount()
-		if err != nil {
-			return info, err
-		}
+func (b *Binance) UpdateAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// var info account.Holdings
+	// var acc account.SubAccount
+	// info.Exchange = b.Name
+	// switch assetType {
+	// case asset.Spot:
+	// 	raw, err := b.GetAccount()
+	// 	if err != nil {
+	// 		return info, err
+	// 	}
 
-		var currencyBalance []account.Balance
-		for i := range raw.Balances {
-			freeCurrency, parseErr := strconv.ParseFloat(raw.Balances[i].Free, 64)
-			if parseErr != nil {
-				return info, parseErr
-			}
+	// 	var currencyBalance []account.Balance
+	// 	for i := range raw.Balances {
+	// 		freeCurrency, parseErr := strconv.ParseFloat(raw.Balances[i].Free, 64)
+	// 		if parseErr != nil {
+	// 			return info, parseErr
+	// 		}
 
-			lockedCurrency, parseErr := strconv.ParseFloat(raw.Balances[i].Locked, 64)
-			if parseErr != nil {
-				return info, parseErr
-			}
+	// 		lockedCurrency, parseErr := strconv.ParseFloat(raw.Balances[i].Locked, 64)
+	// 		if parseErr != nil {
+	// 			return info, parseErr
+	// 		}
 
-			currencyBalance = append(currencyBalance, account.Balance{
-				CurrencyName: currency.NewCode(raw.Balances[i].Asset),
-				TotalValue:   freeCurrency + lockedCurrency,
-				Hold:         freeCurrency,
-			})
-		}
+	// 		currencyBalance = append(currencyBalance, account.Balance{
+	// 			CurrencyName: currency.NewCode(raw.Balances[i].Asset),
+	// 			TotalValue:   freeCurrency + lockedCurrency,
+	// 			Hold:         freeCurrency,
+	// 		})
+	// 	}
 
-		acc.Currencies = currencyBalance
+	// 	acc.Currencies = currencyBalance
 
-	case asset.CoinMarginedFutures:
-		accData, err := b.GetFuturesAccountInfo()
-		if err != nil {
-			return info, err
-		}
-		var currencyDetails []account.Balance
-		for i := range accData.Assets {
-			currencyDetails = append(currencyDetails, account.Balance{
-				CurrencyName: currency.NewCode(accData.Assets[i].Asset),
-				TotalValue:   accData.Assets[i].WalletBalance,
-				Hold:         accData.Assets[i].WalletBalance - accData.Assets[i].MarginBalance,
-			})
-		}
+	// case asset.CoinMarginedFutures:
+	// 	accData, err := b.GetFuturesAccountInfo()
+	// 	if err != nil {
+	// 		return info, err
+	// 	}
+	// 	var currencyDetails []account.Balance
+	// 	for i := range accData.Assets {
+	// 		currencyDetails = append(currencyDetails, account.Balance{
+	// 			CurrencyName: currency.NewCode(accData.Assets[i].Asset),
+	// 			TotalValue:   accData.Assets[i].WalletBalance,
+	// 			Hold:         accData.Assets[i].WalletBalance - accData.Assets[i].MarginBalance,
+	// 		})
+	// 	}
 
-		acc.Currencies = currencyDetails
+	// 	acc.Currencies = currencyDetails
 
-	case asset.USDTMarginedFutures:
-		accData, err := b.UAccountBalanceV2()
-		if err != nil {
-			return info, err
-		}
-		var currencyDetails []account.Balance
-		for i := range accData {
-			currencyDetails = append(currencyDetails, account.Balance{
-				CurrencyName: currency.NewCode(accData[i].Asset),
-				TotalValue:   accData[i].Balance,
-				Hold:         accData[i].Balance - accData[i].AvailableBalance,
-			})
-		}
+	// case asset.USDTMarginedFutures:
+	// 	accData, err := b.UAccountBalanceV2()
+	// 	if err != nil {
+	// 		return info, err
+	// 	}
+	// 	var currencyDetails []account.Balance
+	// 	for i := range accData {
+	// 		currencyDetails = append(currencyDetails, account.Balance{
+	// 			CurrencyName: currency.NewCode(accData[i].Asset),
+	// 			TotalValue:   accData[i].Balance,
+	// 			Hold:         accData[i].Balance - accData[i].AvailableBalance,
+	// 		})
+	// 	}
 
-		acc.Currencies = currencyDetails
+	// 	acc.Currencies = currencyDetails
 
-	default:
-		return info, fmt.Errorf("%v assetType not supported", assetType)
-	}
-	acc.AssetType = assetType
-	info.Accounts = append(info.Accounts, acc)
-	err := account.Process(&info)
-	if err != nil {
-		return account.Holdings{}, err
-	}
-	return info, nil
+	// default:
+	// 	return info, fmt.Errorf("%v assetType not supported", assetType)
+	// }
+	// acc.AssetType = assetType
+	// info.Accounts = append(info.Accounts, acc)
+	// err := account.Process(&info)
+	// if err != nil {
+	// 	return account.Holdings{}, err
+	// }
+	// return info, nil
+	return nil, nil
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies
-func (b *Binance) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(b.Name, assetType)
-	if err != nil {
-		return b.UpdateAccountInfo(assetType)
-	}
+func (b *Binance) FetchAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// acc, err := account.GetHoldings(b.Name, assetType)
+	// if err != nil {
+	// 	return b.UpdateAccountInfo(assetType)
+	// }
 
-	return acc, nil
+	// return acc, nil
+	return nil, nil
 }
 
 // GetFundingHistory returns funding history, deposits and
@@ -889,29 +891,34 @@ func (b *Binance) ModifyOrder(action *order.Modify) (string, error) {
 }
 
 // CancelOrder cancels an order by its corresponding ID number
-func (b *Binance) CancelOrder(o *order.Cancel) error {
-	if err := o.Validate(o.StandardCancel()); err != nil {
+func (b *Binance) CancelOrder(c *order.Cancel) error {
+	if err := c.Validate(b.Name, c.AssetRequired(), c.PairRequired(), c.OrderIDRequired()); err != nil {
 		return err
 	}
-	switch o.AssetType {
+	switch c.AssetType {
 	case asset.Spot, asset.Margin:
-		orderIDInt, err := strconv.ParseInt(o.ID, 10, 64)
+		err := c.Validate(b.Name, c.AccountIDRequired())
 		if err != nil {
 			return err
 		}
-		_, err = b.CancelExistingOrder(o.Pair,
+
+		orderIDInt, err := strconv.ParseInt(c.ID, 10, 64)
+		if err != nil {
+			return err
+		}
+		_, err = b.CancelExistingOrder(c.Pair,
 			orderIDInt,
-			o.AccountID)
+			c.AccountID)
 		if err != nil {
 			return err
 		}
 	case asset.CoinMarginedFutures:
-		_, err := b.FuturesCancelOrder(o.Pair, o.ID, "")
+		_, err := b.FuturesCancelOrder(c.Pair, c.ID, "")
 		if err != nil {
 			return err
 		}
 	case asset.USDTMarginedFutures:
-		_, err := b.UCancelOrder(o.Pair, o.ID, "")
+		_, err := b.UCancelOrder(c.Pair, c.ID, "")
 		if err != nil {
 			return err
 		}
@@ -920,25 +927,29 @@ func (b *Binance) CancelOrder(o *order.Cancel) error {
 }
 
 // CancelBatchOrders cancels an orders by their corresponding ID numbers
-func (b *Binance) CancelBatchOrders(o []order.Cancel) (order.CancelBatchResponse, error) {
+func (b *Binance) CancelBatchOrders(_ []order.Cancel) (order.CancelBatchResponse, error) {
 	return order.CancelBatchResponse{}, common.ErrNotYetImplemented
 }
 
 // CancelAllOrders cancels all orders associated with a currency pair
-func (b *Binance) CancelAllOrders(req *order.Cancel) (order.CancelAllResponse, error) {
-	if err := req.Validate(); err != nil {
+func (b *Binance) CancelAllOrders(c *order.Cancel) (order.CancelAllResponse, error) {
+	if err := c.Validate(b.Name, c.AssetRequired()); err != nil {
 		return order.CancelAllResponse{}, err
 	}
 	var cancelAllOrdersResponse order.CancelAllResponse
 	cancelAllOrdersResponse.Status = make(map[string]string)
-	switch req.AssetType {
+	switch c.AssetType {
 	case asset.Spot, asset.Margin:
-		openOrders, err := b.OpenOrders(req.Pair)
+		err := c.Validate(b.Name, c.PairRequired())
+		if err != nil {
+			return order.CancelAllResponse{}, err
+		}
+		openOrders, err := b.OpenOrders(c.Pair)
 		if err != nil {
 			return cancelAllOrdersResponse, err
 		}
 		for i := range openOrders {
-			_, err = b.CancelExistingOrder(req.Pair,
+			_, err = b.CancelExistingOrder(c.Pair,
 				openOrders[i].OrderID,
 				"")
 			if err != nil {
@@ -946,7 +957,7 @@ func (b *Binance) CancelAllOrders(req *order.Cancel) (order.CancelAllResponse, e
 			}
 		}
 	case asset.CoinMarginedFutures:
-		if req.Pair.IsEmpty() {
+		if c.Pair.IsEmpty() {
 			enabledPairs, err := b.GetEnabledPairs(asset.CoinMarginedFutures)
 			if err != nil {
 				return cancelAllOrdersResponse, err
@@ -958,13 +969,13 @@ func (b *Binance) CancelAllOrders(req *order.Cancel) (order.CancelAllResponse, e
 				}
 			}
 		} else {
-			_, err := b.FuturesCancelAllOpenOrders(req.Pair)
+			_, err := b.FuturesCancelAllOpenOrders(c.Pair)
 			if err != nil {
 				return cancelAllOrdersResponse, err
 			}
 		}
 	case asset.USDTMarginedFutures:
-		if req.Pair.IsEmpty() {
+		if c.Pair.IsEmpty() {
 			enabledPairs, err := b.GetEnabledPairs(asset.USDTMarginedFutures)
 			if err != nil {
 				return cancelAllOrdersResponse, err
@@ -976,13 +987,13 @@ func (b *Binance) CancelAllOrders(req *order.Cancel) (order.CancelAllResponse, e
 				}
 			}
 		} else {
-			_, err := b.UCancelAllOpenOrders(req.Pair)
+			_, err := b.UCancelAllOpenOrders(c.Pair)
 			if err != nil {
 				return cancelAllOrdersResponse, err
 			}
 		}
 	default:
-		return cancelAllOrdersResponse, fmt.Errorf("assetType not supported: %v", req.AssetType)
+		return cancelAllOrdersResponse, fmt.Errorf("assetType not supported: %v", c.AssetType)
 	}
 	return cancelAllOrdersResponse, nil
 }
@@ -1096,33 +1107,33 @@ func (b *Binance) GetDepositAddress(cryptocurrency currency.Code, _ string) (str
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (b *Binance) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
-	if err := withdrawRequest.Validate(); err != nil {
+func (b *Binance) WithdrawCryptocurrencyFunds(w *withdraw.Request) (*withdraw.Response, error) {
+	if err := w.Validate(); err != nil {
 		return nil, err
 	}
 
-	amountStr := strconv.FormatFloat(withdrawRequest.Amount, 'f', -1, 64)
-	v, err := b.WithdrawCrypto(withdrawRequest.Currency.String(),
-		withdrawRequest.Crypto.Address,
-		withdrawRequest.Crypto.AddressTag,
-		withdrawRequest.Description, amountStr)
+	amountStr := strconv.FormatFloat(w.Amount, 'f', -1, 64)
+	v, err := b.WithdrawCrypto(w.Currency.String(),
+		w.Crypto.Address,
+		w.Crypto.AddressTag,
+		w.Description, amountStr)
 	if err != nil {
 		return nil, err
 	}
-	return &withdraw.ExchangeResponse{
-		ID: v,
+	return &withdraw.Response{
+		WithdrawalID: v,
 	}, nil
 }
 
 // WithdrawFiatFunds returns a withdrawal ID when a
 // withdrawal is submitted
-func (b *Binance) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (b *Binance) WithdrawFiatFunds(_ *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
 // WithdrawFiatFundsToInternationalBank returns a withdrawal ID when a
 // withdrawal is submitted
-func (b *Binance) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (b *Binance) WithdrawFiatFundsToInternationalBank(_ *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
@@ -1415,8 +1426,9 @@ func (b *Binance) GetOrderHistory(req *order.GetOrdersRequest) ([]order.Detail, 
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (b *Binance) ValidateCredentials(assetType asset.Item) error {
-	_, err := b.UpdateAccountInfo(assetType)
-	return b.CheckTransientError(err)
+	// _, err := b.UpdateAccountInfo(assetType)
+	// return b.CheckTransientError(err)
+	return nil
 }
 
 // FormatExchangeKlineInterval returns Interval to exchange formatted string

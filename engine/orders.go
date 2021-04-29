@@ -195,29 +195,19 @@ func (o *orderManager) run() {
 
 // CancelAllOrders iterates and cancels all orders for each exchange provided
 func (o *orderManager) CancelAllOrders(exchangeNames []string) {
-	orders := o.orderStore.get()
-	if orders == nil {
+	// TODO: Design change for locking
+	store := o.orderStore.get()
+	if store == nil {
 		return
 	}
 
-	for k, v := range orders {
-		log.Debugf(log.OrderMgr, "Order manager: Cancelling order(s) for exchange %s.", k)
-		if !common.StringDataCompareInsensitive(exchangeNames, k) {
-			continue
-		}
-
-		for y := range v {
-			err := o.Cancel(&order.Cancel{
-				Exchange:      k,
-				ID:            v[y].ID,
-				AccountID:     v[y].AccountID,
-				ClientID:      v[y].ClientID,
-				WalletAddress: v[y].WalletAddress,
-				Type:          v[y].Type,
-				Side:          v[y].Side,
-				Pair:          v[y].Pair,
-				AssetType:     v[y].AssetType,
-			})
+	for x := range exchangeNames {
+		log.Debugf(log.OrderMgr,
+			"Order manager: Cancelling order(s) for exchange %s.",
+			exchangeNames[x])
+		orders := store[strings.ToLower(exchangeNames[x])]
+		for y := range orders {
+			err := o.Cancel(orders[y].Exchange, orders[y].ID)
 			if err != nil {
 				log.Error(log.OrderMgr, err)
 				continue
@@ -228,59 +218,47 @@ func (o *orderManager) CancelAllOrders(exchangeNames []string) {
 
 // Cancel will find the order in the orderManager, send a cancel request
 // to the exchange and if successful, update the status of the order
-func (o *orderManager) Cancel(cancel *order.Cancel) error {
-	var err error
-	defer func() {
-		if err != nil {
-			o.orderStore.bot.CommsManager.PushEvent(base.Event{
-				Type:    "order",
-				Message: err.Error(),
-			})
-		}
-	}()
+func (o *orderManager) Cancel(exchName, orderID string) (err error) {
+	defer o.pushEventOnError(&err)
 
-	if cancel == nil {
-		err = errors.New("order cancel param is nil")
-		return err
-	}
-	if cancel.Exchange == "" {
-		err = errors.New("order exchange name is empty")
-		return err
-	}
-	if cancel.ID == "" {
-		err = errors.New("order id is empty")
-		return err
+	if exchName == "" {
+		return errExchangeNameUnset
 	}
 
-	exch := o.orderStore.bot.GetExchangeByName(cancel.Exchange)
+	if orderID == "" {
+		return errOrderIDCannotBeEmpty
+	}
+
+	exch := o.orderStore.bot.GetExchangeByName(exchName)
 	if exch == nil {
-		err = ErrExchangeNotFound
-		return err
+		return ErrExchangeNotFound
 	}
 
-	if cancel.AssetType.String() != "" && !exch.GetAssetTypes().Contains(cancel.AssetType) {
-		err = errors.New("order asset type not supported by exchange")
-		return err
-	}
+	log.Debugf(log.OrderMgr, "Order manager: Cancelling %s order ID %v",
+		exchName,
+		orderID)
 
-	log.Debugf(log.OrderMgr, "Order manager: Cancelling order ID %v [%+v]",
-		cancel.ID, cancel)
-
-	err = exch.CancelOrder(cancel)
+	det, err := o.orderStore.GetByExchangeAndID(exchName, orderID)
 	if err != nil {
-		err = fmt.Errorf("%v - Failed to cancel order: %v", cancel.Exchange, err)
-		return err
-	}
-	var od *order.Detail
-	od, err = o.orderStore.GetByExchangeAndID(cancel.Exchange, cancel.ID)
-	if err != nil {
-		err = fmt.Errorf("%v - Failed to retrieve order %v to update cancelled status: %v", cancel.Exchange, cancel.ID, err)
-		return err
+		return fmt.Errorf("%v - Failed to retrieve order %v to update cancelled status: %w",
+			exchName,
+			orderID,
+			err)
 	}
 
-	od.Status = order.Cancelled
+	err = exch.CancelOrder(&order.Cancel{
+		ID: det.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("%v - Failed to cancel order: %w",
+			exchName,
+			err)
+	}
+
+	det.Status = order.Cancelled // TODO: Remove from memory and update database
 	msg := fmt.Sprintf("Order manager: Exchange %s order ID=%v cancelled.",
-		od.Exchange, od.ID)
+		exchName,
+		orderID)
 	log.Debugln(log.OrderMgr, msg)
 	o.orderStore.bot.CommsManager.PushEvent(base.Event{
 		Type:    "order",
@@ -288,6 +266,15 @@ func (o *orderManager) Cancel(cancel *order.Cancel) error {
 	})
 
 	return nil
+}
+
+func (o *orderManager) pushEventOnError(err *error) {
+	if *err != nil {
+		o.orderStore.bot.CommsManager.PushEvent(base.Event{
+			Type:    "order",
+			Message: (*err).Error(),
+		})
+	}
 }
 
 // GetOrderInfo calls the exchange's wrapper GetOrderInfo function
@@ -373,9 +360,48 @@ func (o *orderManager) Submit(newOrder *order.Submit) (*orderSubmitResponse, err
 			err)
 	}
 
+	// Derives utilisation currency do cross reference and claim on balance
+	// before order execution
+	usageCurrency := newOrder.Pair.Base
+	if newOrder.Side == order.Sell || newOrder.Side == order.Bid {
+		usageCurrency = newOrder.Pair.Quote
+	}
+
+	// Claims amount balance on exchange account to lock out further usage by
+	// other strategies
+	claim, err := exch.Claim(newOrder.Account,
+		newOrder.AssetType,
+		usageCurrency,
+		newOrder.Amount,
+		!newOrder.TotalAmountNotRequired)
+	if err != nil {
+		return nil, fmt.Errorf("order manager: exchange %s unable to place order: %w",
+			newOrder.Exchange,
+			err)
+	}
+
 	result, err := exch.SubmitOrder(newOrder)
 	if err != nil {
+		// On failed submission we want to immediately release claimed balance
+		relErr := claim.Release()
+		if relErr != nil {
+			log.Errorf(log.OrderMgr, "%s %s %s cannot release funds from claim %v",
+				newOrder.Exchange,
+				newOrder.AssetType,
+				usageCurrency,
+				relErr)
+		}
 		return nil, err
+	}
+
+	// On accepted submission we want to preserve claim and wait for a rebalance
+	err = claim.ReleaseToPending()
+	if err != nil {
+		log.Errorf(log.OrderMgr, "%s %s %s cannot release funds from claim %v",
+			newOrder.Exchange,
+			newOrder.AssetType,
+			usageCurrency,
+			err)
 	}
 
 	return o.processSubmittedOrder(newOrder, result)
@@ -446,6 +472,9 @@ func (o *orderManager) processSubmittedOrder(newOrder *order.Submit, result orde
 			"Order manager: Unable to generate UUID. Err: %s",
 			err)
 	}
+	if newOrder.Date.IsZero() {
+		newOrder.Date = time.Now()
+	}
 	msg := fmt.Sprintf("Order manager: Exchange %s submitted order ID=%v [Ours: %v] pair=%v price=%v amount=%v side=%v type=%v for time %v.",
 		newOrder.Exchange,
 		result.OrderID,
@@ -509,6 +538,8 @@ func (o *orderManager) processSubmittedOrder(newOrder *order.Submit, result orde
 }
 
 func (o *orderManager) processOrders() {
+	// TODO: Add to start up to instantly fetch open orders. Then continue with
+	// this.
 	authExchanges := o.orderStore.bot.GetAuthAPISupportedExchanges()
 	for x := range authExchanges {
 		log.Debugf(log.OrderMgr,

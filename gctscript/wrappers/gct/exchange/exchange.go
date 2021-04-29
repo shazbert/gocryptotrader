@@ -102,22 +102,8 @@ func (e Exchange) SubmitOrder(submit *order.Submit) (*order.SubmitResponse, erro
 }
 
 // CancelOrder wrapper to cancel order on exchange
-func (e Exchange) CancelOrder(exch, orderID string, cp currency.Pair, a asset.Item) (bool, error) {
-	orderDetails, err := e.QueryOrder(exch, orderID, cp, a)
-	if err != nil {
-		return false, err
-	}
-
-	cancel := &order.Cancel{
-		AccountID: orderDetails.AccountID,
-		ID:        orderDetails.ID,
-		Pair:      orderDetails.Pair,
-		Side:      orderDetails.Side,
-		AssetType: orderDetails.AssetType,
-		Exchange:  exch,
-	}
-
-	err = engine.Bot.OrderManager.Cancel(cancel)
+func (e Exchange) CancelOrder(exch, orderID string) (bool, error) {
+	err := engine.Bot.OrderManager.Cancel(exch, orderID)
 	if err != nil {
 		return false, err
 	}
@@ -125,15 +111,17 @@ func (e Exchange) CancelOrder(exch, orderID string, cp currency.Pair, a asset.It
 }
 
 // AccountInformation returns account information (balance etc) for requested exchange
-func (e Exchange) AccountInformation(exch string, assetType asset.Item) (account.Holdings, error) {
+func (e Exchange) AccountInformation(exch, accountName string, assetType asset.Item) (*account.Holdings, error) {
 	ex, err := e.GetExchange(exch)
 	if err != nil {
-		return account.Holdings{}, err
+		return nil, err
 	}
 
-	accountInfo, err := ex.FetchAccountInfo(assetType)
+	// FOR NOW JUST USE DEFAULT ACCOUNT NAME
+
+	accountInfo, err := ex.FetchAccountInfo(account.Default, assetType)
 	if err != nil {
-		return account.Holdings{}, err
+		return nil, err
 	}
 
 	return accountInfo, nil
@@ -186,7 +174,7 @@ func (e Exchange) WithdrawalFiatFunds(bankAccountID string, request *withdraw.Re
 	if err != nil {
 		return "", err
 	}
-	return resp.Exchange.ID, nil
+	return resp.Response.WithdrawalID, nil
 }
 
 // WithdrawalCryptoFunds withdraw funds from exchange to requested Crypto source
@@ -209,7 +197,7 @@ func (e Exchange) WithdrawalCryptoFunds(request *withdraw.Request) (string, erro
 	if err != nil {
 		return "", err
 	}
-	return resp.Exchange.ID, nil
+	return resp.Response.WithdrawalID, nil
 }
 
 // OHLCV returns open high low close volume candles for requested exchange/pair/asset/start & end time

@@ -253,37 +253,39 @@ func (l *LocalBitcoins) UpdateOrderbook(p currency.Pair, assetType asset.Item) (
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the
 // LocalBitcoins exchange
-func (l *LocalBitcoins) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	var response account.Holdings
-	response.Exchange = l.Name
-	accountBalance, err := l.GetWalletBalance()
-	if err != nil {
-		return response, err
-	}
-	var exchangeCurrency account.Balance
-	exchangeCurrency.CurrencyName = currency.BTC
-	exchangeCurrency.TotalValue = accountBalance.Total.Balance
+func (l *LocalBitcoins) UpdateAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// var response account.Holdings
+	// response.Exchange = l.Name
+	// accountBalance, err := l.GetWalletBalance()
+	// if err != nil {
+	// 	return response, err
+	// }
+	// var exchangeCurrency account.Balance
+	// exchangeCurrency.CurrencyName = currency.BTC
+	// exchangeCurrency.TotalValue = accountBalance.Total.Balance
 
-	response.Accounts = append(response.Accounts, account.SubAccount{
-		Currencies: []account.Balance{exchangeCurrency},
-	})
+	// response.Accounts = append(response.Accounts, account.SubAccount{
+	// 	Currencies: []account.Balance{exchangeCurrency},
+	// })
 
-	err = account.Process(&response)
-	if err != nil {
-		return account.Holdings{}, err
-	}
+	// err = account.Process(&response)
+	// if err != nil {
+	// 	return account.Holdings{}, err
+	// }
 
-	return response, nil
+	// return response, nil
+	return nil, nil
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies
-func (l *LocalBitcoins) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(l.Name, assetType)
-	if err != nil {
-		return l.UpdateAccountInfo(assetType)
-	}
+func (l *LocalBitcoins) FetchAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// acc, err := account.GetHoldings(l.Name, assetType)
+	// if err != nil {
+	// 	return l.UpdateAccountInfo(assetType)
+	// }
 
-	return acc, nil
+	// return acc, nil
+	return nil, nil
 }
 
 // GetFundingHistory returns funding history, deposits and
@@ -413,20 +415,20 @@ func (l *LocalBitcoins) SubmitOrder(s *order.Submit) (order.SubmitResponse, erro
 
 // ModifyOrder will allow of changing orderbook placement and limit to
 // market conversion
-func (l *LocalBitcoins) ModifyOrder(action *order.Modify) (string, error) {
+func (l *LocalBitcoins) ModifyOrder(_ *order.Modify) (string, error) {
 	return "", common.ErrFunctionNotSupported
 }
 
 // CancelOrder cancels an order by its corresponding ID number
-func (l *LocalBitcoins) CancelOrder(o *order.Cancel) error {
-	if err := o.Validate(o.StandardCancel()); err != nil {
+func (l *LocalBitcoins) CancelOrder(c *order.Cancel) error {
+	if err := c.Validate(l.Name, c.OrderIDRequired()); err != nil {
 		return err
 	}
-	return l.DeleteAd(o.ID)
+	return l.DeleteAd(c.ID)
 }
 
 // CancelBatchOrders cancels an orders by their corresponding ID numbers
-func (l *LocalBitcoins) CancelBatchOrders(o []order.Cancel) (order.CancelBatchResponse, error) {
+func (l *LocalBitcoins) CancelBatchOrders(_ []order.Cancel) (order.CancelBatchResponse, error) {
 	return order.CancelBatchResponse{}, common.ErrNotYetImplemented
 }
 
@@ -452,9 +454,8 @@ func (l *LocalBitcoins) CancelAllOrders(_ *order.Cancel) (order.CancelAllRespons
 }
 
 // GetOrderInfo returns order information based on order ID
-func (l *LocalBitcoins) GetOrderInfo(orderID string, pair currency.Pair, assetType asset.Item) (order.Detail, error) {
-	var orderDetail order.Detail
-	return orderDetail, common.ErrNotYetImplemented
+func (l *LocalBitcoins) GetOrderInfo(_ string, _ currency.Pair, _ asset.Item) (order.Detail, error) {
+	return order.Detail{}, common.ErrNotYetImplemented
 }
 
 // GetDepositAddress returns a deposit address for a specified currency
@@ -469,7 +470,7 @@ func (l *LocalBitcoins) GetDepositAddress(cryptocurrency currency.Code, _ string
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (l *LocalBitcoins) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (l *LocalBitcoins) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -480,18 +481,18 @@ func (l *LocalBitcoins) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Re
 	if err != nil {
 		return nil, err
 	}
-	return &withdraw.ExchangeResponse{}, nil
+	return &withdraw.Response{}, nil
 }
 
 // WithdrawFiatFunds returns a withdrawal ID when a
 // withdrawal is submitted
-func (l *LocalBitcoins) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (l *LocalBitcoins) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
 // WithdrawFiatFundsToInternationalBank returns a withdrawal ID when a
 // withdrawal is submitted
-func (l *LocalBitcoins) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (l *LocalBitcoins) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
@@ -648,8 +649,9 @@ func (l *LocalBitcoins) GetOrderHistory(getOrdersRequest *order.GetOrdersRequest
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (l *LocalBitcoins) ValidateCredentials(assetType asset.Item) error {
-	_, err := l.UpdateAccountInfo(assetType)
-	return l.CheckTransientError(err)
+	// _, err := l.UpdateAccountInfo(assetType)
+	// return l.CheckTransientError(err)
+	return nil
 }
 
 // GetHistoricCandles returns candles between a time period for a set time interval

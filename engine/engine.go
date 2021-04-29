@@ -39,6 +39,7 @@ type Engine struct {
 	CommsManager                commsManager
 	exchangeManager             exchangeManager
 	DepositAddressManager       *DepositAddressManager
+	AccountManager              *AccountManager
 	Settings                    Settings
 	Uptime                      time.Time
 	ServicesWG                  sync.WaitGroup
@@ -495,6 +496,17 @@ func (bot *Engine) Start() error {
 		}
 	}
 
+	bot.AccountManager, err = NewAccountManager(bot)
+	if err != nil {
+		return err
+	}
+
+	// TODO: Add in syncer settings
+	err = bot.AccountManager.RunUpdater(time.Second * 10)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -554,6 +566,13 @@ func (bot *Engine) Stop() {
 		if err := dispatch.Stop(); err != nil {
 			gctlog.Errorf(gctlog.DispatchMgr, "Dispatch system unable to stop. Error: %v", err)
 		}
+	}
+
+	if bot.AccountManager.IsRunning() {
+		// This is not working - I did something silly.
+		// if err := bot.AccountManager.Shutdown(); err != nil {
+		// 	gctlog.Errorf(gctlog.Global, "Account manager system unable to stop. Error: %v", err)
+		// }
 	}
 
 	if bot.Settings.EnableCoinmarketcapAnalysis ||

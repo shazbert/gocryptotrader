@@ -730,7 +730,7 @@ func testWrappers(e exchange.IBotExchange, base *exchange.Base, config *Config) 
 			},
 			Amount: config.OrderSubmission.Amount,
 		}
-		var withdrawCryptocurrencyFundsResponse *withdraw.ExchangeResponse
+		var withdrawCryptocurrencyFundsResponse *withdraw.Response
 		withdrawCryptocurrencyFundsResponse, err = e.WithdrawCryptocurrencyFunds(&withdrawRequest)
 		msg = ""
 		if err != nil {
@@ -796,7 +796,7 @@ func testWrappers(e exchange.IBotExchange, base *exchange.Base, config *Config) 
 				IntermediaryBankCode:          config.BankDetails.IntermediaryBankCode,
 			},
 		}
-		var withdrawFiatFundsResponse *withdraw.ExchangeResponse
+		var withdrawFiatFundsResponse *withdraw.Response
 		withdrawFiatFundsResponse, err = e.WithdrawFiatFunds(&withdrawRequestFiat)
 		msg = ""
 		if err != nil {
@@ -810,7 +810,7 @@ func testWrappers(e exchange.IBotExchange, base *exchange.Base, config *Config) 
 			Response:   withdrawFiatFundsResponse,
 		})
 
-		var withdrawFiatFundsInternationalResponse *withdraw.ExchangeResponse
+		var withdrawFiatFundsInternationalResponse *withdraw.Response
 		withdrawFiatFundsInternationalResponse, err = e.WithdrawFiatFundsToInternationalBank(&withdrawRequestFiat)
 		msg = ""
 		if err != nil {

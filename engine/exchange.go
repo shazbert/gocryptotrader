@@ -2,6 +2,7 @@ package engine
 
 import (
 	"errors"
+	"os"
 	"strings"
 	"sync"
 
@@ -307,26 +308,30 @@ func (bot *Engine) LoadExchange(name string, useWG bool, wg *sync.WaitGroup) err
 	base := exch.GetBase()
 	if base.API.AuthenticatedSupport ||
 		base.API.AuthenticatedWebsocketSupport {
-		assetTypes := base.GetAssetTypes()
-		var useAsset asset.Item
-		for a := range assetTypes {
-			err = base.CurrencyPairs.IsAssetEnabled(assetTypes[a])
-			if err != nil {
-				continue
-			}
-			useAsset = assetTypes[a]
-			break
-		}
-		err = exch.ValidateCredentials(useAsset)
+		base.GetAssetTypes()
+		// TODO: Add key manager, as that will be able to retrieve sub
+		// accounts for individual api keys.
+		accounts, err := exch.GetAccounts()
 		if err != nil {
-			log.Warnf(log.ExchangeSys,
-				"%s: Cannot validate credentials, authenticated support has been disabled, Error: %s\n",
-				base.Name,
-				err)
-			base.API.AuthenticatedSupport = false
-			base.API.AuthenticatedWebsocketSupport = false
-			exchCfg.API.AuthenticatedSupport = false
-			exchCfg.API.AuthenticatedWebsocketSupport = false
+			exchCfg.Enabled = false
+			return err
+		}
+
+		for x := range accounts {
+			_, err = exch.UpdateAccountInfo(accounts[x], asset.Spot)
+			err = base.CheckTransientError(err)
+			if err != nil {
+				log.Warnf(log.ExchangeSys,
+					"%s: Cannot validate credentials, authenticated support has been disabled, Error: %s\n",
+					base.Name,
+					err)
+				base.API.AuthenticatedSupport = false
+				base.API.AuthenticatedWebsocketSupport = false
+				exchCfg.API.AuthenticatedSupport = false
+				exchCfg.API.AuthenticatedWebsocketSupport = false
+				os.Exit(1)
+				break
+			}
 		}
 	}
 

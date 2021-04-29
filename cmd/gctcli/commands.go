@@ -14,6 +14,7 @@ import (
 
 	"github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/currency"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/account"
 	"github.com/thrasher-corp/gocryptotrader/gctrpc"
 	"github.com/urfave/cli"
 	"google.golang.org/grpc"
@@ -1493,6 +1494,15 @@ var submitOrderCommand = cli.Command{
 			Name:  "asset",
 			Usage: "required asset type",
 		},
+		cli.StringFlag{
+			Name:  "account",
+			Usage: "required account type",
+			Value: account.Default,
+		},
+		cli.BoolFlag{
+			Name:  "totalnotrequired",
+			Usage: "total not required will deplete actual balance up to amount specified, e.g. if a balance re-adjustment occurs when submitting an order it will execute the remaining balance",
+		},
 	},
 }
 
@@ -1509,6 +1519,8 @@ func submitOrder(c *cli.Context) error {
 	var price float64
 	var clientID string
 	var assetType string
+	var accountName string
+	var totalAmountNotRequired bool
 
 	if c.IsSet("exchange") {
 		exchangeName = c.String("exchange")
@@ -1587,6 +1599,24 @@ func submitOrder(c *cli.Context) error {
 		assetType = c.Args().Get(7)
 	}
 
+	if c.IsSet("account") {
+		accountName = c.String("account")
+	} else {
+		accountName = c.Args().Get(8)
+	}
+
+	if c.IsSet("totalnotrequired") {
+		totalAmountNotRequired = c.Bool("totalnotrequired")
+	} else {
+		if b := c.Args().Get(9); b != "" {
+			var err error
+			totalAmountNotRequired, err = strconv.ParseBool(b)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	assetType = strings.ToLower(assetType)
 	if !validAsset(assetType) {
 		return errInvalidAsset
@@ -1604,20 +1634,23 @@ func submitOrder(c *cli.Context) error {
 	defer conn.Close()
 
 	client := gctrpc.NewGoCryptoTraderClient(conn)
-	result, err := client.SubmitOrder(context.Background(), &gctrpc.SubmitOrderRequest{
-		Exchange: exchangeName,
-		Pair: &gctrpc.CurrencyPair{
-			Delimiter: p.Delimiter,
-			Base:      p.Base.String(),
-			Quote:     p.Quote.String(),
-		},
-		Side:      orderSide,
-		OrderType: orderType,
-		Amount:    amount,
-		Price:     price,
-		ClientId:  clientID,
-		AssetType: assetType,
-	})
+	result, err := client.SubmitOrder(context.Background(),
+		&gctrpc.SubmitOrderRequest{
+			Exchange: exchangeName,
+			Pair: &gctrpc.CurrencyPair{
+				Delimiter: p.Delimiter,
+				Base:      p.Base.String(),
+				Quote:     p.Quote.String(),
+			},
+			Side:                   orderSide,
+			OrderType:              orderType,
+			Amount:                 amount,
+			Price:                  price,
+			ClientId:               clientID,
+			AssetType:              assetType,
+			Account:                accountName,
+			TotalAmountNotRequired: totalAmountNotRequired,
+		})
 	if err != nil {
 		return err
 	}
@@ -1843,7 +1876,7 @@ func whaleBomb(c *cli.Context) error {
 var cancelOrderCommand = cli.Command{
 	Name:      "cancelorder",
 	Usage:     "cancel order cancels an exchange order",
-	ArgsUsage: "<exchange> <account_id> <order_id> <pair> <asset> <wallet_address> <side>",
+	ArgsUsage: "<exchange> <order_id>",
 	Action:    cancelOrder,
 	Flags: []cli.Flag{
 		cli.StringFlag{
@@ -1851,28 +1884,8 @@ var cancelOrderCommand = cli.Command{
 			Usage: "the exchange to cancel the order for",
 		},
 		cli.StringFlag{
-			Name:  "account_id",
-			Usage: "the account id",
-		},
-		cli.StringFlag{
 			Name:  "order_id",
 			Usage: "the order id",
-		},
-		cli.StringFlag{
-			Name:  "pair",
-			Usage: "the currency pair to cancel the order for",
-		},
-		cli.StringFlag{
-			Name:  "asset",
-			Usage: "the asset type",
-		},
-		cli.Float64Flag{
-			Name:  "wallet_address",
-			Usage: "the wallet address",
-		},
-		cli.StringFlag{
-			Name:  "side",
-			Usage: "the order side",
 		},
 	},
 }
@@ -1883,12 +1896,7 @@ func cancelOrder(c *cli.Context) error {
 	}
 
 	var exchangeName string
-	var accountID string
 	var orderID string
-	var currencyPair string
-	var assetType string
-	var walletAddress string
-	var orderSide string
 
 	if c.IsSet("exchange") {
 		exchangeName = c.String("exchange")
@@ -1900,62 +1908,14 @@ func cancelOrder(c *cli.Context) error {
 		return errInvalidExchange
 	}
 
-	if c.IsSet("account_id") {
-		accountID = c.String("account_id")
-	} else {
-		accountID = c.Args().Get(1)
-	}
-
 	if c.IsSet("order_id") {
 		orderID = c.String("order_id")
 	} else {
-		orderID = c.Args().Get(2)
+		orderID = c.Args().Get(1)
 	}
 
 	if orderID == "" {
 		return errors.New("an order ID must be set")
-	}
-
-	if c.IsSet("pair") {
-		currencyPair = c.String("pair")
-	} else {
-		currencyPair = c.Args().Get(3)
-	}
-
-	if c.IsSet("asset") {
-		assetType = c.String("asset")
-	} else {
-		assetType = c.Args().Get(4)
-	}
-
-	assetType = strings.ToLower(assetType)
-	if !validAsset(assetType) {
-		return errInvalidAsset
-	}
-
-	if c.IsSet("wallet_address") {
-		walletAddress = c.String("wallet_address")
-	} else {
-		walletAddress = c.Args().Get(5)
-	}
-
-	if c.IsSet("side") {
-		orderSide = c.String("side")
-	} else {
-		orderSide = c.Args().Get(6)
-	}
-
-	// pair is optional, but if it's set, do a validity check
-	var p currency.Pair
-	if len(currencyPair) > 0 {
-		if !validPair(currencyPair) {
-			return errInvalidPair
-		}
-		var err error
-		p, err = currency.NewPairDelimiter(currencyPair, pairDelimiter)
-		if err != nil {
-			return err
-		}
 	}
 
 	conn, err := setupClient()
@@ -1965,19 +1925,11 @@ func cancelOrder(c *cli.Context) error {
 	defer conn.Close()
 
 	client := gctrpc.NewGoCryptoTraderClient(conn)
-	result, err := client.CancelOrder(context.Background(), &gctrpc.CancelOrderRequest{
-		Exchange:  exchangeName,
-		AccountId: accountID,
-		OrderId:   orderID,
-		Pair: &gctrpc.CurrencyPair{
-			Delimiter: p.Delimiter,
-			Base:      p.Base.String(),
-			Quote:     p.Quote.String(),
-		},
-		AssetType:     assetType,
-		WalletAddress: walletAddress,
-		Side:          orderSide,
-	})
+	result, err := client.CancelOrder(context.Background(),
+		&gctrpc.CancelOrderRequest{
+			Exchange: exchangeName,
+			OrderId:  orderID,
+		})
 	if err != nil {
 		return err
 	}
@@ -2146,6 +2098,10 @@ var cancelAllOrdersCommand = cli.Command{
 }
 
 func cancelAllOrders(c *cli.Context) error {
+	if c.NArg() == 0 && c.NumFlags() == 0 {
+		return cli.ShowCommandHelp(c, "cancelallorders")
+	}
+
 	var exchangeName string
 	if c.IsSet("exchange") {
 		exchangeName = c.String("exchange")
@@ -2532,7 +2488,7 @@ func getCryptocurrencyDepositAddress(c *cli.Context) error {
 var withdrawCryptocurrencyFundsCommand = cli.Command{
 	Name:      "withdrawcryptofunds",
 	Usage:     "withdraws cryptocurrency funds from the desired exchange",
-	ArgsUsage: "<exchange> <currency>  <amount> <address> <addresstag> <fee> <description>",
+	ArgsUsage: "<exchange> <currency> <amount> <address> <addresstag> <fee> <description>",
 	Action:    withdrawCryptocurrencyFunds,
 	Flags: []cli.Flag{
 		cli.StringFlag{
@@ -2542,6 +2498,10 @@ var withdrawCryptocurrencyFundsCommand = cli.Command{
 		cli.StringFlag{
 			Name:  "currency",
 			Usage: "the cryptocurrency to withdraw funds from",
+		},
+		cli.StringFlag{
+			Name:  "asset",
+			Usage: "the cryptocurrency asset type",
 		},
 		cli.StringFlag{
 			Name:  "address",
@@ -2563,6 +2523,10 @@ var withdrawCryptocurrencyFundsCommand = cli.Command{
 			Name:  "description",
 			Usage: "description to submit with request",
 		},
+		cli.StringFlag{
+			Name:  "account",
+			Usage: "account type for balance",
+		},
 	},
 }
 
@@ -2571,7 +2535,7 @@ func withdrawCryptocurrencyFunds(c *cli.Context) error {
 		return cli.ShowCommandHelp(c, "withdrawcryptofunds")
 	}
 
-	var exchange, cur, address, addressTag, description string
+	var exchange, cur, address, addressTag, description, assetType, account string
 	var amount, fee float64
 
 	if c.IsSet("exchange") {
@@ -2590,13 +2554,10 @@ func withdrawCryptocurrencyFunds(c *cli.Context) error {
 		cur = c.Args().Get(1)
 	}
 
-	if c.IsSet("amount") {
-		amount = c.Float64("amount")
+	if c.IsSet("asset") {
+		assetType = c.String("asset")
 	} else if c.Args().Get(2) != "" {
-		amountStr, err := strconv.ParseFloat(c.Args().Get(2), 64)
-		if err == nil {
-			amount = amountStr
-		}
+		assetType = c.Args().Get(2)
 	}
 
 	if c.IsSet("address") {
@@ -2611,10 +2572,19 @@ func withdrawCryptocurrencyFunds(c *cli.Context) error {
 		addressTag = c.Args().Get(4)
 	}
 
+	if c.IsSet("amount") {
+		amount = c.Float64("amount")
+	} else if c.Args().Get(5) != "" {
+		amountStr, err := strconv.ParseFloat(c.Args().Get(5), 64)
+		if err == nil {
+			amount = amountStr
+		}
+	}
+
 	if c.IsSet("fee") {
 		fee = c.Float64("fee")
-	} else if c.Args().Get(5) != "" {
-		feeStr, err := strconv.ParseFloat(c.Args().Get(5), 64)
+	} else if c.Args().Get(6) != "" {
+		feeStr, err := strconv.ParseFloat(c.Args().Get(6), 64)
 		if err == nil {
 			fee = feeStr
 		}
@@ -2622,8 +2592,14 @@ func withdrawCryptocurrencyFunds(c *cli.Context) error {
 
 	if c.IsSet("description") {
 		description = c.String("description")
-	} else if c.Args().Get(6) != "" {
-		description = c.Args().Get(6)
+	} else if c.Args().Get(7) != "" {
+		description = c.Args().Get(7)
+	}
+
+	if c.IsSet("account") {
+		account = c.String("account")
+	} else if c.Args().Get(8) != "" {
+		account = c.Args().Get(8)
 	}
 
 	conn, err := setupClient()
@@ -2638,11 +2614,13 @@ func withdrawCryptocurrencyFunds(c *cli.Context) error {
 		&gctrpc.WithdrawCryptoRequest{
 			Exchange:    exchange,
 			Currency:    cur,
+			AssetType:   assetType,
 			Address:     address,
 			AddressTag:  addressTag,
 			Amount:      amount,
 			Fee:         fee,
 			Description: description,
+			Account:     account,
 		},
 	)
 	if err != nil {

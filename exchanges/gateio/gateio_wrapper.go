@@ -324,98 +324,100 @@ func (g *Gateio) UpdateOrderbook(p currency.Pair, assetType asset.Item) (*orderb
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the
 // ZB exchange
-func (g *Gateio) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	var info account.Holdings
-	var balances []account.Balance
+func (g *Gateio) UpdateAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// var info account.Holdings
+	// var balances []account.Balance
 
-	if g.Websocket.CanUseAuthenticatedWebsocketForWrapper() {
-		resp, err := g.wsGetBalance([]string{})
-		if err != nil {
-			return info, err
-		}
-		var currData []account.Balance
-		for k := range resp.Result {
-			currData = append(currData, account.Balance{
-				CurrencyName: currency.NewCode(k),
-				TotalValue:   resp.Result[k].Available + resp.Result[k].Freeze,
-				Hold:         resp.Result[k].Freeze,
-			})
-		}
-		info.Accounts = append(info.Accounts, account.SubAccount{
-			Currencies: currData,
-		})
-	} else {
-		balance, err := g.GetBalances()
-		if err != nil {
-			return info, err
-		}
+	// if g.Websocket.CanUseAuthenticatedWebsocketForWrapper() {
+	// 	resp, err := g.wsGetBalance([]string{})
+	// 	if err != nil {
+	// 		return info, err
+	// 	}
+	// 	var currData []account.Balance
+	// 	for k := range resp.Result {
+	// 		currData = append(currData, account.Balance{
+	// 			CurrencyName: currency.NewCode(k),
+	// 			TotalValue:   resp.Result[k].Available + resp.Result[k].Freeze,
+	// 			Hold:         resp.Result[k].Freeze,
+	// 		})
+	// 	}
+	// 	info.Accounts = append(info.Accounts, account.SubAccount{
+	// 		Currencies: currData,
+	// 	})
+	// } else {
+	// 	balance, err := g.GetBalances()
+	// 	if err != nil {
+	// 		return info, err
+	// 	}
 
-		switch l := balance.Locked.(type) {
-		case map[string]interface{}:
-			for x := range l {
-				lockedF, err := strconv.ParseFloat(l[x].(string), 64)
-				if err != nil {
-					return info, err
-				}
+	// 	switch l := balance.Locked.(type) {
+	// 	case map[string]interface{}:
+	// 		for x := range l {
+	// 			lockedF, err := strconv.ParseFloat(l[x].(string), 64)
+	// 			if err != nil {
+	// 				return info, err
+	// 			}
 
-				balances = append(balances, account.Balance{
-					CurrencyName: currency.NewCode(x),
-					Hold:         lockedF,
-				})
-			}
-		default:
-			break
-		}
+	// 			balances = append(balances, account.Balance{
+	// 				CurrencyName: currency.NewCode(x),
+	// 				Hold:         lockedF,
+	// 			})
+	// 		}
+	// 	default:
+	// 		break
+	// 	}
 
-		switch v := balance.Available.(type) {
-		case map[string]interface{}:
-			for x := range v {
-				availAmount, err := strconv.ParseFloat(v[x].(string), 64)
-				if err != nil {
-					return info, err
-				}
+	// 	switch v := balance.Available.(type) {
+	// 	case map[string]interface{}:
+	// 		for x := range v {
+	// 			availAmount, err := strconv.ParseFloat(v[x].(string), 64)
+	// 			if err != nil {
+	// 				return info, err
+	// 			}
 
-				var updated bool
-				for i := range balances {
-					if balances[i].CurrencyName == currency.NewCode(x) {
-						balances[i].TotalValue = balances[i].Hold + availAmount
-						updated = true
-						break
-					}
-				}
-				if !updated {
-					balances = append(balances, account.Balance{
-						CurrencyName: currency.NewCode(x),
-						TotalValue:   availAmount,
-					})
-				}
-			}
-		default:
-			break
-		}
+	// 			var updated bool
+	// 			for i := range balances {
+	// 				if balances[i].CurrencyName == currency.NewCode(x) {
+	// 					balances[i].TotalValue = balances[i].Hold + availAmount
+	// 					updated = true
+	// 					break
+	// 				}
+	// 			}
+	// 			if !updated {
+	// 				balances = append(balances, account.Balance{
+	// 					CurrencyName: currency.NewCode(x),
+	// 					TotalValue:   availAmount,
+	// 				})
+	// 			}
+	// 		}
+	// 	default:
+	// 		break
+	// 	}
 
-		info.Accounts = append(info.Accounts, account.SubAccount{
-			Currencies: balances,
-		})
-	}
+	// 	info.Accounts = append(info.Accounts, account.SubAccount{
+	// 		Currencies: balances,
+	// 	})
+	// }
 
-	info.Exchange = g.Name
-	err := account.Process(&info)
-	if err != nil {
-		return account.Holdings{}, err
-	}
+	// info.Exchange = g.Name
+	// err := account.Process(&info)
+	// if err != nil {
+	// 	return account.Holdings{}, err
+	// }
 
-	return info, nil
+	// return info, nil
+	return nil, nil
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies
-func (g *Gateio) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(g.Name, assetType)
-	if err != nil {
-		return g.UpdateAccountInfo(assetType)
-	}
+func (g *Gateio) FetchAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// acc, err := account.GetHoldings(g.Name, assetType)
+	// if err != nil {
+	// 	return g.UpdateAccountInfo(assetType)
+	// }
 
-	return acc, nil
+	// return acc, nil
+	return nil, nil
 }
 
 // GetFundingHistory returns funding history, deposits and
@@ -523,17 +525,18 @@ func (g *Gateio) ModifyOrder(action *order.Modify) (string, error) {
 }
 
 // CancelOrder cancels an order by its corresponding ID number
-func (g *Gateio) CancelOrder(o *order.Cancel) error {
-	if err := o.Validate(o.StandardCancel()); err != nil {
-		return err
-	}
-
-	orderIDInt, err := strconv.ParseInt(o.ID, 10, 64)
+func (g *Gateio) CancelOrder(c *order.Cancel) error {
+	err := c.Validate(g.Name, c.OrderIDRequired(), c.AssetRequired(), c.PairRequired())
 	if err != nil {
 		return err
 	}
 
-	fpair, err := g.FormatExchangeCurrency(o.Pair, o.AssetType)
+	orderIDInt, err := strconv.ParseInt(c.ID, 10, 64)
+	if err != nil {
+		return err
+	}
+
+	fpair, err := g.FormatExchangeCurrency(c.Pair, c.AssetType)
 	if err != nil {
 		return err
 	}
@@ -543,7 +546,7 @@ func (g *Gateio) CancelOrder(o *order.Cancel) error {
 }
 
 // CancelBatchOrders cancels an orders by their corresponding ID numbers
-func (g *Gateio) CancelBatchOrders(o []order.Cancel) (order.CancelBatchResponse, error) {
+func (g *Gateio) CancelBatchOrders(_ []order.Cancel) (order.CancelBatchResponse, error) {
 	return order.CancelBatchResponse{}, common.ErrNotYetImplemented
 }
 
@@ -632,7 +635,7 @@ func (g *Gateio) GetDepositAddress(cryptocurrency currency.Code, _ string) (stri
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (g *Gateio) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (g *Gateio) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -643,13 +646,13 @@ func (g *Gateio) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) 
 
 // WithdrawFiatFunds returns a withdrawal ID when a
 // withdrawal is submitted
-func (g *Gateio) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (g *Gateio) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
 // WithdrawFiatFundsToInternationalBank returns a withdrawal ID when a
 // withdrawal is submitted
-func (g *Gateio) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (g *Gateio) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
@@ -811,8 +814,9 @@ func (g *Gateio) AuthenticateWebsocket() error {
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (g *Gateio) ValidateCredentials(assetType asset.Item) error {
-	_, err := g.UpdateAccountInfo(assetType)
-	return g.CheckTransientError(err)
+	// _, err := g.UpdateAccountInfo(assetType)
+	// return g.CheckTransientError(err)
+	return nil
 }
 
 // FormatExchangeKlineInterval returns Interval to exchange formatted string

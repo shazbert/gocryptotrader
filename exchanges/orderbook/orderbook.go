@@ -83,7 +83,7 @@ func (s *Service) Update(b *Base) error {
 	book.b.LastUpdated = b.LastUpdated
 	ids := append(book.Assoc, book.Main)
 	s.Unlock()
-	return s.mux.Publish(ids, b)
+	return s.mux.Publish(b, ids...)
 }
 
 // SetNewData sets new data

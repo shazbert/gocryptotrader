@@ -413,43 +413,45 @@ func (h *HitBTC) UpdateOrderbook(c currency.Pair, assetType asset.Item) (*orderb
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the
 // HitBTC exchange
-func (h *HitBTC) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	var response account.Holdings
-	response.Exchange = h.Name
-	accountBalance, err := h.GetBalances()
-	if err != nil {
-		return response, err
-	}
+func (h *HitBTC) UpdateAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// var response account.Holdings
+	// response.Exchange = h.Name
+	// accountBalance, err := h.GetBalances()
+	// if err != nil {
+	// 	return response, err
+	// }
 
-	var currencies []account.Balance
-	for i := range accountBalance {
-		var exchangeCurrency account.Balance
-		exchangeCurrency.CurrencyName = currency.NewCode(accountBalance[i].Currency)
-		exchangeCurrency.TotalValue = accountBalance[i].Available
-		exchangeCurrency.Hold = accountBalance[i].Reserved
-		currencies = append(currencies, exchangeCurrency)
-	}
+	// var currencies []account.Balance
+	// for i := range accountBalance {
+	// 	var exchangeCurrency account.Balance
+	// 	exchangeCurrency.CurrencyName = currency.NewCode(accountBalance[i].Currency)
+	// 	exchangeCurrency.TotalValue = accountBalance[i].Available
+	// 	exchangeCurrency.Hold = accountBalance[i].Reserved
+	// 	currencies = append(currencies, exchangeCurrency)
+	// }
 
-	response.Accounts = append(response.Accounts, account.SubAccount{
-		Currencies: currencies,
-	})
+	// response.Accounts = append(response.Accounts, account.SubAccount{
+	// 	Currencies: currencies,
+	// })
 
-	err = account.Process(&response)
-	if err != nil {
-		return account.Holdings{}, err
-	}
+	// err = account.Process(&response)
+	// if err != nil {
+	// 	return account.Holdings{}, err
+	// }
 
-	return response, nil
+	// return response, nil
+	return nil, nil
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies
-func (h *HitBTC) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(h.Name, assetType)
-	if err != nil {
-		return h.UpdateAccountInfo(assetType)
-	}
+func (h *HitBTC) FetchAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// acc, err := account.GetHoldings(h.Name, assetType)
+	// if err != nil {
+	// 	return h.UpdateAccountInfo(assetType)
+	// }
 
-	return acc, nil
+	// return acc, nil
+	return nil, nil
 }
 
 // GetFundingHistory returns funding history, deposits and
@@ -575,13 +577,13 @@ func (h *HitBTC) SubmitOrder(o *order.Submit) (order.SubmitResponse, error) {
 
 // ModifyOrder will allow of changing orderbook placement and limit to
 // market conversion
-func (h *HitBTC) ModifyOrder(action *order.Modify) (string, error) {
+func (h *HitBTC) ModifyOrder(_ *order.Modify) (string, error) {
 	return "", common.ErrFunctionNotSupported
 }
 
 // CancelOrder cancels an order by its corresponding ID number
 func (h *HitBTC) CancelOrder(o *order.Cancel) error {
-	if err := o.Validate(o.StandardCancel()); err != nil {
+	if err := o.Validate(h.Name, o.OrderIDRequired()); err != nil {
 		return err
 	}
 
@@ -595,7 +597,7 @@ func (h *HitBTC) CancelOrder(o *order.Cancel) error {
 }
 
 // CancelBatchOrders cancels an orders by their corresponding ID numbers
-func (h *HitBTC) CancelBatchOrders(o []order.Cancel) (order.CancelBatchResponse, error) {
+func (h *HitBTC) CancelBatchOrders(_ []order.Cancel) (order.CancelBatchResponse, error) {
 	return order.CancelBatchResponse{}, common.ErrNotYetImplemented
 }
 
@@ -623,9 +625,8 @@ func (h *HitBTC) CancelAllOrders(_ *order.Cancel) (order.CancelAllResponse, erro
 }
 
 // GetOrderInfo returns order information based on order ID
-func (h *HitBTC) GetOrderInfo(orderID string, pair currency.Pair, assetType asset.Item) (order.Detail, error) {
-	var orderDetail order.Detail
-	return orderDetail, common.ErrNotYetImplemented
+func (h *HitBTC) GetOrderInfo(_ string, _ currency.Pair, _ asset.Item) (order.Detail, error) {
+	return order.Detail{}, common.ErrNotYetImplemented
 }
 
 // GetDepositAddress returns a deposit address for a specified currency
@@ -640,7 +641,7 @@ func (h *HitBTC) GetDepositAddress(currency currency.Code, _ string) (string, er
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (h *HitBTC) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (h *HitBTC) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -649,20 +650,20 @@ func (h *HitBTC) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) 
 	if err != nil {
 		return nil, err
 	}
-	return &withdraw.ExchangeResponse{
+	return &withdraw.Response{
 		Status: common.IsEnabled(v),
 	}, err
 }
 
 // WithdrawFiatFunds returns a withdrawal ID when a
 // withdrawal is submitted
-func (h *HitBTC) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (h *HitBTC) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
 // WithdrawFiatFundsToInternationalBank returns a withdrawal ID when a
 // withdrawal is submitted
-func (h *HitBTC) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (h *HitBTC) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
@@ -782,8 +783,9 @@ func (h *HitBTC) AuthenticateWebsocket() error {
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (h *HitBTC) ValidateCredentials(assetType asset.Item) error {
-	_, err := h.UpdateAccountInfo(assetType)
-	return h.CheckTransientError(err)
+	// _, err := h.UpdateAccountInfo(assetType)
+	// return h.CheckTransientError(err)
+	return nil
 }
 
 // FormatExchangeKlineInterval returns Interval to exchange formatted string

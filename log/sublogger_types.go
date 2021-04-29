@@ -29,6 +29,8 @@ var (
 	Ticker    *subLogger
 	OrderBook *subLogger
 	Trade     *subLogger
+
+	Accounts *subLogger
 )
 
 // logFields is used to store data in a non-global and thread-safe manner

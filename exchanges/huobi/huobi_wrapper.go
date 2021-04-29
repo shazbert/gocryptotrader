@@ -602,7 +602,7 @@ func (h *HUOBI) UpdateOrderbook(p currency.Pair, assetType asset.Item) (*orderbo
 
 // GetAccountID returns the account ID for trades
 func (h *HUOBI) GetAccountID() ([]Account, error) {
-	acc, err := h.GetAccounts()
+	acc, err := h.GetTradingAccounts()
 	if err != nil {
 		return nil, err
 	}
@@ -616,134 +616,136 @@ func (h *HUOBI) GetAccountID() ([]Account, error) {
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the
 // HUOBI exchange - to-do
-func (h *HUOBI) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	var info account.Holdings
-	var acc account.SubAccount
-	info.Exchange = h.Name
-	switch assetType {
-	case asset.Spot:
-		if h.Websocket.CanUseAuthenticatedWebsocketForWrapper() {
-			resp, err := h.wsGetAccountsList()
-			if err != nil {
-				return info, err
-			}
-			var currencyDetails []account.Balance
-			for i := range resp.Data {
-				if len(resp.Data[i].List) == 0 {
-					continue
-				}
-				currData := account.Balance{
-					CurrencyName: currency.NewCode(resp.Data[i].List[0].Currency),
-					TotalValue:   resp.Data[i].List[0].Balance,
-				}
-				if len(resp.Data[i].List) > 1 && resp.Data[i].List[1].Type == "frozen" {
-					currData.Hold = resp.Data[i].List[1].Balance
-				}
-				currencyDetails = append(currencyDetails, currData)
-			}
-			acc.Currencies = currencyDetails
-		} else {
-			accounts, err := h.GetAccountID()
-			if err != nil {
-				return info, err
-			}
-			for i := range accounts {
-				acc.ID = strconv.FormatInt(accounts[i].ID, 10)
-				balances, err := h.GetAccountBalance(acc.ID)
-				if err != nil {
-					return info, err
-				}
+func (h *HUOBI) UpdateAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// var info account.Holdings
+	// var acc account.SubAccount
+	// info.Exchange = h.Name
+	// switch assetType {
+	// case asset.Spot:
+	// 	if h.Websocket.CanUseAuthenticatedWebsocketForWrapper() {
+	// 		resp, err := h.wsGetAccountsList()
+	// 		if err != nil {
+	// 			return info, err
+	// 		}
+	// 		var currencyDetails []account.Balance
+	// 		for i := range resp.Data {
+	// 			if len(resp.Data[i].List) == 0 {
+	// 				continue
+	// 			}
+	// 			currData := account.Balance{
+	// 				CurrencyName: currency.NewCode(resp.Data[i].List[0].Currency),
+	// 				TotalValue:   resp.Data[i].List[0].Balance,
+	// 			}
+	// 			if len(resp.Data[i].List) > 1 && resp.Data[i].List[1].Type == "frozen" {
+	// 				currData.Hold = resp.Data[i].List[1].Balance
+	// 			}
+	// 			currencyDetails = append(currencyDetails, currData)
+	// 		}
+	// 		acc.Currencies = currencyDetails
+	// 	} else {
+	// 		accounts, err := h.GetAccountID()
+	// 		if err != nil {
+	// 			return info, err
+	// 		}
+	// 		for i := range accounts {
+	// 			acc.ID = strconv.FormatInt(accounts[i].ID, 10)
+	// 			balances, err := h.GetAccountBalance(acc.ID)
+	// 			if err != nil {
+	// 				return info, err
+	// 			}
 
-				var currencyDetails []account.Balance
-			balance:
-				for j := range balances {
-					frozen := balances[j].Type == "frozen"
-					for i := range currencyDetails {
-						if currencyDetails[i].CurrencyName.String() == balances[j].Currency {
-							if frozen {
-								currencyDetails[i].Hold = balances[j].Balance
-							} else {
-								currencyDetails[i].TotalValue = balances[j].Balance
-							}
-							continue balance
-						}
-					}
+	// 			var currencyDetails []account.Balance
+	// 		balance:
+	// 			for j := range balances {
+	// 				frozen := balances[j].Type == "frozen"
+	// 				for i := range currencyDetails {
+	// 					if currencyDetails[i].CurrencyName.String() == balances[j].Currency {
+	// 						if frozen {
+	// 							currencyDetails[i].Hold = balances[j].Balance
+	// 						} else {
+	// 							currencyDetails[i].TotalValue = balances[j].Balance
+	// 						}
+	// 						continue balance
+	// 					}
+	// 				}
 
-					if frozen {
-						currencyDetails = append(currencyDetails,
-							account.Balance{
-								CurrencyName: currency.NewCode(balances[j].Currency),
-								Hold:         balances[j].Balance,
-							})
-					} else {
-						currencyDetails = append(currencyDetails,
-							account.Balance{
-								CurrencyName: currency.NewCode(balances[j].Currency),
-								TotalValue:   balances[j].Balance,
-							})
-					}
-				}
-				acc.Currencies = currencyDetails
-			}
-		}
+	// 				if frozen {
+	// 					currencyDetails = append(currencyDetails,
+	// 						account.Balance{
+	// 							CurrencyName: currency.NewCode(balances[j].Currency),
+	// 							Hold:         balances[j].Balance,
+	// 						})
+	// 				} else {
+	// 					currencyDetails = append(currencyDetails,
+	// 						account.Balance{
+	// 							CurrencyName: currency.NewCode(balances[j].Currency),
+	// 							TotalValue:   balances[j].Balance,
+	// 						})
+	// 				}
+	// 			}
+	// 			acc.Currencies = currencyDetails
+	// 		}
+	// 	}
 
-	case asset.CoinMarginedFutures:
-		subAccsData, err := h.GetSwapAllSubAccAssets(currency.Pair{})
-		if err != nil {
-			return info, err
-		}
-		var currencyDetails []account.Balance
-		for x := range subAccsData.Data {
-			a, err := h.SwapSingleSubAccAssets(currency.Pair{}, subAccsData.Data[x].SubUID)
-			if err != nil {
-				return info, err
-			}
-			for y := range a.Data {
-				currencyDetails = append(currencyDetails, account.Balance{
-					CurrencyName: currency.NewCode(a.Data[y].Symbol),
-					TotalValue:   a.Data[y].MarginBalance,
-					Hold:         a.Data[y].MarginFrozen,
-				})
-			}
-		}
-		acc.Currencies = currencyDetails
-	case asset.Futures:
-		subAccsData, err := h.FGetAllSubAccountAssets(currency.Code{})
-		if err != nil {
-			return info, err
-		}
-		var currencyDetails []account.Balance
-		for x := range subAccsData.Data {
-			a, err := h.FGetSingleSubAccountInfo("", strconv.FormatInt(subAccsData.Data[x].SubUID, 10))
-			if err != nil {
-				return info, err
-			}
-			for y := range a.AssetsData {
-				currencyDetails = append(currencyDetails, account.Balance{
-					CurrencyName: currency.NewCode(a.AssetsData[y].Symbol),
-					TotalValue:   a.AssetsData[y].MarginBalance,
-					Hold:         a.AssetsData[y].MarginFrozen,
-				})
-			}
-		}
-		acc.Currencies = currencyDetails
-	}
-	acc.AssetType = asset.Futures
-	info.Accounts = append(info.Accounts, acc)
-	err := account.Process(&info)
-	if err != nil {
-		return info, err
-	}
-	return info, nil
+	// case asset.CoinMarginedFutures:
+	// 	subAccsData, err := h.GetSwapAllSubAccAssets(currency.Pair{})
+	// 	if err != nil {
+	// 		return info, err
+	// 	}
+	// 	var currencyDetails []account.Balance
+	// 	for x := range subAccsData.Data {
+	// 		a, err := h.SwapSingleSubAccAssets(currency.Pair{}, subAccsData.Data[x].SubUID)
+	// 		if err != nil {
+	// 			return info, err
+	// 		}
+	// 		for y := range a.Data {
+	// 			currencyDetails = append(currencyDetails, account.Balance{
+	// 				CurrencyName: currency.NewCode(a.Data[y].Symbol),
+	// 				TotalValue:   a.Data[y].MarginBalance,
+	// 				Hold:         a.Data[y].MarginFrozen,
+	// 			})
+	// 		}
+	// 	}
+	// 	acc.Currencies = currencyDetails
+	// case asset.Futures:
+	// 	subAccsData, err := h.FGetAllSubAccountAssets(currency.Code{})
+	// 	if err != nil {
+	// 		return info, err
+	// 	}
+	// 	var currencyDetails []account.Balance
+	// 	for x := range subAccsData.Data {
+	// 		a, err := h.FGetSingleSubAccountInfo("", strconv.FormatInt(subAccsData.Data[x].SubUID, 10))
+	// 		if err != nil {
+	// 			return info, err
+	// 		}
+	// 		for y := range a.AssetsData {
+	// 			currencyDetails = append(currencyDetails, account.Balance{
+	// 				CurrencyName: currency.NewCode(a.AssetsData[y].Symbol),
+	// 				TotalValue:   a.AssetsData[y].MarginBalance,
+	// 				Hold:         a.AssetsData[y].MarginFrozen,
+	// 			})
+	// 		}
+	// 	}
+	// 	acc.Currencies = currencyDetails
+	// }
+	// acc.AssetType = asset.Futures
+	// info.Accounts = append(info.Accounts, acc)
+	// err := account.Process(&info)
+	// if err != nil {
+	// 	return info, err
+	// }
+	// return info, nil
+	return nil, nil
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies
-func (h *HUOBI) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(h.Name, assetType)
-	if err != nil {
-		return h.UpdateAccountInfo(assetType)
-	}
-	return acc, nil
+func (h *HUOBI) FetchAccountInfo(accountName string, assetType asset.Item) (*account.Holdings, error) {
+	// acc, err := account.GetHoldings(h.Name, assetType)
+	// if err != nil {
+	// 	return h.UpdateAccountInfo(assetType)
+	// }
+	// return acc, nil
+	return nil, nil
 }
 
 // GetFundingHistory returns funding history, deposits and
@@ -753,7 +755,7 @@ func (h *HUOBI) GetFundingHistory() ([]exchange.FundHistory, error) {
 }
 
 // GetWithdrawalsHistory returns previous withdrawals data
-func (h *HUOBI) GetWithdrawalsHistory(c currency.Code) (resp []exchange.WithdrawalHistory, err error) {
+func (h *HUOBI) GetWithdrawalsHistory(_ currency.Code) (resp []exchange.WithdrawalHistory, err error) {
 	return nil, common.ErrNotYetImplemented
 }
 
@@ -891,54 +893,66 @@ func (h *HUOBI) SubmitOrder(s *order.Submit) (order.SubmitResponse, error) {
 
 // ModifyOrder will allow of changing orderbook placement and limit to
 // market conversion
-func (h *HUOBI) ModifyOrder(action *order.Modify) (string, error) {
+func (h *HUOBI) ModifyOrder(_ *order.Modify) (string, error) {
 	return "", common.ErrFunctionNotSupported
 }
 
 // CancelOrder cancels an order by its corresponding ID number
-func (h *HUOBI) CancelOrder(o *order.Cancel) error {
-	if err := o.Validate(o.StandardCancel()); err != nil {
+func (h *HUOBI) CancelOrder(c *order.Cancel) error {
+	err := c.Validate(h.Name, c.OrderIDRequired())
+	if err != nil {
 		return err
 	}
-	var err error
-	switch o.AssetType {
+	switch c.AssetType {
 	case asset.Spot:
 		var orderIDInt int64
-		orderIDInt, err = strconv.ParseInt(o.ID, 10, 64)
+		orderIDInt, err = strconv.ParseInt(c.ID, 10, 64)
 		if err != nil {
 			return err
 		}
 		_, err = h.CancelExistingOrder(orderIDInt)
 	case asset.CoinMarginedFutures:
-		_, err = h.CancelSwapOrder(o.ID, o.ClientID, o.Pair)
+		err = c.Validate(h.Name, c.PairRequired(), c.ClientIDRequired())
+		if err != nil {
+			return err
+		}
+		_, err = h.CancelSwapOrder(c.ID, c.ClientID, c.Pair)
 	case asset.Futures:
-		_, err = h.FCancelOrder(o.Symbol, o.ClientID, o.ClientOrderID)
+		err = c.Validate(h.Name, c.SymbolRequired(), c.ClientIDRequired())
+		if err != nil {
+			return err
+		}
+		_, err = h.FCancelOrder(c.Symbol, c.ClientID, c.ClientOrderID)
 	default:
-		return fmt.Errorf("%v assetType not supported", o.AssetType)
+		return fmt.Errorf("%v assetType not supported", c.AssetType)
 	}
 	return err
 }
 
 // CancelBatchOrders cancels an orders by their corresponding ID numbers
-func (h *HUOBI) CancelBatchOrders(o []order.Cancel) (order.CancelBatchResponse, error) {
+func (h *HUOBI) CancelBatchOrders(_ []order.Cancel) (order.CancelBatchResponse, error) {
 	return order.CancelBatchResponse{}, common.ErrNotYetImplemented
 }
 
 // CancelAllOrders cancels all orders associated with a currency pair
-func (h *HUOBI) CancelAllOrders(orderCancellation *order.Cancel) (order.CancelAllResponse, error) {
-	if err := orderCancellation.Validate(); err != nil {
+func (h *HUOBI) CancelAllOrders(c *order.Cancel) (order.CancelAllResponse, error) {
+	if err := c.Validate(h.Name, c.AssetRequired()); err != nil {
 		return order.CancelAllResponse{}, err
 	}
 	var cancelAllOrdersResponse order.CancelAllResponse
 	cancelAllOrdersResponse.Status = make(map[string]string)
-	switch orderCancellation.AssetType {
+	switch c.AssetType {
 	case asset.Spot:
+		err := c.Validate(h.Name, c.AccountIDRequired())
+		if err != nil {
+			return order.CancelAllResponse{}, err
+		}
 		enabledPairs, err := h.GetEnabledPairs(asset.Spot)
 		if err != nil {
 			return cancelAllOrdersResponse, err
 		}
 		for i := range enabledPairs {
-			resp, err := h.CancelOpenOrdersBatch(orderCancellation.AccountID,
+			resp, err := h.CancelOpenOrdersBatch(c.AccountID,
 				enabledPairs[i])
 			if err != nil {
 				return cancelAllOrdersResponse, err
@@ -953,7 +967,7 @@ func (h *HUOBI) CancelAllOrders(orderCancellation *order.Cancel) (order.CancelAl
 			}
 		}
 	case asset.CoinMarginedFutures:
-		if orderCancellation.Pair.IsEmpty() {
+		if c.Pair.IsEmpty() {
 			enabledPairs, err := h.GetEnabledPairs(asset.CoinMarginedFutures)
 			if err != nil {
 				return cancelAllOrdersResponse, err
@@ -972,7 +986,7 @@ func (h *HUOBI) CancelAllOrders(orderCancellation *order.Cancel) (order.CancelAl
 				}
 			}
 		} else {
-			a, err := h.CancelAllSwapOrders(orderCancellation.Pair)
+			a, err := h.CancelAllSwapOrders(c.Pair)
 			if err != nil {
 				return cancelAllOrdersResponse, err
 			}
@@ -985,7 +999,7 @@ func (h *HUOBI) CancelAllOrders(orderCancellation *order.Cancel) (order.CancelAl
 			}
 		}
 	case asset.Futures:
-		if orderCancellation.Pair.IsEmpty() {
+		if c.Pair.IsEmpty() {
 			enabledPairs, err := h.GetEnabledPairs(asset.Futures)
 			if err != nil {
 				return cancelAllOrdersResponse, err
@@ -1004,7 +1018,7 @@ func (h *HUOBI) CancelAllOrders(orderCancellation *order.Cancel) (order.CancelAl
 				}
 			}
 		} else {
-			a, err := h.FCancelAllOrders(orderCancellation.Pair, "", "")
+			a, err := h.FCancelAllOrders(c.Pair, "", "")
 			if err != nil {
 				return cancelAllOrdersResponse, err
 			}
@@ -1170,7 +1184,7 @@ func (h *HUOBI) GetDepositAddress(cryptocurrency currency.Code, accountID string
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (h *HUOBI) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (h *HUOBI) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -1182,20 +1196,20 @@ func (h *HUOBI) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (
 	if err != nil {
 		return nil, err
 	}
-	return &withdraw.ExchangeResponse{
-		ID: strconv.FormatInt(resp, 10),
+	return &withdraw.Response{
+		WithdrawalID: strconv.FormatInt(resp, 10),
 	}, err
 }
 
 // WithdrawFiatFunds returns a withdrawal ID when a
 // withdrawal is submitted
-func (h *HUOBI) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (h *HUOBI) WithdrawFiatFunds(_ *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
 // WithdrawFiatFundsToInternationalBank returns a withdrawal ID when a
 // withdrawal is submitted
-func (h *HUOBI) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (h *HUOBI) WithdrawFiatFundsToInternationalBank(_ *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
@@ -1557,8 +1571,9 @@ func (h *HUOBI) AuthenticateWebsocket() error {
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (h *HUOBI) ValidateCredentials(assetType asset.Item) error {
-	_, err := h.UpdateAccountInfo(assetType)
-	return h.CheckTransientError(err)
+	// _, err := h.UpdateAccountInfo(assetType)
+	// return h.CheckTransientError(err)
+	return nil
 }
 
 // FormatExchangeKlineInterval returns Interval to exchange formatted string
