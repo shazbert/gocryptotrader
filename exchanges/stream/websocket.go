@@ -167,14 +167,34 @@ func (w *Websocket) SetupNewConnection(c ConnectionSetup) error {
 	return nil
 }
 
-// Connect initiates a websocket connection by using a package defined connection
-// function
+// CheckAndConnect checks the connection status before initialising a new
+// connection
+func (w *Websocket) CheckAndConnect() (bool, error) {
+	w.m.Lock()
+	defer w.m.Unlock()
+
+	if w.IsConnecting() {
+		return false, nil
+	}
+	if w.IsConnected() {
+		return false, nil
+	}
+	return true, w.connect()
+}
+
+// Connect connects the websocket in a protected way
 func (w *Websocket) Connect() error {
+	w.m.Lock()
+	defer w.m.Unlock()
+	return w.connect()
+}
+
+// connect initiates a websocket connection by using a package defined connection
+// function
+func (w *Websocket) connect() error {
 	if w.connector == nil {
 		return errors.New("websocket connect function not set, cannot continue")
 	}
-	w.m.Lock()
-	defer w.m.Unlock()
 
 	if !w.IsEnabled() {
 		return errors.New(WebsocketNotEnabled)

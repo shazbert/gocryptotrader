@@ -224,23 +224,18 @@ func (bot *Engine) WebsocketRoutine() {
 					return
 				}
 
-				// Exchange sync manager might have already started ws
-				// service or is in the process of connecting, so check
-				if ws.IsConnected() || ws.IsConnecting() {
-					return
-				}
-
-				// Data handler routine
-				go bot.WebsocketDataReceiver(ws)
-
 				if ws.IsEnabled() {
-					err = ws.Connect()
+					var couldConnect bool
+					couldConnect, err = ws.CheckAndConnect()
 					if err != nil {
 						log.Errorf(log.WebsocketMgr, "%v\n", err)
-					}
-					err = ws.FlushChannels()
-					if err != nil {
-						log.Errorf(log.WebsocketMgr, "Failed to subscribe: %v\n", err)
+					} else if couldConnect {
+						// Data handler routine
+						go bot.WebsocketDataReceiver(ws)
+						err = ws.FlushChannels()
+						if err != nil {
+							log.Errorf(log.WebsocketMgr, "Failed to subscribe: %v\n", err)
+						}
 					}
 				}
 			} else if bot.Settings.Verbose {

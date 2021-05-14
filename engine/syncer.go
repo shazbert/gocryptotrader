@@ -512,26 +512,30 @@ func (e *ExchangeCurrencyPairSyncer) Start() {
 					exchangeName,
 					err)
 				usingREST = true
-			}
-
-			if !ws.IsConnected() && !ws.IsConnecting() {
-				go Bot.WebsocketDataReceiver(ws)
-
-				err = ws.Connect()
-				if err == nil {
-					err = ws.FlushChannels()
-				}
+			} else {
+				var couldConnect bool
+				couldConnect, err = ws.CheckAndConnect()
 				if err != nil {
 					log.Errorf(log.SyncMgr,
 						"%s websocket failed to connect. Err: %s\n",
 						exchangeName,
 						err)
 					usingREST = true
+				} else if couldConnect {
+					go Bot.WebsocketDataReceiver(ws)
+					err = ws.FlushChannels()
+					if err != nil {
+						log.Errorf(log.SyncMgr,
+							"%s websocket failed to connect. Err: %s\n",
+							exchangeName,
+							err)
+						usingREST = true
+					} else {
+						usingWebsocket = true
+					}
 				} else {
-					usingWebsocket = true
+					usingREST = true
 				}
-			} else {
-				usingWebsocket = true
 			}
 		} else if supportsREST {
 			usingREST = true
