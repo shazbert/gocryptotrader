@@ -458,16 +458,11 @@ func TestCancelAllExchangeOrders(t *testing.T) {
 
 func TestGetAccountInfo(t *testing.T) {
 	t.Parallel()
-	if areTestAPIKeysSet() {
-		_, err := b.UpdateAccountInfo(asset.Spot)
-		if err != nil {
-			t.Error("Bithumb GetAccountInfo() error", err)
-		}
-	} else {
-		_, err := b.UpdateAccountInfo(asset.Spot)
-		if err == nil {
-			t.Error("Bithumb GetAccountInfo() Expected error")
-		}
+	_, err := b.UpdateAccountInfo()
+	if areTestAPIKeysSet() && err != nil {
+		t.Error("Bithumb GetAccountInfo() error", err)
+	} else if err == nil {
+		t.Error("Bithumb GetAccountInfo() Expected error")
 	}
 }
 

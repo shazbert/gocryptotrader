@@ -88,7 +88,7 @@ type Config struct {
 	Currency          CurrencyConfig          `json:"currencyConfig"`
 	Communications    CommunicationsConfig    `json:"communications"`
 	RemoteControl     RemoteControlConfig     `json:"remoteControl"`
-	Portfolio         portfolio.Base          `json:"portfolioAddresses"`
+	Portfolio         portfolio.State         `json:"portfolio"`
 	Exchanges         []ExchangeConfig        `json:"exchanges"`
 	BankAccounts      []banking.Account       `json:"bankAccounts"`
 
@@ -98,9 +98,24 @@ type Config struct {
 	FiatDisplayCurrency *currency.Code            `json:"fiatDispayCurrency,omitempty"`
 	Cryptocurrencies    *currency.Currencies      `json:"cryptocurrencies,omitempty"`
 	SMS                 *SMSGlobalConfig          `json:"smsGlobal,omitempty"`
+	OldPortfolio        *TempPortfolioAddressList `json:"portfolioAddresses"`
 	// encryption session values
 	storedSalt []byte
 	sessionDK  []byte
+}
+
+// TempPortfolioAddressList defines a temperary object to parse old config data
+// TODO: Deprecate
+type TempPortfolioAddressList struct {
+	Addresses []struct {
+		Address            string
+		CoinType           string
+		Balance            float64
+		Description        string
+		WhiteListed        bool
+		ColdStorage        bool
+		SupportedExchanges string
+	}
 }
 
 // ConnectionMonitorConfig defines the connection monitor variables to ensure

@@ -151,32 +151,30 @@ func (c *WebsocketClient) write() {
 	defer func() {
 		c.Conn.Close()
 	}()
-	for { // nolint // ws client write routine loop
-		select {
-		case message, ok := <-c.Send:
-			if !ok {
-				c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
-				log.Debugln(log.WebsocketMgr, "websocket: hub closed the channel")
-				return
-			}
+	for {
+		message, ok := <-c.Send
+		if !ok {
+			c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
+			log.Debugln(log.WebsocketMgr, "websocket: hub closed the channel")
+			return
+		}
 
-			w, err := c.Conn.NextWriter(websocket.TextMessage)
-			if err != nil {
-				log.Errorf(log.WebsocketMgr, "websocket: failed to create new io.writeCloser: %s\n", err)
-				return
-			}
-			w.Write(message)
+		w, err := c.Conn.NextWriter(websocket.TextMessage)
+		if err != nil {
+			log.Errorf(log.WebsocketMgr, "websocket: failed to create new io.writeCloser: %s\n", err)
+			return
+		}
+		w.Write(message)
 
-			// Add queued chat messages to the current websocket message
-			n := len(c.Send)
-			for i := 0; i < n; i++ {
-				w.Write(<-c.Send)
-			}
+		// Add queued chat messages to the current websocket message
+		n := len(c.Send)
+		for i := 0; i < n; i++ {
+			w.Write(<-c.Send)
+		}
 
-			if err := w.Close(); err != nil {
-				log.Errorf(log.WebsocketMgr, "websocket: failed to close io.WriteCloser: %s\n", err)
-				return
-			}
+		if err := w.Close(); err != nil {
+			log.Errorf(log.WebsocketMgr, "websocket: failed to close io.WriteCloser: %s\n", err)
+			return
 		}
 	}
 }

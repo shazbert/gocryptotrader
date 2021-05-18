@@ -257,8 +257,10 @@ type MoveOrderResponse struct {
 
 // Withdraw holds withdraw information
 type Withdraw struct {
-	Response string `json:"response"`
-	Error    string `json:"error"`
+	Response         string `json:"response"`
+	Email2FA         bool   `json:"email2FA"`
+	WithdrawalNumber int64  `json:"withdrawalNumber"`
+	Error            string `json:"error"`
 }
 
 // Fee holds fees for specific trades

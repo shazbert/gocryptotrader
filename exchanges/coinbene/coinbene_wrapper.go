@@ -469,42 +469,33 @@ func (c *Coinbene) UpdateOrderbook(p currency.Pair, assetType asset.Item) (*orde
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the
 // Coinbene exchange
-func (c *Coinbene) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	var info account.Holdings
+func (c *Coinbene) UpdateAccountInfo() (account.FullSnapshot, error) {
 	balance, err := c.GetAccountBalances()
 	if err != nil {
-		return info, err
+		return nil, err
 	}
-	var acc account.SubAccount
+
+	m := make(account.HoldingsSnapshot)
 	for key := range balance {
-		c := currency.NewCode(balance[key].Asset)
-		hold := balance[key].Reserved
-		available := balance[key].Available
-		acc.Currencies = append(acc.Currencies,
-			account.Balance{
-				CurrencyName: c,
-				TotalValue:   hold + available,
-				Hold:         hold,
-			})
+		m[currency.NewCode(balance[key].Asset)] = account.Balance{
+			Total:  balance[key].Available + balance[key].Reserved,
+			Locked: balance[key].Reserved,
+		}
 	}
-	info.Accounts = append(info.Accounts, acc)
-	info.Exchange = c.Name
 
-	err = account.Process(&info)
+	err = c.LoadHoldings(account.Default, asset.Spot, m)
 	if err != nil {
-		return account.Holdings{}, err
+		return nil, err
 	}
-
-	return info, nil
+	return c.GetFullSnapshot()
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies
-func (c *Coinbene) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(c.Name, assetType)
+func (c *Coinbene) FetchAccountInfo() (account.FullSnapshot, error) {
+	acc, err := c.GetFullSnapshot()
 	if err != nil {
-		return c.UpdateAccountInfo(assetType)
+		return c.UpdateAccountInfo()
 	}
-
 	return acc, nil
 }
 
@@ -597,13 +588,13 @@ func (c *Coinbene) SubmitOrder(s *order.Submit) (order.SubmitResponse, error) {
 
 // ModifyOrder will allow of changing orderbook placement and limit to
 // market conversion
-func (c *Coinbene) ModifyOrder(action *order.Modify) (string, error) {
+func (c *Coinbene) ModifyOrder(_ *order.Modify) (string, error) {
 	return "", common.ErrFunctionNotSupported
 }
 
 // CancelOrder cancels an order by its corresponding ID number
 func (c *Coinbene) CancelOrder(o *order.Cancel) error {
-	if err := o.Validate(o.StandardCancel()); err != nil {
+	if err := o.Validate(c.Name, o.OrderIDRequired()); err != nil {
 		return err
 	}
 	_, err := c.CancelSpotOrder(o.ID)
@@ -611,19 +602,18 @@ func (c *Coinbene) CancelOrder(o *order.Cancel) error {
 }
 
 // CancelBatchOrders cancels an orders by their corresponding ID numbers
-func (c *Coinbene) CancelBatchOrders(o []order.Cancel) (order.CancelBatchResponse, error) {
+func (c *Coinbene) CancelBatchOrders(_ []order.Cancel) (order.CancelBatchResponse, error) {
 	return order.CancelBatchResponse{}, common.ErrNotYetImplemented
 }
 
 // CancelAllOrders cancels all orders associated with a currency pair
-func (c *Coinbene) CancelAllOrders(orderCancellation *order.Cancel) (order.CancelAllResponse, error) {
-	if err := orderCancellation.Validate(); err != nil {
+func (c *Coinbene) CancelAllOrders(o *order.Cancel) (order.CancelAllResponse, error) {
+	if err := o.Validate(c.Name, o.PairRequired(), o.AssetRequired()); err != nil {
 		return order.CancelAllResponse{}, err
 	}
 
 	var resp order.CancelAllResponse
-	fpair, err := c.FormatExchangeCurrency(orderCancellation.Pair,
-		orderCancellation.AssetType)
+	fpair, err := c.FormatExchangeCurrency(o.Pair, o.AssetType)
 	if err != nil {
 		return resp, err
 	}
@@ -666,25 +656,25 @@ func (c *Coinbene) GetOrderInfo(orderID string, pair currency.Pair, assetType as
 }
 
 // GetDepositAddress returns a deposit address for a specified currency
-func (c *Coinbene) GetDepositAddress(cryptocurrency currency.Code, accountID string) (string, error) {
-	return "", common.ErrFunctionNotSupported
+func (c *Coinbene) GetDepositAddress(_ currency.Code, _ string) (exchange.DepositAddress, error) {
+	return exchange.DepositAddress{}, common.ErrFunctionNotSupported
 }
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (c *Coinbene) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (c *Coinbene) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
 // WithdrawFiatFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (c *Coinbene) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (c *Coinbene) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
 // WithdrawFiatFundsToInternationalBank returns a withdrawal ID when a withdrawal is
 // submitted
-func (c *Coinbene) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (c *Coinbene) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
@@ -826,8 +816,9 @@ func (c *Coinbene) AuthenticateWebsocket() error {
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (c *Coinbene) ValidateCredentials(assetType asset.Item) error {
-	_, err := c.UpdateAccountInfo(assetType)
-	return c.CheckTransientError(err)
+	// _, err := c.UpdateAccountInfo(assetType)
+	// return c.CheckTransientError(err)
+	return nil
 }
 
 // FormatExchangeKlineInterval returns Interval to string

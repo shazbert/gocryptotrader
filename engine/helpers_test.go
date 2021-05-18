@@ -18,7 +18,6 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/common/file"
 	"github.com/thrasher-corp/gocryptotrader/config"
 	"github.com/thrasher-corp/gocryptotrader/currency"
-	"github.com/thrasher-corp/gocryptotrader/exchanges/account"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/orderbook"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/stats"
@@ -613,65 +612,65 @@ func TestGetSpecificTicker(t *testing.T) {
 	e.UnloadExchange("Bitstamp")
 }
 
-func TestGetCollatedExchangeAccountInfoByCoin(t *testing.T) {
-	CreateTestBot(t)
+// func TestGetCollatedExchangeAccountInfoByCoin(t *testing.T) {
+// 	CreateTestBot(t)
 
-	var exchangeInfo []account.Holdings
+// 	var exchangeInfo []account.Holdings
 
-	var bitfinexHoldings account.Holdings
-	bitfinexHoldings.Exchange = "Bitfinex"
-	bitfinexHoldings.Accounts = append(bitfinexHoldings.Accounts,
-		account.SubAccount{
-			Currencies: []account.Balance{
-				{
-					CurrencyName: currency.BTC,
-					TotalValue:   100,
-					Hold:         0,
-				},
-			},
-		})
+// 	var bitfinexHoldings account.Holdings
+// 	bitfinexHoldings.Exchange = "Bitfinex"
+// 	bitfinexHoldings.Accounts = append(bitfinexHoldings.Accounts,
+// 		account.SubAccount{
+// 			Currencies: []account.Balance{
+// 				{
+// 					CurrencyName: currency.BTC,
+// 					TotalValue:   100,
+// 					Hold:         0,
+// 				},
+// 			},
+// 		})
 
-	exchangeInfo = append(exchangeInfo, bitfinexHoldings)
+// 	exchangeInfo = append(exchangeInfo, bitfinexHoldings)
 
-	var bitstampHoldings account.Holdings
-	bitstampHoldings.Exchange = "Bitstamp"
-	bitstampHoldings.Accounts = append(bitstampHoldings.Accounts,
-		account.SubAccount{
-			Currencies: []account.Balance{
-				{
-					CurrencyName: currency.LTC,
-					TotalValue:   100,
-					Hold:         0,
-				},
-				{
-					CurrencyName: currency.BTC,
-					TotalValue:   100,
-					Hold:         0,
-				},
-			},
-		})
+// 	var bitstampHoldings account.Holdings
+// 	bitstampHoldings.Exchange = "Bitstamp"
+// 	bitstampHoldings.Accounts = append(bitstampHoldings.Accounts,
+// 		account.SubAccount{
+// 			Currencies: []account.Balance{
+// 				{
+// 					CurrencyName: currency.LTC,
+// 					TotalValue:   100,
+// 					Hold:         0,
+// 				},
+// 				{
+// 					CurrencyName: currency.BTC,
+// 					TotalValue:   100,
+// 					Hold:         0,
+// 				},
+// 			},
+// 		})
 
-	exchangeInfo = append(exchangeInfo, bitstampHoldings)
+// 	exchangeInfo = append(exchangeInfo, bitstampHoldings)
 
-	result := GetCollatedExchangeAccountInfoByCoin(exchangeInfo)
-	if len(result) == 0 {
-		t.Fatal("Unexpected result")
-	}
+// 	result := GetCollatedExchangeAccountInfoByCoin(exchangeInfo)
+// 	if len(result) == 0 {
+// 		t.Fatal("Unexpected result")
+// 	}
 
-	amount, ok := result[currency.BTC]
-	if !ok {
-		t.Fatal("Expected currency was not found in result map")
-	}
+// 	amount, ok := result[currency.BTC]
+// 	if !ok {
+// 		t.Fatal("Expected currency was not found in result map")
+// 	}
 
-	if amount.TotalValue != 200 {
-		t.Fatal("Unexpected result")
-	}
+// 	if amount.TotalValue != 200 {
+// 		t.Fatal("Unexpected result")
+// 	}
 
-	_, ok = result[currency.ETH]
-	if ok {
-		t.Fatal("Unexpected result")
-	}
-}
+// 	_, ok = result[currency.ETH]
+// 	if ok {
+// 		t.Fatal("Unexpected result")
+// 	}
+// }
 
 func TestGetExchangeHighestPriceByCurrencyPair(t *testing.T) {
 	CreateTestBot(t)

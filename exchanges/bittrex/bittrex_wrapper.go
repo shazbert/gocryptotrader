@@ -228,42 +228,33 @@ func (b *Bittrex) UpdateTradablePairs(forceUpdate bool) error {
 
 // UpdateAccountInfo Retrieves balances for all enabled currencies for the
 // Bittrex exchange
-func (b *Bittrex) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	var response account.Holdings
-	response.Exchange = b.Name
+func (b *Bittrex) UpdateAccountInfo() (account.FullSnapshot, error) {
 	accountBalance, err := b.GetAccountBalances()
 	if err != nil {
-		return response, err
+		return nil, err
 	}
 
-	var currencies []account.Balance
+	m := make(account.HoldingsSnapshot)
 	for i := range accountBalance.Result {
-		var exchangeCurrency account.Balance
-		exchangeCurrency.CurrencyName = currency.NewCode(accountBalance.Result[i].Currency)
-		exchangeCurrency.TotalValue = accountBalance.Result[i].Balance
-		exchangeCurrency.Hold = accountBalance.Result[i].Balance - accountBalance.Result[i].Available
-		currencies = append(currencies, exchangeCurrency)
+		m[currency.NewCode(accountBalance.Result[i].Currency)] = account.Balance{
+			Total:  accountBalance.Result[i].Balance,
+			Locked: accountBalance.Result[i].Balance - accountBalance.Result[i].Available,
+		}
 	}
 
-	response.Accounts = append(response.Accounts, account.SubAccount{
-		Currencies: currencies,
-	})
-
-	err = account.Process(&response)
+	err = b.LoadHoldings(account.Default, asset.Spot, m)
 	if err != nil {
-		return account.Holdings{}, err
+		return nil, err
 	}
-
-	return response, nil
+	return b.GetFullSnapshot()
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies
-func (b *Bittrex) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(b.Name, assetType)
+func (b *Bittrex) FetchAccountInfo() (account.FullSnapshot, error) {
+	acc, err := b.GetFullSnapshot()
 	if err != nil {
-		return b.UpdateAccountInfo(assetType)
+		return b.UpdateAccountInfo()
 	}
-
 	return acc, nil
 }
 
@@ -479,11 +470,11 @@ func (b *Bittrex) ModifyOrder(action *order.Modify) (string, error) {
 }
 
 // CancelOrder cancels an order by its corresponding ID number
-func (b *Bittrex) CancelOrder(o *order.Cancel) error {
-	if err := o.Validate(o.StandardCancel()); err != nil {
+func (b *Bittrex) CancelOrder(c *order.Cancel) error {
+	if err := c.Validate(b.Name, c.OrderIDRequired()); err != nil {
 		return err
 	}
-	_, err := b.CancelExistingOrder(o.ID)
+	_, err := b.CancelExistingOrder(c.ID)
 	return err
 }
 
@@ -519,18 +510,17 @@ func (b *Bittrex) GetOrderInfo(orderID string, pair currency.Pair, assetType ass
 }
 
 // GetDepositAddress returns a deposit address for a specified currency
-func (b *Bittrex) GetDepositAddress(cryptocurrency currency.Code, _ string) (string, error) {
+func (b *Bittrex) GetDepositAddress(cryptocurrency currency.Code, _ string) (exchange.DepositAddress, error) {
 	depositAddr, err := b.GetCryptoDepositAddress(cryptocurrency.String())
 	if err != nil {
-		return "", err
+		return exchange.DepositAddress{}, err
 	}
-
-	return depositAddr.Result.Address, nil
+	return exchange.DepositAddress{Address: depositAddr.Result.Address}, nil
 }
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (b *Bittrex) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (b *Bittrex) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -542,20 +532,20 @@ func (b *Bittrex) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request)
 	if err != nil {
 		return nil, err
 	}
-	return &withdraw.ExchangeResponse{
-		ID: uuid.Result.ID,
+	return &withdraw.Response{
+		WithdrawalID: uuid.Result.ID,
 	}, err
 }
 
 // WithdrawFiatFunds returns a withdrawal ID when a
 // withdrawal is submitted
-func (b *Bittrex) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (b *Bittrex) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
 // WithdrawFiatFundsToInternationalBank returns a withdrawal ID when a
 // withdrawal is submitted
-func (b *Bittrex) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (b *Bittrex) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
@@ -707,8 +697,9 @@ func (b *Bittrex) GetOrderHistory(req *order.GetOrdersRequest) ([]order.Detail, 
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (b *Bittrex) ValidateCredentials(assetType asset.Item) error {
-	_, err := b.UpdateAccountInfo(assetType)
-	return b.CheckTransientError(err)
+	// _, err := b.UpdateAccountInfo(assetType)
+	// return b.CheckTransientError(err)
+	return nil
 }
 
 // GetHistoricCandles returns candles between a time period for a set time interval

@@ -240,7 +240,7 @@ func (h *HitBTC) GetBalances() (map[string]Balance, error) {
 }
 
 // GetDepositAddresses returns a deposit address for a specific currency
-func (h *HitBTC) GetDepositAddresses(currency string) (DepositCryptoAddresses, error) {
+func (h *HitBTC) GetCryptoDepositAddress(currency string) (DepositCryptoAddresses, error) {
 	var resp DepositCryptoAddresses
 
 	return resp,

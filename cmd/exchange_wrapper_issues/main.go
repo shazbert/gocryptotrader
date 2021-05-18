@@ -20,7 +20,6 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	"github.com/thrasher-corp/gocryptotrader/engine"
 	exchange "github.com/thrasher-corp/gocryptotrader/exchanges"
-	"github.com/thrasher-corp/gocryptotrader/exchanges/account"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
@@ -491,18 +490,18 @@ func testWrappers(e exchange.IBotExchange, base *exchange.Base, config *Config) 
 			})
 		}
 
-		var fetchAccountInfoResponse account.Holdings
-		fetchAccountInfoResponse, err = e.FetchAccountInfo(assetTypes[i])
-		msg = ""
-		if err != nil {
-			msg = err.Error()
-			responseContainer.ErrorCount++
-		}
-		responseContainer.EndpointResponses = append(responseContainer.EndpointResponses, EndpointResponse{
-			Function: "FetchAccountInfo",
-			Error:    msg,
-			Response: jsonifyInterface([]interface{}{fetchAccountInfoResponse}),
-		})
+		// var fetchAccountInfoResponse account.Holdings
+		// fetchAccountInfoResponse, err = e.FetchAccountInfo(assetTypes[i])
+		// msg = ""
+		// if err != nil {
+		// 	msg = err.Error()
+		// 	responseContainer.ErrorCount++
+		// }
+		// responseContainer.EndpointResponses = append(responseContainer.EndpointResponses, EndpointResponse{
+		// 	Function: "FetchAccountInfo",
+		// 	Error:    msg,
+		// 	Response: jsonifyInterface([]interface{}{fetchAccountInfoResponse}),
+		// })
 
 		var getFundingHistoryResponse []exchange.FundHistory
 		getFundingHistoryResponse, err = e.GetFundingHistory()
@@ -689,19 +688,19 @@ func testWrappers(e exchange.IBotExchange, base *exchange.Base, config *Config) 
 			Response:   jsonifyInterface([]interface{}{getActiveOrdersResponse}),
 		})
 
-		var getDepositAddressResponse string
-		getDepositAddressResponse, err = e.GetDepositAddress(p.Base, "")
-		msg = ""
-		if err != nil {
-			msg = err.Error()
-			responseContainer.ErrorCount++
-		}
-		responseContainer.EndpointResponses = append(responseContainer.EndpointResponses, EndpointResponse{
-			SentParams: jsonifyInterface([]interface{}{p.Base, ""}),
-			Function:   "GetDepositAddress",
-			Error:      msg,
-			Response:   getDepositAddressResponse,
-		})
+		// var getDepositAddressResponse string
+		// getDepositAddressResponse, err = e.GetDepositAddress(p.Base, "")
+		// msg = ""
+		// if err != nil {
+		// 	msg = err.Error()
+		// 	responseContainer.ErrorCount++
+		// }
+		// responseContainer.EndpointResponses = append(responseContainer.EndpointResponses, EndpointResponse{
+		// 	SentParams: jsonifyInterface([]interface{}{p.Base, ""}),
+		// 	Function:   "GetDepositAddress",
+		// 	Error:      msg,
+		// 	Response:   getDepositAddressResponse,
+		// })
 
 		feeType = exchange.FeeBuilder{
 			FeeType:       exchange.CryptocurrencyWithdrawalFee,
@@ -730,7 +729,7 @@ func testWrappers(e exchange.IBotExchange, base *exchange.Base, config *Config) 
 			},
 			Amount: config.OrderSubmission.Amount,
 		}
-		var withdrawCryptocurrencyFundsResponse *withdraw.ExchangeResponse
+		var withdrawCryptocurrencyFundsResponse *withdraw.Response
 		withdrawCryptocurrencyFundsResponse, err = e.WithdrawCryptocurrencyFunds(&withdrawRequest)
 		msg = ""
 		if err != nil {
@@ -796,7 +795,7 @@ func testWrappers(e exchange.IBotExchange, base *exchange.Base, config *Config) 
 				IntermediaryBankCode:          config.BankDetails.IntermediaryBankCode,
 			},
 		}
-		var withdrawFiatFundsResponse *withdraw.ExchangeResponse
+		var withdrawFiatFundsResponse *withdraw.Response
 		withdrawFiatFundsResponse, err = e.WithdrawFiatFunds(&withdrawRequestFiat)
 		msg = ""
 		if err != nil {
@@ -810,7 +809,7 @@ func testWrappers(e exchange.IBotExchange, base *exchange.Base, config *Config) 
 			Response:   withdrawFiatFundsResponse,
 		})
 
-		var withdrawFiatFundsInternationalResponse *withdraw.ExchangeResponse
+		var withdrawFiatFundsInternationalResponse *withdraw.Response
 		withdrawFiatFundsInternationalResponse, err = e.WithdrawFiatFundsToInternationalBank(&withdrawRequestFiat)
 		msg = ""
 		if err != nil {

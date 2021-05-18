@@ -38,10 +38,11 @@ type Engine struct {
 	PortfolioManager            portfolioManager
 	CommsManager                commsManager
 	exchangeManager             exchangeManager
-	DepositAddressManager       *DepositAddressManager
-	Settings                    Settings
-	Uptime                      time.Time
-	ServicesWG                  sync.WaitGroup
+	// DepositAddressManager       *DepositAddressManager
+	AccountManager *AccountManager
+	Settings       Settings
+	Uptime         time.Time
+	ServicesWG     sync.WaitGroup
 }
 
 // Vars for engine
@@ -454,12 +455,20 @@ func (bot *Engine) Start() error {
 		if err = bot.PortfolioManager.Start(); err != nil {
 			gctlog.Errorf(gctlog.Global, "Fund manager unable to start: %v", err)
 		}
-	}
 
-	if bot.Settings.EnableDepositAddressManager {
-		bot.DepositAddressManager = new(DepositAddressManager)
-		go bot.DepositAddressManager.Sync()
+		// bot.PortfolioManager.
+
+		// if bot.Settings.EnableDepositAddressManager {
+		// 	// Deposit manaager works in conjuction with the portfolio manager
+		// 	// for exchange to exchange movement of whitelisted addresses.
+		// 	bot.DepositAddressManager = new(DepositAddressManager)
+		// 	go bot.DepositAddressManager.Sync()
+		// }
 	}
+	// } else if bot.Settings.EnableDepositAddressManager {
+	// 	gctlog.Warnln(gctlog.Global,
+	// 		"Deposit manager failed to start as portfolio manager is set to off.")
+	// }
 
 	if bot.Settings.EnableOrderManager {
 		if err = bot.OrderManager.Start(bot); err != nil {
@@ -501,6 +510,17 @@ func (bot *Engine) Start() error {
 		}
 	}
 
+	bot.AccountManager, err = NewAccountManager(bot)
+	if err != nil {
+		return err
+	}
+
+	// TODO: Add in syncer settings
+	err = bot.AccountManager.RunUpdater(time.Second * 10)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -511,9 +531,7 @@ func (bot *Engine) Stop() {
 
 	gctlog.Debugln(gctlog.Global, "Engine shutting down..")
 
-	if len(portfolio.Portfolio.Addresses) != 0 {
-		bot.Config.Portfolio = portfolio.Portfolio
-	}
+	bot.Config.Portfolio = portfolio.Portfolio.GetState()
 
 	if bot.GctScriptManager.Started() {
 		if err := bot.GctScriptManager.Stop(); err != nil {
@@ -560,6 +578,13 @@ func (bot *Engine) Stop() {
 		if err := dispatch.Stop(); err != nil {
 			gctlog.Errorf(gctlog.DispatchMgr, "Dispatch system unable to stop. Error: %v", err)
 		}
+	}
+
+	if bot.AccountManager.IsRunning() {
+		// This is not working - I did something silly.
+		// if err := bot.AccountManager.Shutdown(); err != nil {
+		// 	gctlog.Errorf(gctlog.Global, "Account manager system unable to stop. Error: %v", err)
+		// }
 	}
 
 	if bot.Settings.EnableCoinmarketcapAnalysis ||

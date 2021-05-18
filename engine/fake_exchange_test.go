@@ -106,34 +106,26 @@ func (h *FakePassingExchange) GetAvailablePairs(_ asset.Item) (currency.Pairs, e
 	return currency.Pairs{}, nil
 }
 
-func (h *FakePassingExchange) FetchAccountInfo(_ asset.Item) (account.Holdings, error) {
-	return account.Holdings{
-		Exchange: h.Name,
-		Accounts: []account.SubAccount{
-			{
-				Currencies: []account.Balance{
-					{
-						CurrencyName: currency.BTC,
-						TotalValue:   10.,
-						Hold:         0,
-					},
+func (h *FakePassingExchange) FetchAccountInfo() (account.FullSnapshot, error) {
+	return account.FullSnapshot{
+		h.Name: map[asset.Item]account.HoldingsSnapshot{
+			asset.Spot: {
+				currency.BTC: account.Balance{
+					Total:  10,
+					Locked: 0,
 				},
 			},
 		},
 	}, nil
 }
 
-func (h *FakePassingExchange) UpdateAccountInfo(_ asset.Item) (account.Holdings, error) {
-	return account.Holdings{
-		Exchange: h.Name,
-		Accounts: []account.SubAccount{
-			{
-				Currencies: []account.Balance{
-					{
-						CurrencyName: currency.BTC,
-						TotalValue:   20.,
-						Hold:         0,
-					},
+func (h *FakePassingExchange) UpdateAccountInfo() (account.FullSnapshot, error) {
+	return account.FullSnapshot{
+		h.Name: map[asset.Item]account.HoldingsSnapshot{
+			asset.Spot: {
+				currency.BTC: account.Balance{
+					Total:  10,
+					Locked: 0,
 				},
 			},
 		},
@@ -185,8 +177,8 @@ func (h *FakePassingExchange) GetOrderInfo(_ string, _ currency.Pair, _ asset.It
 func (h *FakePassingExchange) GetWithdrawalsHistory(_ currency.Code) ([]exchange.WithdrawalHistory, error) {
 	return nil, nil
 }
-func (h *FakePassingExchange) GetDepositAddress(_ currency.Code, _ string) (string, error) {
-	return "", nil
+func (h *FakePassingExchange) GetDepositAddress(_ currency.Code, _ string) (exchange.DepositAddress, error) {
+	return exchange.DepositAddress{}, nil
 }
 func (h *FakePassingExchange) GetOrderHistory(_ *order.GetOrdersRequest) ([]order.Detail, error) {
 	return nil, nil
@@ -239,12 +231,12 @@ func (h *FakePassingExchange) GetHistoricCandlesExtended(_ currency.Pair, _ asse
 }
 func (h *FakePassingExchange) DisableRateLimiter() error { return nil }
 func (h *FakePassingExchange) EnableRateLimiter() error  { return nil }
-func (h *FakePassingExchange) WithdrawCryptocurrencyFunds(_ *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (h *FakePassingExchange) WithdrawCryptocurrencyFunds(_ *withdraw.Request) (*withdraw.Response, error) {
 	return nil, nil
 }
-func (h *FakePassingExchange) WithdrawFiatFunds(_ *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (h *FakePassingExchange) WithdrawFiatFunds(_ *withdraw.Request) (*withdraw.Response, error) {
 	return nil, nil
 }
-func (h *FakePassingExchange) WithdrawFiatFundsToInternationalBank(_ *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (h *FakePassingExchange) WithdrawFiatFundsToInternationalBank(_ *withdraw.Request) (*withdraw.Response, error) {
 	return nil, nil
 }

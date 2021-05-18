@@ -6,6 +6,7 @@ import (
 
 	"github.com/thrasher-corp/gocryptotrader/config"
 	"github.com/thrasher-corp/gocryptotrader/currency"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/account"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
@@ -228,8 +229,8 @@ type Base struct {
 	// integrity.
 	CanVerifyOrderbook bool
 	order.ExecutionLimits
-
 	AssetWebsocketSupport
+	*account.Holdings
 }
 
 // url lookup consts
@@ -272,4 +273,12 @@ type URL uint16
 type AssetWebsocketSupport struct {
 	unsupported map[asset.Item]bool
 	m           sync.RWMutex
+}
+
+// DepositAddress defines a deposit address with associated tag or memo when
+// the protocol supports it.
+type DepositAddress struct {
+	Currency currency.Code
+	Address  string
+	TagMemo  string
 }

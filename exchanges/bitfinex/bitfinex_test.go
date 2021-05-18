@@ -274,18 +274,6 @@ func TestGetLeaderboard(t *testing.T) {
 	}
 }
 
-func TestGetAccountFees(t *testing.T) {
-	if !areTestAPIKeysSet() {
-		t.SkipNow()
-	}
-	t.Parallel()
-
-	_, err := b.UpdateAccountInfo(asset.Spot)
-	if err != nil {
-		t.Error("GetAccountInfo error", err)
-	}
-}
-
 func TestGetWithdrawalFee(t *testing.T) {
 	if !areTestAPIKeysSet() {
 		t.SkipNow()
@@ -372,7 +360,7 @@ func TestGetAccountInfo(t *testing.T) {
 	}
 	t.Parallel()
 
-	_, err := b.FetchAccountInfo(asset.Spot)
+	_, err := b.FetchAccountInfo()
 	if err != nil {
 		t.Error(err)
 	}

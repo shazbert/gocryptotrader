@@ -270,8 +270,8 @@ func (p *Poloniex) GetCompleteBalances() (CompleteBalances, error) {
 	return result, err
 }
 
-// GetDepositAddresses returns deposit addresses for all enabled cryptos.
-func (p *Poloniex) GetDepositAddresses() (DepositAddresses, error) {
+// GetDepositAddressesAll returns deposit addresses for all enabled cryptos.
+func (p *Poloniex) GetDepositAddressesAll() (DepositAddresses, error) {
 	var result interface{}
 	addresses := DepositAddresses{}
 
@@ -572,14 +572,16 @@ func (p *Poloniex) MoveOrder(orderID int64, rate, amount float64, postOnly, imme
 }
 
 // Withdraw withdraws a currency to a specific delegated address
-func (p *Poloniex) Withdraw(currency, address string, amount float64) (*Withdraw, error) {
+func (p *Poloniex) Withdraw(currency, address, paymentID string, amount float64) (*Withdraw, error) {
 	result := &Withdraw{}
 	values := url.Values{}
 
 	values.Set("currency", currency)
 	values.Set("amount", strconv.FormatFloat(amount, 'f', -1, 64))
 	values.Set("address", address)
-
+	if paymentID != "" {
+		values.Set("paymentId", paymentID)
+	}
 	err := p.SendAuthenticatedHTTPRequest(exchange.RestSpot, http.MethodPost, poloniexWithdraw, values, &result)
 	if err != nil {
 		return nil, err

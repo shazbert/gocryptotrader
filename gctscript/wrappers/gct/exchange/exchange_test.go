@@ -129,7 +129,7 @@ func TestExchange_AccountInformation(t *testing.T) {
 	if !configureExchangeKeys() {
 		t.Skip("no exchange configured test skipped")
 	}
-	_, err := exchangeTest.AccountInformation(exchName, asset.Spot)
+	_, err := exchangeTest.AccountInformation(exchName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,9 +179,7 @@ func TestExchange_CancelOrder(t *testing.T) {
 		t.Skip("no exchange configured test skipped")
 	}
 	t.Parallel()
-	cp := currency.NewPair(currency.BTC, currency.USD)
-	a := asset.Spot
-	_, err := exchangeTest.CancelOrder(exchName, orderID, cp, a)
+	_, err := exchangeTest.CancelOrder(exchName, orderID)
 	if err != nil {
 		t.Fatal(err)
 	}

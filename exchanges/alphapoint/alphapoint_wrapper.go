@@ -89,44 +89,40 @@ func (a *Alphapoint) UpdateTradablePairs(forceUpdate bool) error {
 
 // UpdateAccountInfo retrieves balances for all enabled currencies on the
 // Alphapoint exchange
-func (a *Alphapoint) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	var response account.Holdings
-	response.Exchange = a.Name
+func (a *Alphapoint) UpdateAccountInfo() (account.FullSnapshot, error) {
 	acc, err := a.GetAccountInformation()
 	if err != nil {
-		return response, err
+		return nil, err
 	}
 
-	var balances []account.Balance
+	holdings := make(account.HoldingsSnapshot)
 	for i := range acc.Currencies {
-		var balance account.Balance
-		balance.CurrencyName = currency.NewCode(acc.Currencies[i].Name)
-		balance.TotalValue = float64(acc.Currencies[i].Balance)
-		balance.Hold = float64(acc.Currencies[i].Hold)
-
-		balances = append(balances, balance)
+		holdings[currency.NewCode(acc.Currencies[i].Name)] = account.Balance{
+			Total:  float64(acc.Currencies[i].Balance),
+			Locked: float64(acc.Currencies[i].Hold),
+		}
 	}
 
-	response.Accounts = append(response.Accounts, account.SubAccount{
-		Currencies: balances,
-	})
-
-	err = account.Process(&response)
+	iAcc, err := a.GetAccounts()
 	if err != nil {
-		return account.Holdings{}, err
+		return nil, err
 	}
 
-	return response, nil
+	err = a.LoadHoldings(iAcc[0], asset.Spot, holdings)
+	if err != nil {
+		return nil, err
+	}
+
+	return a.GetFullSnapshot()
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies on the
 // Alphapoint exchange
-func (a *Alphapoint) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(a.Name, assetType)
+func (a *Alphapoint) FetchAccountInfo() (account.FullSnapshot, error) {
+	acc, err := a.GetFullSnapshot()
 	if err != nil {
-		return a.UpdateAccountInfo(assetType)
+		return a.UpdateAccountInfo()
 	}
-
 	return acc, nil
 }
 
@@ -268,30 +264,29 @@ func (a *Alphapoint) ModifyOrder(_ *order.Modify) (string, error) {
 }
 
 // CancelOrder cancels an order by its corresponding ID number
-func (a *Alphapoint) CancelOrder(o *order.Cancel) error {
-	if err := o.Validate(o.StandardCancel()); err != nil {
+func (a *Alphapoint) CancelOrder(c *order.Cancel) error {
+	if err := c.Validate(a.Name, c.OrderIDRequired(), c.AccountIDRequired()); err != nil {
 		return err
 	}
-	orderIDInt, err := strconv.ParseInt(o.ID, 10, 64)
+	orderIDInt, err := strconv.ParseInt(c.ID, 10, 64)
 	if err != nil {
 		return err
 	}
-	_, err = a.CancelExistingOrder(orderIDInt, o.AccountID)
+	_, err = a.CancelExistingOrder(orderIDInt, c.AccountID)
 	return err
 }
 
 // CancelBatchOrders cancels an orders by their corresponding ID numbers
-func (a *Alphapoint) CancelBatchOrders(o []order.Cancel) (order.CancelBatchResponse, error) {
+func (a *Alphapoint) CancelBatchOrders(_ []order.Cancel) (order.CancelBatchResponse, error) {
 	return order.CancelBatchResponse{}, common.ErrNotYetImplemented
 }
 
 // CancelAllOrders cancels all orders for a given account
-func (a *Alphapoint) CancelAllOrders(orderCancellation *order.Cancel) (order.CancelAllResponse, error) {
-	if err := orderCancellation.Validate(); err != nil {
+func (a *Alphapoint) CancelAllOrders(c *order.Cancel) (order.CancelAllResponse, error) {
+	if err := c.Validate(a.Name, c.AccountIDRequired()); err != nil {
 		return order.CancelAllResponse{}, err
 	}
-	return order.CancelAllResponse{},
-		a.CancelAllExistingOrders(orderCancellation.AccountID)
+	return order.CancelAllResponse{}, a.CancelAllExistingOrders(c.AccountID)
 }
 
 // GetOrderInfo returns order information based on order ID
@@ -312,28 +307,28 @@ func (a *Alphapoint) GetOrderInfo(orderID string, pair currency.Pair, assetType 
 }
 
 // GetDepositAddress returns a deposit address for a specified currency
-func (a *Alphapoint) GetDepositAddress(cryptocurrency currency.Code, _ string) (string, error) {
+func (a *Alphapoint) GetDepositAddress(cryptocurrency currency.Code, _ string) (exchange.DepositAddress, error) {
 	addreses, err := a.GetDepositAddresses()
 	if err != nil {
-		return "", err
+		return exchange.DepositAddress{}, err
 	}
 
 	for x := range addreses {
 		if addreses[x].Name == cryptocurrency.String() {
-			return addreses[x].DepositAddress, nil
+			return exchange.DepositAddress{Address: addreses[x].DepositAddress}, nil
 		}
 	}
-	return "", errors.New("associated currency address not found")
+	return exchange.DepositAddress{}, errors.New("associated currency address not found")
 }
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (a *Alphapoint) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (a *Alphapoint) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrNotYetImplemented
 }
 
 // WithdrawFiatFunds returns a withdrawal ID when a withdrawal is submitted
-func (a *Alphapoint) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (a *Alphapoint) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrNotYetImplemented
 }
 
@@ -441,6 +436,7 @@ func (a *Alphapoint) GetOrderHistory(req *order.GetOrdersRequest) ([]order.Detai
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (a *Alphapoint) ValidateCredentials(assetType asset.Item) error {
-	_, err := a.UpdateAccountInfo(assetType)
-	return a.CheckTransientError(err)
+	// _, err := a.UpdateAccountInfo(assetType)
+	// return a.CheckTransientError(err)
+	return nil
 }

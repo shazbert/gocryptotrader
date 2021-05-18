@@ -728,7 +728,7 @@ func TestUpdateAccountInfo(t *testing.T) {
 		t.Skip("skipping test: api keys not set")
 	}
 	t.Parallel()
-	_, err := h.UpdateAccountInfo(asset.Spot)
+	_, err := h.UpdateAccountInfo()
 	if err != nil {
 		t.Error(err)
 	}
@@ -1682,7 +1682,7 @@ func TestGetAccountBalance(t *testing.T) {
 	if !h.ValidateAPICredentials() {
 		t.Skip()
 	}
-	result, err := h.GetAccounts()
+	result, err := h.GetTradingAccounts()
 	if err != nil {
 		t.Errorf("Huobi GetAccounts: %s", err)
 	}
@@ -1934,7 +1934,7 @@ func TestSubmitOrder(t *testing.T) {
 		t.Skip("API keys set, canManipulateRealOrders false, skipping test")
 	}
 
-	accounts, err := h.GetAccounts()
+	accounts, err := h.GetTradingAccounts()
 	if err != nil {
 		t.Fatalf("Failed to get accounts. Err: %s", err)
 	}
@@ -2000,37 +2000,12 @@ func TestCancelAllExchangeOrders(t *testing.T) {
 	}
 }
 
-func TestGetAccountInfo(t *testing.T) {
-	t.Parallel()
-	if !areTestAPIKeysSet() {
-		_, err := h.UpdateAccountInfo(asset.CoinMarginedFutures)
-		if err == nil {
-			t.Error("GetAccountInfo() Expected error")
-		}
-		_, err = h.UpdateAccountInfo(asset.Futures)
-		if err == nil {
-			t.Error("GetAccountInfo() Expected error")
-		}
-	} else {
-		_, err := h.UpdateAccountInfo(asset.CoinMarginedFutures)
-		if err != nil {
-			// Spot and Futures have separate api keys. Please ensure that the correct keys are provided
-			t.Error(err)
-		}
-		_, err = h.UpdateAccountInfo(asset.Futures)
-		if err != nil {
-			// Spot and Futures have separate api keys. Please ensure that the correct keys are provided
-			t.Error(err)
-		}
-	}
-}
-
 func TestGetSpotAccountInfo(t *testing.T) {
 	t.Parallel()
 	if !areTestAPIKeysSet() {
 		t.Skip("skipping test: api keys not set")
 	}
-	_, err := h.UpdateAccountInfo(asset.Spot)
+	_, err := h.UpdateAccountInfo()
 	if err != nil {
 		// Spot and Futures have separate api keys. Please ensure that the correct keys are provided
 		t.Error(err)

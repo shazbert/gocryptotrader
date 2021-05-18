@@ -17,6 +17,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/portfolio/withdraw"
 	"github.com/thrasher-corp/sqlboiler/boil"
 	"github.com/thrasher-corp/sqlboiler/queries/qm"
+	"github.com/volatiletech/null"
 )
 
 var (
@@ -25,7 +26,7 @@ var (
 )
 
 // Event stores Withdrawal Response details in database
-func Event(res *withdraw.Response) {
+func Event(info *withdraw.Details) {
 	if database.DB.SQL == nil {
 		return
 	}
@@ -33,13 +34,13 @@ func Event(res *withdraw.Response) {
 	ctx := context.Background()
 	ctx = boil.SkipTimestamps(ctx)
 
-	exchangeUUID, err := exchangeDB.UUIDByName(res.Exchange.Name)
+	var err error
+	info.InternalExchangeID, err = exchangeDB.UUIDByName(info.Request.Exchange)
 	if err != nil {
 		log.Error(log.DatabaseMgr, err)
 		return
 	}
 
-	res.Exchange.Name = exchangeUUID.String()
 	tx, err := database.DB.SQL.BeginTx(ctx, nil)
 	if err != nil {
 		log.Errorf(log.DatabaseMgr, "Event transaction being failed: %v", err)
@@ -47,9 +48,9 @@ func Event(res *withdraw.Response) {
 	}
 
 	if repository.GetSQLDialect() == database.DBSQLite3 {
-		err = addSQLiteEvent(ctx, tx, res)
+		err = addSQLiteEvent(ctx, tx, info)
 	} else {
-		err = addPSQLEvent(ctx, tx, res)
+		err = addPSQLEvent(ctx, tx, info)
 	}
 	if err != nil {
 		log.Errorf(log.DatabaseMgr, "Event insert failed: %v", err)
@@ -67,18 +68,15 @@ func Event(res *withdraw.Response) {
 	}
 }
 
-func addPSQLEvent(ctx context.Context, tx *sql.Tx, res *withdraw.Response) (err error) {
+func addPSQLEvent(ctx context.Context, tx *sql.Tx, info *withdraw.Details) (err error) {
 	var tempEvent = modelPSQL.WithdrawalHistory{
-		ExchangeNameID: res.Exchange.Name,
-		ExchangeID:     res.Exchange.ID,
-		Status:         res.Exchange.Status,
-		Currency:       res.RequestDetails.Currency.String(),
-		Amount:         res.RequestDetails.Amount,
-		WithdrawType:   int(res.RequestDetails.Type),
-	}
-
-	if res.RequestDetails.Description != "" {
-		tempEvent.Description.SetValid(res.RequestDetails.Description)
+		ExchangeNameID: info.InternalExchangeID.String(), // UUID to exchange in DB
+		ExchangeID:     info.Request.Exchange,            // String name of exchange
+		Status:         info.Response.Status,
+		Currency:       info.Request.Currency.String(),
+		Amount:         info.Request.Amount,
+		WithdrawType:   int(info.Request.Type),
+		Description:    null.NewString(info.Request.Description, info.Request.Description != ""),
 	}
 
 	err = tempEvent.Insert(ctx, tx, boil.Infer())
@@ -91,15 +89,16 @@ func addPSQLEvent(ctx context.Context, tx *sql.Tx, res *withdraw.Response) (err 
 		return
 	}
 
-	if res.RequestDetails.Type == withdraw.Fiat {
+	switch info.Request.Type {
+	case withdraw.Fiat:
 		fiatEvent := &modelPSQL.WithdrawalFiat{
-			BankName:          res.RequestDetails.Fiat.Bank.BankName,
-			BankAddress:       res.RequestDetails.Fiat.Bank.BankAddress,
-			BankAccountName:   res.RequestDetails.Fiat.Bank.AccountName,
-			BankAccountNumber: res.RequestDetails.Fiat.Bank.AccountNumber,
-			BSB:               res.RequestDetails.Fiat.Bank.BSBNumber,
-			SwiftCode:         res.RequestDetails.Fiat.Bank.SWIFTCode,
-			Iban:              res.RequestDetails.Fiat.Bank.IBAN,
+			BankName:          info.Request.Fiat.Bank.BankName,
+			BankAddress:       info.Request.Fiat.Bank.BankAddress,
+			BankAccountName:   info.Request.Fiat.Bank.AccountName,
+			BankAccountNumber: info.Request.Fiat.Bank.AccountNumber,
+			BSB:               info.Request.Fiat.Bank.BSBNumber,
+			SwiftCode:         info.Request.Fiat.Bank.SWIFTCode,
+			Iban:              info.Request.Fiat.Bank.IBAN,
 		}
 		err = tempEvent.SetWithdrawalFiatWithdrawalFiats(ctx, tx, true, fiatEvent)
 		if err != nil {
@@ -110,16 +109,13 @@ func addPSQLEvent(ctx context.Context, tx *sql.Tx, res *withdraw.Response) (err 
 			}
 			return
 		}
-	}
-
-	if res.RequestDetails.Type == withdraw.Crypto {
+	case withdraw.Crypto:
 		cryptoEvent := &modelPSQL.WithdrawalCrypto{
-			Address: res.RequestDetails.Crypto.Address,
-			Fee:     res.RequestDetails.Crypto.FeeAmount,
+			Address:    info.Request.Crypto.Address,
+			Fee:        info.Request.Crypto.FeeAmount,
+			AddressTag: null.NewString(info.Request.Crypto.AddressTag, info.Request.Crypto.AddressTag != ""),
 		}
-		if res.RequestDetails.Crypto.AddressTag != "" {
-			cryptoEvent.AddressTag.SetValid(res.RequestDetails.Crypto.AddressTag)
-		}
+
 		err = tempEvent.AddWithdrawalCryptoWithdrawalCryptos(ctx, tx, true, cryptoEvent)
 		if err != nil {
 			log.Errorf(log.DatabaseMgr, "Event Insert failed: %v", err)
@@ -131,16 +127,20 @@ func addPSQLEvent(ctx context.Context, tx *sql.Tx, res *withdraw.Response) (err 
 		}
 	}
 
-	realID, _ := uuid.FromString(tempEvent.ID)
-	res.ID = realID
-
+	realID, err := uuid.FromString(tempEvent.ID)
+	if err != nil {
+		log.Errorf(log.DatabaseMgr,
+			"Parsing UUID from inserted withdraw event error: %v",
+			err)
+	}
+	info.InternalWithdrawalID = realID
 	return nil
 }
 
-func addSQLiteEvent(ctx context.Context, tx *sql.Tx, res *withdraw.Response) (err error) {
-	newUUID, errUUID := uuid.NewV4()
-	if errUUID != nil {
-		log.Errorf(log.DatabaseMgr, "Failed to generate UUID: %v", errUUID)
+func addSQLiteEvent(ctx context.Context, tx *sql.Tx, info *withdraw.Details) (err error) {
+	info.InternalWithdrawalID, err = uuid.NewV4()
+	if err != nil {
+		log.Errorf(log.DatabaseMgr, "Failed to generate UUID: %v", err)
 		err = tx.Rollback()
 		if err != nil {
 			log.Errorf(log.DatabaseMgr, "Rollback failed: %v", err)
@@ -149,17 +149,14 @@ func addSQLiteEvent(ctx context.Context, tx *sql.Tx, res *withdraw.Response) (er
 	}
 
 	var tempEvent = modelSQLite.WithdrawalHistory{
-		ID:             newUUID.String(),
-		ExchangeNameID: res.Exchange.Name,
-		ExchangeID:     res.Exchange.ID,
-		Status:         res.Exchange.Status,
-		Currency:       res.RequestDetails.Currency.String(),
-		Amount:         res.RequestDetails.Amount,
-		WithdrawType:   int64(res.RequestDetails.Type),
-	}
-
-	if res.RequestDetails.Description != "" {
-		tempEvent.Description.SetValid(res.RequestDetails.Description)
+		ID:             info.InternalWithdrawalID.String(),
+		ExchangeNameID: info.InternalExchangeID.String(), // UUID to exchange in DB
+		ExchangeID:     info.Request.Exchange,            // String name of exchange
+		Status:         info.Response.Status,
+		Currency:       info.Request.Currency.String(),
+		Amount:         info.Request.Amount,
+		WithdrawType:   int64(info.Request.Type),
+		Description:    null.NewString(info.Request.Description, info.Request.Description != ""),
 	}
 
 	err = tempEvent.Insert(ctx, tx, boil.Infer())
@@ -172,15 +169,16 @@ func addSQLiteEvent(ctx context.Context, tx *sql.Tx, res *withdraw.Response) (er
 		return
 	}
 
-	if res.RequestDetails.Type == withdraw.Fiat {
+	switch info.Request.Type {
+	case withdraw.Fiat:
 		fiatEvent := &modelSQLite.WithdrawalFiat{
-			BankName:          res.RequestDetails.Fiat.Bank.BankName,
-			BankAddress:       res.RequestDetails.Fiat.Bank.BankAddress,
-			BankAccountName:   res.RequestDetails.Fiat.Bank.AccountName,
-			BankAccountNumber: res.RequestDetails.Fiat.Bank.AccountNumber,
-			BSB:               res.RequestDetails.Fiat.Bank.BSBNumber,
-			SwiftCode:         res.RequestDetails.Fiat.Bank.SWIFTCode,
-			Iban:              res.RequestDetails.Fiat.Bank.IBAN,
+			BankName:          info.Request.Fiat.Bank.BankName,
+			BankAddress:       info.Request.Fiat.Bank.BankAddress,
+			BankAccountName:   info.Request.Fiat.Bank.AccountName,
+			BankAccountNumber: info.Request.Fiat.Bank.AccountNumber,
+			BSB:               info.Request.Fiat.Bank.BSBNumber,
+			SwiftCode:         info.Request.Fiat.Bank.SWIFTCode,
+			Iban:              info.Request.Fiat.Bank.IBAN,
 		}
 
 		err = tempEvent.AddWithdrawalFiats(ctx, tx, true, fiatEvent)
@@ -192,16 +190,11 @@ func addSQLiteEvent(ctx context.Context, tx *sql.Tx, res *withdraw.Response) (er
 			}
 			return
 		}
-	}
-
-	if res.RequestDetails.Type == withdraw.Crypto {
+	case withdraw.Crypto:
 		cryptoEvent := &modelSQLite.WithdrawalCrypto{
-			Address: res.RequestDetails.Crypto.Address,
-			Fee:     res.RequestDetails.Crypto.FeeAmount,
-		}
-
-		if res.RequestDetails.Crypto.AddressTag != "" {
-			cryptoEvent.AddressTag.SetValid(res.RequestDetails.Crypto.AddressTag)
+			Address:    info.Request.Crypto.Address,
+			Fee:        info.Request.Crypto.FeeAmount,
+			AddressTag: null.NewString(info.Request.Crypto.AddressTag, info.Request.Crypto.AddressTag != ""),
 		}
 
 		err = tempEvent.AddWithdrawalCryptos(ctx, tx, true, cryptoEvent)
@@ -215,21 +208,21 @@ func addSQLiteEvent(ctx context.Context, tx *sql.Tx, res *withdraw.Response) (er
 		}
 	}
 
-	res.ID = newUUID
 	return nil
 }
 
 // GetEventByUUID return requested withdraw information by ID
-func GetEventByUUID(id string) (*withdraw.Response, error) {
+func GetEventByUUID(id string) (*withdraw.Details, error) {
 	resp, err := getByColumns(generateWhereQuery([]string{"id"}, []string{id}, 1))
 	if err != nil {
+		log.Error(log.DatabaseMgr, err)
 		return nil, err
 	}
 	return resp[0], nil
 }
 
 // GetEventsByExchange returns all withdrawal requests by exchange
-func GetEventsByExchange(exchange string, limit int) ([]*withdraw.Response, error) {
+func GetEventsByExchange(exchange string, limit int) ([]*withdraw.Details, error) {
 	exch, err := exchangeDB.UUIDByName(exchange)
 	if err != nil {
 		log.Error(log.DatabaseMgr, err)
@@ -239,7 +232,7 @@ func GetEventsByExchange(exchange string, limit int) ([]*withdraw.Response, erro
 }
 
 // GetEventByExchangeID return requested withdraw information by Exchange ID
-func GetEventByExchangeID(exchange, id string) (*withdraw.Response, error) {
+func GetEventByExchangeID(exchange, id string) (*withdraw.Details, error) {
 	exch, err := exchangeDB.UUIDByName(exchange)
 	if err != nil {
 		log.Error(log.DatabaseMgr, err)
@@ -253,7 +246,7 @@ func GetEventByExchangeID(exchange, id string) (*withdraw.Response, error) {
 }
 
 // GetEventsByDate returns requested withdraw information by date range
-func GetEventsByDate(exchange string, start, end time.Time, limit int) ([]*withdraw.Response, error) {
+func GetEventsByDate(exchange string, start, end time.Time, limit int) ([]*withdraw.Details, error) {
 	betweenQuery := generateWhereBetweenQuery("created_at", start, end, limit)
 	if exchange == "" {
 		return getByColumns(betweenQuery)
@@ -284,84 +277,85 @@ func generateWhereBetweenQuery(column string, start, end interface{}, limit int)
 	}
 }
 
-func getByColumns(q []qm.QueryMod) ([]*withdraw.Response, error) {
+func getByColumns(q []qm.QueryMod) ([]*withdraw.Details, error) {
 	if database.DB.SQL == nil {
 		return nil, database.ErrDatabaseSupportDisabled
 	}
 
-	var resp []*withdraw.Response
+	var resp []*withdraw.Details
 	var ctx = context.Background()
 	if repository.GetSQLDialect() == database.DBSQLite3 {
-		v, err := modelSQLite.WithdrawalHistories(q...).All(ctx, database.DB.SQL)
+		v, err := modelSQLite.WithdrawalHistories(q...).
+			All(ctx, database.DB.SQL)
 		if err != nil {
 			return nil, err
 		}
 		for x := range v {
-			var tempResp = &withdraw.Response{}
-			var newUUID uuid.UUID
-			newUUID, err = uuid.FromString(v[x].ID)
+			var info = &withdraw.Details{}
+			info.InternalWithdrawalID, err = uuid.FromString(v[x].ID)
 			if err != nil {
 				return nil, err
 			}
-			tempResp.ID = newUUID
-			tempResp.Exchange.ID = v[x].ExchangeID
-			tempResp.Exchange.Status = v[x].Status
-			tempResp.RequestDetails = withdraw.Request{
-				Currency:    currency.NewCode(v[x].Currency),
+
+			info.InternalExchangeID, err = uuid.FromString(v[x].ExchangeNameID)
+			if err != nil {
+				log.Errorf(log.DatabaseMgr,
+					"invalid exchange name UUID for record %v",
+					v[x].ID)
+				return nil, err
+			}
+
+			info.Response.Status = v[x].Status
+			info.Request = &withdraw.Request{
+				Exchange: v[x].ExchangeID,
+				Currency: currency.NewCode(v[x].Currency),
+				// Asset: , // TODO
+				// Account: , // TODO
 				Description: v[x].Description.String,
 				Amount:      v[x].Amount,
 				Type:        withdraw.RequestType(v[x].WithdrawType),
 			}
 
-			exchangeName, err := v[x].ExchangeName().One(ctx, database.DB.SQL)
+			info.CreatedAt, err = time.Parse(time.RFC3339, v[x].CreatedAt)
 			if err != nil {
-				log.Errorf(log.DatabaseMgr, "Unable to get exchange name")
-				tempUUID, errUUID := uuid.FromString(v[x].ExchangeNameID)
-				if errUUID != nil {
-					log.Errorf(log.DatabaseMgr, "invalid exchange name UUID for record %v", v[x].ID)
-				} else {
-					tempResp.Exchange.UUID = tempUUID
-				}
-			} else {
-				tempResp.Exchange.Name = exchangeName.Name
+				log.Errorf(log.DatabaseMgr,
+					"record: %v has an incorrect time format ( %v ) - defaulting to empty time: %v",
+					info.InternalWithdrawalID,
+					v[x].CreatedAt,
+					err)
 			}
 
-			createdAtTime, err := time.Parse(time.RFC3339, v[x].CreatedAt)
+			info.UpdatedAt, err = time.Parse(time.RFC3339, v[x].UpdatedAt)
 			if err != nil {
-				log.Errorf(log.DatabaseMgr, "record: %v has an incorrect time format ( %v ) - defaulting to empty time: %v", tempResp.ID, v[x].CreatedAt, err)
-				tempResp.CreatedAt = time.Time{}
-			} else {
-				tempResp.CreatedAt = createdAtTime
+				log.Errorf(log.DatabaseMgr,
+					"record: %v has an incorrect time format ( %v ) - defaulting to empty time: %v",
+					info.InternalWithdrawalID,
+					v[x].UpdatedAt,
+					err)
 			}
 
-			updatedAtTime, err := time.Parse(time.RFC3339, v[x].UpdatedAt)
-			if err != nil {
-				log.Errorf(log.DatabaseMgr, "record: %v has an incorrect time format ( %v ) - defaulting to empty time: %v", tempResp.ID, v[x].UpdatedAt, err)
-				tempResp.UpdatedAt = time.Time{}
-			} else {
-				tempResp.UpdatedAt = updatedAtTime
-			}
-
-			if withdraw.RequestType(v[x].WithdrawType) == withdraw.Crypto {
+			switch withdraw.RequestType(v[x].WithdrawType) {
+			case withdraw.Crypto:
 				x, err := v[x].WithdrawalCryptos().One(ctx, database.DB.SQL)
 				if err != nil {
 					return nil, err
 				}
-				tempResp.RequestDetails.Crypto.Address = x.Address
-				tempResp.RequestDetails.Crypto.AddressTag = x.AddressTag.String
-				tempResp.RequestDetails.Crypto.FeeAmount = x.Fee
-			} else {
+				info.Request.Crypto.Address = x.Address
+				info.Request.Crypto.AddressTag = x.AddressTag.String
+				info.Request.Crypto.FeeAmount = x.Fee
+			case withdraw.Fiat:
 				x, err := v[x].WithdrawalFiats().One(ctx, database.DB.SQL)
 				if err != nil {
 					return nil, err
 				}
-				tempResp.RequestDetails.Fiat.Bank.AccountName = x.BankAccountName
-				tempResp.RequestDetails.Fiat.Bank.AccountNumber = x.BankAccountNumber
-				tempResp.RequestDetails.Fiat.Bank.IBAN = x.Iban
-				tempResp.RequestDetails.Fiat.Bank.SWIFTCode = x.SwiftCode
-				tempResp.RequestDetails.Fiat.Bank.BSBNumber = x.BSB
+				info.Request.Fiat.Bank.AccountName = x.BankAccountName
+				info.Request.Fiat.Bank.AccountNumber = x.BankAccountNumber
+				info.Request.Fiat.Bank.IBAN = x.Iban
+				info.Request.Fiat.Bank.SWIFTCode = x.SwiftCode
+				info.Request.Fiat.Bank.BSBNumber = x.BSB
+			default:
 			}
-			resp = append(resp, tempResp)
+			resp = append(resp, info)
 		}
 	} else {
 		v, err := modelPSQL.WithdrawalHistories(q...).All(ctx, database.DB.SQL)
@@ -370,53 +364,55 @@ func getByColumns(q []qm.QueryMod) ([]*withdraw.Response, error) {
 		}
 
 		for x := range v {
-			var tempResp = &withdraw.Response{}
-			newUUID, _ := uuid.FromString(v[x].ID)
-			tempResp.ID = newUUID
-			tempResp.Exchange.ID = v[x].ExchangeID
-			tempResp.Exchange.Status = v[x].Status
-			tempResp.RequestDetails = withdraw.Request{
-				Currency:    currency.NewCode(v[x].Currency),
+			var info = &withdraw.Details{
+				CreatedAt: v[x].CreatedAt,
+				UpdatedAt: v[x].UpdatedAt,
+			}
+			info.InternalWithdrawalID, err = uuid.FromString(v[x].ID)
+			if err != nil {
+				return nil, err
+			}
+
+			info.InternalExchangeID, err = uuid.FromString(v[x].ExchangeNameID)
+			if err != nil {
+				return nil, err
+			}
+
+			info.Response.Status = v[x].Status
+			info.Request = &withdraw.Request{
+				Exchange: v[x].ExchangeID,
+				Currency: currency.NewCode(v[x].Currency),
+				// Asset: , TODO:
+				// Account: , TODO:
 				Description: v[x].Description.String,
 				Amount:      v[x].Amount,
 				Type:        withdraw.RequestType(v[x].WithdrawType),
 			}
-			tempResp.CreatedAt = v[x].CreatedAt
-			tempResp.UpdatedAt = v[x].UpdatedAt
 
-			exchangeName, err := v[x].ExchangeName().One(ctx, database.DB.SQL)
-			if err != nil {
-				log.Errorf(log.DatabaseMgr, "Unable to get exchange name")
-				tempUUID, errUUID := uuid.FromString(v[x].ExchangeNameID)
-				if errUUID != nil {
-					log.Errorf(log.DatabaseMgr, "invalid exchange name UUID for record %v", v[x].ID)
-				} else {
-					tempResp.Exchange.UUID = tempUUID
-				}
-			} else {
-				tempResp.Exchange.Name = exchangeName.Name
-			}
-
-			if withdraw.RequestType(v[x].WithdrawType) == withdraw.Crypto {
-				x, err := v[x].WithdrawalCryptoWithdrawalCryptos().One(ctx, database.DB.SQL)
+			switch withdraw.RequestType(v[x].WithdrawType) {
+			case withdraw.Crypto:
+				x, err := v[x].WithdrawalCryptoWithdrawalCryptos().
+					One(ctx, database.DB.SQL)
 				if err != nil {
 					return nil, err
 				}
-				tempResp.RequestDetails.Crypto.Address = x.Address
-				tempResp.RequestDetails.Crypto.AddressTag = x.AddressTag.String
-				tempResp.RequestDetails.Crypto.FeeAmount = x.Fee
-			} else if withdraw.RequestType(v[x].WithdrawType) == withdraw.Fiat {
-				x, err := v[x].WithdrawalFiatWithdrawalFiats().One(ctx, database.DB.SQL)
+				info.Request.Crypto.Address = x.Address
+				info.Request.Crypto.AddressTag = x.AddressTag.String
+				info.Request.Crypto.FeeAmount = x.Fee
+			case withdraw.Fiat:
+				x, err := v[x].WithdrawalFiatWithdrawalFiats().
+					One(ctx, database.DB.SQL)
 				if err != nil {
 					return nil, err
 				}
-				tempResp.RequestDetails.Fiat.Bank.AccountName = x.BankAccountName
-				tempResp.RequestDetails.Fiat.Bank.AccountNumber = x.BankAccountNumber
-				tempResp.RequestDetails.Fiat.Bank.IBAN = x.Iban
-				tempResp.RequestDetails.Fiat.Bank.SWIFTCode = x.SwiftCode
-				tempResp.RequestDetails.Fiat.Bank.BSBNumber = x.BSB
+				info.Request.Fiat.Bank.AccountName = x.BankAccountName
+				info.Request.Fiat.Bank.AccountNumber = x.BankAccountNumber
+				info.Request.Fiat.Bank.IBAN = x.Iban
+				info.Request.Fiat.Bank.SWIFTCode = x.SwiftCode
+				info.Request.Fiat.Bank.BSBNumber = x.BSB
+			default:
 			}
-			resp = append(resp, tempResp)
+			resp = append(resp, info)
 		}
 	}
 	if len(resp) == 0 {

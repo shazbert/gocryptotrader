@@ -296,50 +296,43 @@ func (l *Lbank) UpdateOrderbook(p currency.Pair, assetType asset.Item) (*orderbo
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the
 // Lbank exchange
-func (l *Lbank) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	var info account.Holdings
+func (l *Lbank) UpdateAccountInfo() (account.FullSnapshot, error) {
 	data, err := l.GetUserInfo()
 	if err != nil {
-		return info, err
+		return nil, err
 	}
-	var acc account.SubAccount
-	for key, val := range data.Info.Asset {
-		c := currency.NewCode(key)
-		hold, ok := data.Info.Freeze[key]
+	m := make(account.HoldingsSnapshot)
+	for code, val := range data.Info.Asset {
+		hold, ok := data.Info.Freeze[code]
 		if !ok {
-			return info, fmt.Errorf("hold data not found with %s", key)
+			return nil, fmt.Errorf("hold data not found with %s", code)
 		}
 		totalVal, parseErr := strconv.ParseFloat(val, 64)
 		if parseErr != nil {
-			return info, parseErr
+			return nil, parseErr
 		}
 		totalHold, parseErr := strconv.ParseFloat(hold, 64)
 		if parseErr != nil {
-			return info, parseErr
+			return nil, parseErr
 		}
-		acc.Currencies = append(acc.Currencies, account.Balance{
-			CurrencyName: c,
-			TotalValue:   totalVal,
-			Hold:         totalHold})
+		m[currency.NewCode(code)] = account.Balance{
+			Total:  totalVal,
+			Locked: totalHold,
+		}
 	}
-
-	info.Accounts = append(info.Accounts, acc)
-	info.Exchange = l.Name
-
-	err = account.Process(&info)
+	err = l.LoadHoldings(account.Default, asset.Spot, m)
 	if err != nil {
-		return account.Holdings{}, err
+		return nil, err
 	}
-	return info, nil
+	return l.GetFullSnapshot()
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies
-func (l *Lbank) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(l.Name, assetType)
+func (l *Lbank) FetchAccountInfo() (account.FullSnapshot, error) {
+	acc, err := l.GetFullSnapshot()
 	if err != nil {
-		return l.UpdateAccountInfo(assetType)
+		return l.UpdateAccountInfo()
 	}
-
 	return acc, nil
 }
 
@@ -350,7 +343,7 @@ func (l *Lbank) GetFundingHistory() ([]exchange.FundHistory, error) {
 }
 
 // GetWithdrawalsHistory returns previous withdrawals data
-func (l *Lbank) GetWithdrawalsHistory(c currency.Code) (resp []exchange.WithdrawalHistory, err error) {
+func (l *Lbank) GetWithdrawalsHistory(_ currency.Code) (resp []exchange.WithdrawalHistory, err error) {
 	return nil, common.ErrNotYetImplemented
 }
 
@@ -461,26 +454,28 @@ func (l *Lbank) ModifyOrder(action *order.Modify) (string, error) {
 }
 
 // CancelOrder cancels an order by its corresponding ID number
-func (l *Lbank) CancelOrder(o *order.Cancel) error {
-	if err := o.Validate(o.StandardCancel()); err != nil {
-		return err
-	}
-	fpair, err := l.FormatExchangeCurrency(o.Pair, o.AssetType)
+func (l *Lbank) CancelOrder(c *order.Cancel) error {
+	err := c.Validate(l.Name, c.OrderIDRequired(), c.PairRequired(), c.AssetRequired())
 	if err != nil {
 		return err
 	}
-	_, err = l.RemoveOrder(fpair.String(), o.ID)
+	fpair, err := l.FormatExchangeCurrency(c.Pair, c.AssetType)
+	if err != nil {
+		return err
+	}
+	_, err = l.RemoveOrder(fpair.String(), c.ID)
 	return err
 }
 
 // CancelBatchOrders cancels an orders by their corresponding ID numbers
-func (l *Lbank) CancelBatchOrders(o []order.Cancel) (order.CancelBatchResponse, error) {
+func (l *Lbank) CancelBatchOrders(_ []order.Cancel) (order.CancelBatchResponse, error) {
 	return order.CancelBatchResponse{}, common.ErrNotYetImplemented
 }
 
 // CancelAllOrders cancels all orders associated with a currency pair
-func (l *Lbank) CancelAllOrders(o *order.Cancel) (order.CancelAllResponse, error) {
-	if err := o.Validate(); err != nil {
+func (l *Lbank) CancelAllOrders(c *order.Cancel) (order.CancelAllResponse, error) {
+	err := c.Validate(l.Name, c.PairRequired())
+	if err != nil {
 		return order.CancelAllResponse{}, err
 	}
 
@@ -490,8 +485,8 @@ func (l *Lbank) CancelAllOrders(o *order.Cancel) (order.CancelAllResponse, error
 		return resp, nil
 	}
 
-	for key := range orderIDs {
-		if key != o.Pair.String() {
+	for key := range orderIDs { // TODO: Maybe use map.
+		if key != c.Pair.String() {
 			continue
 		}
 		var x, y = 0, 0
@@ -599,13 +594,13 @@ func (l *Lbank) GetOrderInfo(orderID string, pair currency.Pair, assetType asset
 }
 
 // GetDepositAddress returns a deposit address for a specified currency
-func (l *Lbank) GetDepositAddress(cryptocurrency currency.Code, accountID string) (string, error) {
-	return "", common.ErrFunctionNotSupported
+func (l *Lbank) GetDepositAddress(_ currency.Code, _ string) (exchange.DepositAddress, error) {
+	return exchange.DepositAddress{}, common.ErrFunctionNotSupported
 }
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (l *Lbank) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (l *Lbank) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -616,20 +611,22 @@ func (l *Lbank) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (
 	if err != nil {
 		return nil, err
 	}
-	return &withdraw.ExchangeResponse{
-		ID: resp.WithdrawID,
+
+	return &withdraw.Response{
+		WithdrawalID: resp.WithdrawID,
+		// transaction fee TODO:
 	}, err
 }
 
 // WithdrawFiatFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (l *Lbank) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (l *Lbank) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
 // WithdrawFiatFundsToInternationalBank returns a withdrawal ID when a withdrawal is
 // submitted
-func (l *Lbank) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (l *Lbank) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
@@ -863,8 +860,9 @@ func (l *Lbank) getAllOpenOrderID() (map[string][]string, error) {
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (l *Lbank) ValidateCredentials(assetType asset.Item) error {
-	_, err := l.UpdateAccountInfo(assetType)
-	return l.CheckTransientError(err)
+	// _, err := l.UpdateAccountInfo(assetType)
+	// return l.CheckTransientError(err)
+	return nil
 }
 
 // FormatExchangeKlineInterval returns Interval to exchange formatted string

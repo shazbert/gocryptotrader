@@ -8,6 +8,7 @@ import (
 
 	"github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/currency"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/log"
 )
 
@@ -24,6 +25,25 @@ const (
 	PortfolioAddressPersonal = "Personal"
 )
 
+var (
+	errExchangeIsEmpty           = errors.New("exchange name not set")
+	errHoldingsIsNil             = errors.New("holdings is nil")
+	errNotEthAddress             = errors.New("not an Ethereum address")
+	errInvalidAddress            = errors.New("invalid address")
+	errWalletIsNil               = errors.New("wallet is nil")
+	errAssetIsEmpty              = errors.New("asset is empty")
+	errAccountIsEmpty            = errors.New("account is empty")
+	errInvalidBalance            = errors.New("balance amount is invalid")
+	errAddressIsEmpty            = errors.New("address is empty")
+	errCurrencyIsEmpty           = errors.New("currency not set")
+	errExchangePortfolioNotFound = errors.New("exchange portfolio not found")
+	errPortfolioAlreadySeeded    = errors.New("portfolio addresses already seeded")
+	errAddressCannotMatch        = errors.New("address cannot match")
+	errNoDepositAddressesFound   = errors.New("no deposit addresses found for exchange")
+	errDepositAddressNotFound    = errors.New("deposit address not found")
+	errNoBalanceReturned         = errors.New("no balance info returned")
+)
+
 // Portfolio is variable store holding an array of portfolioAddress
 var Portfolio Base
 
@@ -35,12 +55,13 @@ var Verbose bool
 func GetEthereumBalance(address string) (EthplorerResponse, error) {
 	valid, _ := common.IsValidCryptoAddress(address, "eth")
 	if !valid {
-		return EthplorerResponse{}, errors.New("not an Ethereum address")
+		return EthplorerResponse{}, errNotEthAddress
 	}
 
-	urlPath := fmt.Sprintf(
-		"%s/%s/%s?apiKey=freekey", ethplorerAPIURL, ethplorerAddressInfo, address,
-	)
+	urlPath := fmt.Sprintf("%s/%s/%s?apiKey=freekey",
+		ethplorerAPIURL,
+		ethplorerAddressInfo,
+		address)
 
 	result := EthplorerResponse{}
 	return result, common.SendHTTPGetRequest(urlPath, true, Verbose, &result)
@@ -49,22 +70,22 @@ func GetEthereumBalance(address string) (EthplorerResponse, error) {
 // GetCryptoIDAddress queries CryptoID for an address balance for a
 // specified cryptocurrency
 func GetCryptoIDAddress(address string, coinType currency.Code) (float64, error) {
-	ok, err := common.IsValidCryptoAddress(address, coinType.String())
-	if !ok || err != nil {
-		return 0, errors.New("invalid address")
+	valid, _ := common.IsValidCryptoAddress(address, coinType.String())
+	if !valid {
+		return 0, errInvalidAddress
 	}
 
-	var result interface{}
+	var result float64
 	url := fmt.Sprintf("%s/%s/api.dws?q=getbalance&a=%s",
 		cryptoIDAPIURL,
 		coinType.Lower(),
 		address)
 
-	err = common.SendHTTPGetRequest(url, true, Verbose, &result)
+	err := common.SendHTTPGetRequest(url, true, Verbose, &result)
 	if err != nil {
 		return 0, err
 	}
-	return result.(float64), nil
+	return result, nil
 }
 
 // GetRippleBalance returns the value for a ripple address
@@ -76,7 +97,7 @@ func GetRippleBalance(address string) (float64, error) {
 	}
 
 	if (result == XRPScanAccount{}) {
-		return 0, errors.New("no balance info returned")
+		return 0, errNoBalanceReturned
 	}
 
 	return result.XRPBalance, nil
@@ -85,142 +106,243 @@ func GetRippleBalance(address string) (float64, error) {
 // GetAddressBalance acceses the portfolio base and returns the balance by passed
 // in address, coin type and description
 func (p *Base) GetAddressBalance(address, description string, coinType currency.Code) (float64, bool) {
-	for x := range p.Addresses {
-		if p.Addresses[x].Address == address &&
-			p.Addresses[x].Description == description &&
-			p.Addresses[x].CoinType == coinType {
-			return p.Addresses[x].Balance, true
+	p.m.Lock()
+	defer p.m.Unlock()
+	for x := range p.s.HotWallets {
+		if p.s.HotWallets[x].Address == address &&
+			p.s.HotWallets[x].Currency == coinType.String() {
+			return p.s.HotWallets[x].Balance, true
 		}
 	}
 	return 0, false
 }
 
-// ExchangeExists checks to see if an exchange exists in the portfolio base
-func (p *Base) ExchangeExists(exchangeName string) bool {
-	for x := range p.Addresses {
-		if p.Addresses[x].Address == exchangeName {
-			return true
-		}
-	}
-	return false
-}
+// // ExchangeExists checks to see if an exchange exists in the portfolio base
+// func (p *Base) ExchangeExists(exchangeName string) bool {
+// 	p.m.Lock()
+// 	defer p.m.Unlock()
+// 	for exch := range p.s.Deposits {
+// 		if exch == exchangeName {
+// 			return true
+// 		}
+// 	}
+// 	return false
+// }
 
-// AddressExists checks to see if there is an address associated with the
-// portfolio base
-func (p *Base) AddressExists(address string) bool {
-	for x := range p.Addresses {
-		if p.Addresses[x].Address == address {
-			return true
-		}
-	}
-	return false
-}
+// // AddressExists checks to see if there is an address associated with the
+// // portfolio base
+// func (p *Base) AddressExists(address string) bool {
+// 	p.m.Lock()
+// 	defer p.m.Unlock()
+// 	for x := range p.s.HotWallets {
+// 		if p.s.HotWallets[x].Address == address {
+// 			return true
+// 		}
+// 	}
+// 	return false
+// }
 
-// ExchangeAddressExists checks to see if there is an exchange address
-// associated with the portfolio base
-func (p *Base) ExchangeAddressExists(exchangeName string, coinType currency.Code) bool {
-	for x := range p.Addresses {
-		if p.Addresses[x].Address == exchangeName && p.Addresses[x].CoinType == coinType {
-			return true
-		}
-	}
-	return false
-}
-
-// AddExchangeAddress adds an exchange address to the portfolio base
-func (p *Base) AddExchangeAddress(exchangeName string, coinType currency.Code, balance float64) {
-	if p.ExchangeAddressExists(exchangeName, coinType) {
-		p.UpdateExchangeAddressBalance(exchangeName, coinType, balance)
-	} else {
-		p.Addresses = append(
-			p.Addresses, Address{Address: exchangeName, CoinType: coinType,
-				Balance: balance, Description: PortfolioAddressExchange},
-		)
-	}
-}
-
-// UpdateAddressBalance updates the portfolio base balance
-func (p *Base) UpdateAddressBalance(address string, amount float64) {
-	for x := range p.Addresses {
-		if p.Addresses[x].Address == address {
-			p.Addresses[x].Balance = amount
-		}
-	}
-}
-
-// RemoveExchangeAddress removes an exchange address from the portfolio.
-func (p *Base) RemoveExchangeAddress(exchangeName string, coinType currency.Code) {
-	for x := range p.Addresses {
-		if p.Addresses[x].Address == exchangeName && p.Addresses[x].CoinType == coinType {
-			p.Addresses = append(p.Addresses[:x], p.Addresses[x+1:]...)
-			return
-		}
-	}
-}
-
-// UpdateExchangeAddressBalance updates the portfolio balance when checked
-// against correct exchangeName and coinType.
-func (p *Base) UpdateExchangeAddressBalance(exchangeName string, coinType currency.Code, balance float64) {
-	for x := range p.Addresses {
-		if p.Addresses[x].Address == exchangeName && p.Addresses[x].CoinType == coinType {
-			p.Addresses[x].Balance = balance
-		}
-	}
-}
-
-// AddAddress adds an address to the portfolio base
-func (p *Base) AddAddress(address, description string, coinType currency.Code, balance float64) error {
-	if address == "" {
-		return errors.New("address is empty")
+// Validate checks holdings values
+func (h *Holdings) Validate() error {
+	if h == nil {
+		return errHoldingsIsNil
 	}
 
-	if coinType.String() == "" {
-		return errors.New("coin type is empty")
+	if h.Account == "" {
+		return errAccountIsEmpty
 	}
 
-	if description == PortfolioAddressExchange {
-		p.AddExchangeAddress(address, coinType, balance)
+	if h.Asset == "" {
+		return errAssetIsEmpty
 	}
-	if !p.AddressExists(address) {
-		p.Addresses = append(
-			p.Addresses, Address{Address: address, CoinType: coinType,
-				Balance: balance, Description: description},
-		)
-	} else {
-		if balance <= 0 {
-			p.RemoveAddress(address, description, coinType)
-		} else {
-			p.UpdateAddressBalance(address, balance)
-		}
+
+	if h.Currency == "" {
+		return errCurrencyIsEmpty
 	}
+
+	if h.Balance < 0 {
+		return errInvalidBalance
+	}
+
 	return nil
 }
 
-// RemoveAddress removes an address when checked against the correct address and
-// coinType
-func (p *Base) RemoveAddress(address, description string, coinType currency.Code) error {
-	if address == "" {
-		return errors.New("address is empty")
+// UpdateInsertExchangeBalance if found will update holdings, if not found will
+// insert balance.
+func (p *Base) UpdateInsertExchangeBalance(exch string, h *Holdings) error {
+	if exch == "" {
+		return errExchangeIsEmpty
 	}
 
-	if coinType.String() == "" {
-		return errors.New("coin type is empty")
+	err := h.Validate()
+	if err != nil {
+		return err
 	}
 
-	for x := range p.Addresses {
-		if p.Addresses[x].Address == address &&
-			p.Addresses[x].CoinType == coinType &&
-			p.Addresses[x].Description == description {
-			p.Addresses = append(p.Addresses[:x], p.Addresses[x+1:]...)
+	p.m.Lock()
+	defer p.m.Unlock()
+	val, ok := p.s.Exchanges[exch]
+	if !ok {
+		if h.Balance == 0 {
+			return nil
+		}
+		p.s.Exchanges[exch] = &[]Holdings{*h}
+		return nil
+	}
+
+	for x := range *val {
+		if (*val)[x].Account == h.Account &&
+			(*val)[x].Asset == h.Asset &&
+			(*val)[x].Currency == h.Currency { // Check for match
+			if (*val)[x].Balance == 0 {
+				// If found remove entry as its not needed
+				(*val)[x] = (*val)[len((*val))-1]
+				(*val) = (*val)[:len((*val))-1]
+			} else {
+				// Adjust balance
+				(*val)[x].Balance = h.Balance
+			}
 			return nil
 		}
 	}
 
-	return errors.New("portfolio item does not exist")
+	if h.Balance != 0 { // If balance is zero we can skip here
+		*val = append(*val, *h)
+	}
+	return nil
+}
+
+//  Validate checks wallet data and returns error on incorrect values
+func (w *Wallet) Validate() error {
+	if w == nil {
+		return errWalletIsNil
+	}
+
+	if w.Address == "" {
+		return errAddressIsEmpty
+	}
+
+	if w.Asset == "" {
+		return errAssetIsEmpty
+	}
+
+	if w.Balance < 0 {
+		return errInvalidBalance
+	}
+	return nil
+}
+
+// UpdateInsertDepositAddress adds or updates a new deposit address for an
+// exchange for a potential destination to an exchange.
+func (p *Base) UpdateInsertDepositAddress(exch string, w *Wallet) error {
+	if exch == "" {
+		return errExchangeIsEmpty
+	}
+
+	err := w.Validate()
+	if err != nil {
+		return err
+	}
+
+	p.m.Lock()
+	defer p.m.Unlock()
+	// NOTE: In this context balance is not needed as these addresses are
+	// exchange hot wallets.
+	val, ok := p.s.Deposits[exch]
+	if !ok {
+		p.s.Deposits[exch] = &[]Wallet{*w}
+		return nil
+	}
+
+	for x := range *val { // search for loaded address
+		if (*val)[x].Address == w.Address && (*val)[x].Currency == w.Currency {
+			// Address and currency should be the only two fields that are
+			// needed to be checked as it will act as a unique ID associated
+			// with the crypto.
+			(*val)[x] = *w
+			return nil
+		}
+	}
+	// insert wallet address
+	*val = append(*val, *w)
+	return nil
+}
+
+// UpdateInsertColdWallet adds or updates a cold wallet for long term storage
+func (p *Base) UpdateInsertColdWallet(w *Wallet) error {
+	err := w.Validate()
+	if err != nil {
+		return err
+	}
+
+	if !w.WhiteListed {
+		log.Warnf(log.PortfolioMgr,
+			"Cannot withdraw to wallet %s for %s as it is not whitelisted.",
+			w.Address,
+			w.Currency)
+	}
+
+	for x := range p.s.ColdWallets {
+		if p.s.ColdWallets[x].Address == w.Address &&
+			p.s.ColdWallets[x].Currency == w.Currency {
+			// Address and currency should be the only two fields that are
+			// needed to be checked as it will act as a unique ID associated
+			// with the crypto.
+			p.s.ColdWallets[x] = *w
+		}
+	}
+	// insert wallet address
+	p.s.ColdWallets = append(p.s.ColdWallets, *w)
+	return nil
+}
+
+// UpdateInsertHotWallet adds or updates a hot wallet for short term storage
+func (p *Base) UpdateInsertHotWallet(w *Wallet) error {
+	err := w.Validate()
+	if err != nil {
+		return err
+	}
+
+	if !w.WhiteListed {
+		log.Warnf(log.PortfolioMgr,
+			"Cannot withdraw to wallet %s for %s as it is not whitelisted",
+			w.Address,
+			w.Currency)
+	}
+
+	for x := range p.s.HotWallets {
+		if p.s.HotWallets[x].Address == w.Address &&
+			p.s.HotWallets[x].Currency == w.Currency {
+			// Address and currency should be the only two fields that are
+			// needed to be checked as it will act as a unique ID associated
+			// with the crypto.
+			log.Debugf(log.PortfolioMgr,
+				"Updating hot wallet: '%s' '%s' '%s' '%s' entry with balance '%f'.\n",
+				w.Address,
+				w.Account,
+				w.Asset,
+				w.Currency,
+				w.Balance)
+			p.s.HotWallets[x] = *w
+			return nil
+		}
+	}
+	log.Debugf(log.PortfolioMgr,
+		"Inserting hot wallet: '%s' '%s' '%s' '%s' entry with balance '%f'.\n",
+		w.Address,
+		w.Account,
+		w.Asset,
+		w.Currency,
+		w.Balance)
+	// insert wallet address
+	p.s.HotWallets = append(p.s.HotWallets, *w)
+	return nil
 }
 
 // UpdatePortfolio adds to the portfolio addresses by coin type
 func (p *Base) UpdatePortfolio(addresses []string, coinType currency.Code) error {
+	p.m.Lock()
+	defer p.m.Unlock()
 	if strings.Contains(strings.Join(addresses, ","), PortfolioAddressExchange) ||
 		strings.Contains(strings.Join(addresses, ","), PortfolioAddressPersonal) {
 		return nil
@@ -238,242 +360,262 @@ func (p *Base) UpdatePortfolio(addresses []string, coinType currency.Code) error
 				return errors.New(result.Error.Message)
 			}
 
-			err = p.AddAddress(addresses[x],
-				PortfolioAddressPersonal,
-				coinType,
-				result.ETH.Balance)
-			if err != nil {
-				return err
-			}
+			// err = p.AddAddress(addresses[x],
+			// 	PortfolioAddressPersonal,
+			// 	coinType,
+			// 	result.ETH.Balance)
+			// if err != nil {
+			// 	return err
+			// }
 		}
 	case currency.XRP:
-		for x := range addresses {
-			result, err := GetRippleBalance(addresses[x])
-			if err != nil {
-				return err
-			}
-			err = p.AddAddress(addresses[x],
-				PortfolioAddressPersonal,
-				coinType,
-				result)
-			if err != nil {
-				return err
-			}
-		}
+		// for x := range addresses {
+		// 	// result, err := GetRippleBalance(addresses[x])
+		// 	// if err != nil {
+		// 	// 	return err
+		// 	// }
+		// 	// err = p.AddAddress(addresses[x],
+		// 	// 	PortfolioAddressPersonal,
+		// 	// 	coinType,
+		// 	// 	result)
+		// 	// if err != nil {
+		// 	// 	return err
+		// 	// }
+		// }
 	default:
-		for x := range addresses {
-			result, err := GetCryptoIDAddress(addresses[x], coinType)
-			if err != nil {
-				return err
-			}
-			err = p.AddAddress(addresses[x],
-				PortfolioAddressPersonal,
-				coinType,
-				result)
-			if err != nil {
-				return err
-			}
-		}
+		// for x := range addresses {
+		// 	result, err := GetCryptoIDAddress(addresses[x], coinType)
+		// 	if err != nil {
+		// 		return err
+		// 	}
+		// 	err = p.AddAddress(addresses[x],
+		// 		PortfolioAddressPersonal,
+		// 		coinType,
+		// 		result)
+		// 	if err != nil {
+		// 		return err
+		// 	}
+		// }
 	}
 	return nil
 }
 
 // GetPortfolioByExchange returns currency portfolio amount by exchange
-func (p *Base) GetPortfolioByExchange(exchangeName string) map[currency.Code]float64 {
-	result := make(map[currency.Code]float64)
-	for x := range p.Addresses {
-		if strings.Contains(p.Addresses[x].Address, exchangeName) {
-			result[p.Addresses[x].CoinType] = p.Addresses[x].Balance
-		}
+func (p *Base) GetPortfolioByExchange(exch string) (map[currency.Code]float64, error) {
+	if exch == "" {
+		return nil, errExchangeIsEmpty
 	}
-	return result
+
+	p.m.Lock()
+	defer p.m.Unlock()
+	holdings, ok := p.s.Exchanges[exch]
+	if !ok {
+		return nil, errExchangePortfolioNotFound
+	}
+
+	result := make(map[currency.Code]float64)
+	for x := range *holdings {
+		code := currency.NewCode((*holdings)[x].Currency)
+		// Amounts could be spread across acounts, for now amalgamate.
+		result[code] = (*holdings)[x].Balance + result[code]
+	}
+	return result, nil
 }
 
-// GetExchangePortfolio returns current portfolio base information
-func (p *Base) GetExchangePortfolio() map[currency.Code]float64 {
+// GetCombinedExchangesPortfolio returns portfolio map for aggregated balances
+// for all matching currency items for a full snapshot.
+func (p *Base) getCombinedExchangesPortfolio() map[currency.Code]float64 {
 	result := make(map[currency.Code]float64)
-	for _, x := range p.Addresses {
-		if x.Description != PortfolioAddressExchange {
-			continue
-		}
-		balance, ok := result[x.CoinType]
-		if !ok {
-			result[x.CoinType] = x.Balance
-		} else {
-			result[x.CoinType] = x.Balance + balance
+	for _, holdings := range p.s.Exchanges {
+		for x := range *holdings {
+			code := currency.NewCode((*holdings)[x].Currency)
+			result[code] = (*holdings)[x].Balance + result[code]
 		}
 	}
 	return result
 }
 
 // GetPersonalPortfolio returns current portfolio base information
-func (p *Base) GetPersonalPortfolio() map[currency.Code]float64 {
+func (p *Base) getPersonalPortfolio() map[currency.Code]float64 {
 	result := make(map[currency.Code]float64)
-	for _, x := range p.Addresses {
-		if x.Description == PortfolioAddressExchange {
-			continue
-		}
-		balance, ok := result[x.CoinType]
-		if !ok {
-			result[x.CoinType] = x.Balance
-		} else {
-			result[x.CoinType] = x.Balance + balance
-		}
+	for x := range p.s.ColdWallets {
+		code := currency.NewCode(p.s.ColdWallets[x].Currency)
+		result[code] = p.s.ColdWallets[x].Balance + result[code]
+	}
+	for x := range p.s.HotWallets {
+		code := currency.NewCode(p.s.HotWallets[x].Currency)
+		result[code] = p.s.HotWallets[x].Balance + result[code]
 	}
 	return result
 }
 
 // getPercentage returns the percentage of the target coin amount against the
 // total coin amount.
-func getPercentage(input map[currency.Code]float64, target currency.Code, totals map[currency.Code]float64) float64 {
+func getPercentage(input, totals map[currency.Code]float64, target currency.Code) float64 {
 	subtotal := input[target]
 	total := totals[target]
 	percentage := (subtotal / total) * 100 / 1
 	return percentage
 }
 
-// getPercentageSpecific returns the percentage a specific value of a target coin amount
-// against the total coin amount.
+// getPercentageSpecific returns the percentage a specific value of a target
+// coin amount against the total coin amount.
 func getPercentageSpecific(input float64, target currency.Code, totals map[currency.Code]float64) float64 {
 	total := totals[target]
 	percentage := (input / total) * 100 / 1
 	return percentage
 }
 
-// GetPortfolioSummary returns the complete portfolio summary, showing
-// coin totals, offline and online summaries with their relative percentages.
+// GetPortfolioSummary returns the complete portfolio summary, showing coin
+// totals, offline and online summaries with their relative percentages.
 func (p *Base) GetPortfolioSummary() Summary {
-	personalHoldings := p.GetPersonalPortfolio()
-	exchangeHoldings := p.GetExchangePortfolio()
+	p.m.Lock()
+	defer p.m.Unlock()
+
 	totalCoins := make(map[currency.Code]float64)
 
-	for x, y := range personalHoldings {
-		totalCoins[x] = y
+	personalHoldings := p.getPersonalPortfolio()
+	for c, bal := range personalHoldings {
+		totalCoins[c] = bal
 	}
 
-	for x, y := range exchangeHoldings {
-		balance, ok := totalCoins[x]
-		if !ok {
-			totalCoins[x] = y
-		} else {
-			totalCoins[x] = y + balance
-		}
+	exchangeHoldings := p.getCombinedExchangesPortfolio()
+	for code, balance := range exchangeHoldings {
+		totalCoins[code] = balance + totalCoins[code]
 	}
 
-	var portfolioOutput Summary
-	for x, y := range totalCoins {
-		coins := Coin{Coin: x, Balance: y}
-		portfolioOutput.Totals = append(portfolioOutput.Totals, coins)
+	var output Summary
+	for code, balance := range totalCoins {
+		output.Totals = append(output.Totals, Coin{Coin: code, Balance: balance})
 	}
 
-	for x, y := range personalHoldings {
-		coins := Coin{
-			Coin:       x,
-			Balance:    y,
-			Percentage: getPercentage(personalHoldings, x, totalCoins),
-		}
-		portfolioOutput.Offline = append(portfolioOutput.Offline, coins)
+	for code, balance := range personalHoldings {
+		output.Offline = append(output.Offline, Coin{
+			Coin:       code,
+			Balance:    balance,
+			Percentage: getPercentage(personalHoldings, totalCoins, code),
+		})
 	}
 
-	for x, y := range exchangeHoldings {
-		coins := Coin{
-			Coin:       x,
-			Balance:    y,
-			Percentage: getPercentage(exchangeHoldings, x, totalCoins),
-		}
-		portfolioOutput.Online = append(portfolioOutput.Online, coins)
-	}
-
-	var portfolioExchanges []string
-	for _, x := range p.Addresses {
-		if x.Description == PortfolioAddressExchange {
-			if !common.StringDataCompare(portfolioExchanges, x.Address) {
-				portfolioExchanges = append(portfolioExchanges, x.Address)
-			}
-		}
+	for code, balance := range exchangeHoldings {
+		output.Online = append(output.Online, Coin{
+			Coin:       code,
+			Balance:    balance,
+			Percentage: getPercentage(exchangeHoldings, totalCoins, code),
+		})
 	}
 
 	exchangeSummary := make(map[string]map[currency.Code]OnlineCoinSummary)
-	for x := range portfolioExchanges {
-		exchgName := portfolioExchanges[x]
-		result := p.GetPortfolioByExchange(exchgName)
+	for exch := range p.s.Exchanges {
+		result, err := p.GetPortfolioByExchange(exch)
+		if err != nil {
+			continue
+		}
 
 		coinSummary := make(map[currency.Code]OnlineCoinSummary)
-		for y, z := range result {
-			coinSum := OnlineCoinSummary{
-				Balance:    z,
-				Percentage: getPercentageSpecific(z, y, totalCoins),
+		for code, balance := range result {
+			coinSummary[code] = OnlineCoinSummary{
+				Balance:    balance,
+				Percentage: getPercentageSpecific(balance, code, totalCoins),
 			}
-			coinSummary[y] = coinSum
 		}
-		exchangeSummary[exchgName] = coinSummary
+		exchangeSummary[exch] = coinSummary
 	}
-	portfolioOutput.OnlineSummary = exchangeSummary
+	output.OnlineSummary = exchangeSummary
 
 	offlineSummary := make(map[currency.Code][]OfflineCoinSummary)
-	for _, x := range p.Addresses {
-		if x.Description != PortfolioAddressExchange {
-			coinSummary := OfflineCoinSummary{
-				Address: x.Address,
-				Balance: x.Balance,
-				Percentage: getPercentageSpecific(x.Balance, x.CoinType,
-					totalCoins),
-			}
-			result, ok := offlineSummary[x.CoinType]
-			if !ok {
-				offlineSummary[x.CoinType] = append(offlineSummary[x.CoinType],
-					coinSummary)
-			} else {
-				result = append(result, coinSummary)
-				offlineSummary[x.CoinType] = result
-			}
-		}
+	setSummary(p.s.ColdWallets, &offlineSummary, totalCoins)
+	setSummary(p.s.HotWallets, &offlineSummary, totalCoins)
+	output.OfflineSummary = offlineSummary
+	return output
+}
+
+func setSummary(wallet []Wallet, sum *map[currency.Code][]OfflineCoinSummary, totalCoins map[currency.Code]float64) {
+	for x := range wallet {
+		code := currency.NewCode(wallet[x].Currency)
+		(*sum)[code] = append((*sum)[code], OfflineCoinSummary{
+			Address: wallet[x].Address,
+			Balance: wallet[x].Balance,
+			Percentage: getPercentageSpecific(wallet[x].Balance,
+				code,
+				totalCoins),
+		})
 	}
-	portfolioOutput.OfflineSummary = offlineSummary
-	return portfolioOutput
 }
 
 // GetPortfolioGroupedCoin returns portfolio base information grouped by coin
 func (p *Base) GetPortfolioGroupedCoin() map[currency.Code][]string {
+	p.m.Lock()
+	defer p.m.Unlock()
 	result := make(map[currency.Code][]string)
-	for _, x := range p.Addresses {
-		if strings.Contains(x.Description, PortfolioAddressExchange) {
-			continue
-		}
-		result[x.CoinType] = append(result[x.CoinType], x.Address)
+	for x := range p.s.ColdWallets {
+		c := currency.NewCode(p.s.ColdWallets[x].Currency)
+		result[c] = append(result[c], p.s.ColdWallets[x].Address)
+	}
+	for x := range p.s.HotWallets {
+		c := currency.NewCode(p.s.HotWallets[x].Currency)
+		result[c] = append(result[c], p.s.HotWallets[x].Address)
 	}
 	return result
 }
 
-// Seed appends a portfolio base object with another base portfolio
-// addresses
-func (p *Base) Seed(port Base) {
-	p.Addresses = port.Addresses
+// Seed loads a new portfolio state, will error if already seeded
+func (p *Base) Seed(port State) error {
+	p.m.Lock()
+	defer p.m.Unlock()
+	if p.s != nil {
+		return errPortfolioAlreadySeeded
+	}
+	p.s = &port
+	return nil
+}
+
+// GetExchangeCount returns the exchange count
+func (p *Base) GetExchangeCount() int {
+	p.m.Lock()
+	defer p.m.Unlock()
+	return len(p.s.Exchanges)
+}
+
+// GetHotWalletsCount returns the hot wallets count
+func (p *Base) GetHotWalletsCount() int {
+	p.m.Lock()
+	defer p.m.Unlock()
+	return len(p.s.HotWallets)
+}
+
+// GetColdWalletsCount returns the cold wallets count
+func (p *Base) GetColdWalletsCount() int {
+	p.m.Lock()
+	defer p.m.Unlock()
+	return len(p.s.ColdWallets)
 }
 
 // StartPortfolioWatcher observes the portfolio object
 func StartPortfolioWatcher() {
-	addrCount := len(Portfolio.Addresses)
 	log.Debugf(log.PortfolioMgr,
-		"PortfolioWatcher started: Have %d entries in portfolio.\n", addrCount,
-	)
+		"PortfolioWatcher started: Monitoring over %d exchange(s), %d hot wallet(s) & %d cold wallet(s) entries.\n",
+		Portfolio.GetExchangeCount(),
+		Portfolio.GetHotWalletsCount(),
+		Portfolio.GetColdWalletsCount())
+
 	for {
 		data := Portfolio.GetPortfolioGroupedCoin()
-		for key, value := range data {
-			err := Portfolio.UpdatePortfolio(value, key)
+		for code, offlineAddresses := range data {
+			err := Portfolio.UpdatePortfolio(offlineAddresses, code)
 			if err != nil {
 				log.Errorf(log.PortfolioMgr,
 					"PortfolioWatcher error %s for currency %s, val %v\n",
 					err,
-					key,
-					value)
+					code,
+					offlineAddresses)
 				continue
 			}
 
 			log.Debugf(log.PortfolioMgr,
 				"PortfolioWatcher: Successfully updated address balance for %s address(es) %s\n",
-				key,
-				value)
+				code,
+				offlineAddresses)
 		}
 		time.Sleep(time.Minute * 10)
 	}
@@ -484,36 +626,194 @@ func GetPortfolio() *Base {
 	return &Portfolio
 }
 
-// IsExchangeSupported checks if exchange is supported by portfolio address
-func IsExchangeSupported(exchange, address string) (ret bool) {
-	for x := range Portfolio.Addresses {
-		if Portfolio.Addresses[x].Address != address {
-			continue
+// Supported checks if an address that is matched is allowed to be deposited to
+// by calling exchange.
+func (b *Base) Supported(exch string, address string, c currency.Code) bool {
+	b.m.Lock()
+	defer b.m.Unlock()
+	for x := range b.s.ColdWallets {
+		if b.s.ColdWallets[x].Address == address &&
+			b.s.ColdWallets[x].Currency == c.String() {
+			return strings.Contains(b.s.ColdWallets[x].SupportedExchanges, exch)
 		}
-		exchangeList := strings.Split(Portfolio.Addresses[x].SupportedExchanges, ",")
-		return common.StringDataContainsInsensitive(exchangeList, exchange)
 	}
-	return
+
+	for x := range b.s.HotWallets {
+		if b.s.HotWallets[x].Address == address &&
+			b.s.HotWallets[x].Currency == c.String() {
+			return strings.Contains(b.s.HotWallets[x].SupportedExchanges, exch)
+		}
+	}
+	return false
+}
+
+// IsExchangeSupported checks if exchange is supported by portfolio address
+func IsExchangeSupported(exch, address string, c currency.Code) bool {
+	return Portfolio.Supported(exch, address, c)
+}
+
+// ColdStorage checks to see if an address is a cold storage wallet
+func (b *Base) ColdStorage(address string, c currency.Code) bool {
+	b.m.Lock()
+	defer b.m.Unlock()
+	for x := range b.s.ColdWallets {
+		if b.s.ColdWallets[x].Address == address &&
+			b.s.ColdWallets[x].Currency == c.String() {
+			return true
+		}
+	}
+	return false
 }
 
 // IsColdStorage checks if address is a cold storage wallet
-func IsColdStorage(address string) (ret bool) {
-	for x := range Portfolio.Addresses {
-		if Portfolio.Addresses[x].Address != address {
-			continue
+func IsColdStorage(address string, c currency.Code) bool {
+	return Portfolio.ColdStorage(address, c)
+}
+
+// WhiteListed checks to see if an address is white listed for interaction
+func (b *Base) WhiteListed(address string, c currency.Code) bool {
+	b.m.Lock()
+	defer b.m.Unlock()
+	for x := range b.s.ColdWallets {
+		if b.s.ColdWallets[x].Address == address &&
+			b.s.ColdWallets[x].Currency == c.String() {
+			return b.s.ColdWallets[x].WhiteListed
 		}
-		return Portfolio.Addresses[x].ColdStorage
 	}
-	return
+	for x := range b.s.HotWallets {
+		if b.s.HotWallets[x].Address == address &&
+			b.s.HotWallets[x].Currency == c.String() {
+			return b.s.HotWallets[x].WhiteListed
+		}
+	}
+	return false
 }
 
 // IsWhiteListed checks if address is whitelisted for withdraw transfers
-func IsWhiteListed(address string) (ret bool) {
-	for x := range Portfolio.Addresses {
-		if Portfolio.Addresses[x].Address != address {
-			continue
+func IsWhiteListed(address string, c currency.Code) bool {
+	return Portfolio.WhiteListed(address, c)
+}
+
+// IsTagOrMemoRequired checks if address is needs a tag or memo
+func (b *Base) TagOrMemoRequired(address string, c currency.Code) (bool, error) {
+	b.m.Lock()
+	defer b.m.Unlock()
+	for x := range b.s.ColdWallets {
+		if b.s.ColdWallets[x].Address == address &&
+			b.s.ColdWallets[x].Currency == c.String() {
+			return b.s.ColdWallets[x].TagMemoRequired, nil
 		}
-		return Portfolio.Addresses[x].WhiteListed
 	}
-	return
+	for x := range b.s.HotWallets {
+		if b.s.HotWallets[x].Address == address &&
+			b.s.HotWallets[x].Currency == c.String() {
+			return b.s.HotWallets[x].TagMemoRequired, nil
+		}
+	}
+	return false, errAddressCannotMatch
+}
+
+// IsTagOrMemoRequired checks if address is needs a tag or memo
+func IsTagOrMemoRequired(address string, c currency.Code) (bool, error) {
+	return Portfolio.TagOrMemoRequired(address, c)
+}
+
+// GetState returns portfolio state for configuration
+func (b *Base) GetState() State {
+	return *b.s
+}
+
+// GetDepositAddressByExchange returns a deposit address for the specified
+// exchange and cryptocurrency if it exists
+func (b *Base) GetDepositAddressByExchange(exch string, c currency.Code) (string, error) {
+	if exch == "" {
+		return "", errExchangeIsEmpty
+	}
+
+	if c.String() == "" {
+		return "", errCurrencyIsEmpty
+	}
+
+	b.m.Lock()
+	defer b.m.Unlock()
+	val, ok := b.s.Deposits[exch]
+	if !ok {
+		return "", errNoDepositAddressesFound
+	}
+
+	for x := range *val {
+		if (*val)[x].Currency == c.String() {
+			// TODO: Add in tag requirements, need to return full info. When we
+			// upgrade to a multikey situation we will have different tag
+			// requirements per key so maybe a keychain map might be needed.
+			return (*val)[x].Address, nil
+		}
+	}
+	return "", errDepositAddressNotFound
+}
+
+// GetDepositAddressesByExchange returns a list of cryptocurrency addresses for
+// the specified exchange if they exist
+func (b *Base) GetDepositAddressesByExchange(exch string) (map[string]string, error) {
+	if exch == "" {
+		return nil, errExchangeIsEmpty
+	}
+
+	b.m.Lock()
+	defer b.m.Unlock()
+
+	val, ok := b.s.Deposits[exch]
+	if !ok {
+		return nil, errNoDepositAddressesFound
+	}
+
+	r := make(map[string]string)
+	for x := range *val {
+		r[(*val)[x].Currency] = (*val)[x].Address
+	}
+	return r, nil
+}
+
+// LoadDepositAddress inserts the manageable deposit address for an exchange
+// account.
+func (b *Base) LoadDepositAddress(exch, acc, addr, tagMemo, curr string) error {
+	b.m.Lock()
+	defer b.m.Unlock()
+
+	w := Wallet{
+		Address:     addr,
+		WhiteListed: true, // These will be automatically white listed because
+		// these are specifically tied to the exchange.
+		TagMemoRequired:    tagMemo != "",
+		SupportedExchanges: "ALL", // Can allow all enables exchanges to
+		// withdraw to these addresses as needed.
+		TagMemo: tagMemo,
+		Account: acc,
+		Holding: Holding{
+			Currency: curr,
+			Asset:    asset.Spot.String(),
+		},
+	}
+
+	if b.s.Deposits == nil {
+		b.s.Deposits = make(map[string]*[]Wallet)
+	}
+
+	addresses, ok := b.s.Deposits[exch]
+	if !ok {
+		// Deploy first instance
+		b.s.Deposits[exch] = &[]Wallet{w}
+		return nil
+	}
+
+	for x := range *addresses {
+		if (*addresses)[x].Address == addr &&
+			(*addresses)[x].Account == acc &&
+			(*addresses)[x].Currency == curr {
+			(*addresses)[x] = w // Update
+			return nil
+		}
+	}
+	*addresses = append(*addresses, w)
+	return nil
 }

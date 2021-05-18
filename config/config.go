@@ -22,9 +22,11 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	"github.com/thrasher-corp/gocryptotrader/currency/forexprovider"
 	"github.com/thrasher-corp/gocryptotrader/database"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/account"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	gctscript "github.com/thrasher-corp/gocryptotrader/gctscript/vm"
 	"github.com/thrasher-corp/gocryptotrader/log"
+	"github.com/thrasher-corp/gocryptotrader/portfolio"
 	"github.com/thrasher-corp/gocryptotrader/portfolio/banking"
 )
 
@@ -1743,6 +1745,12 @@ func (c *Config) CheckConfig() error {
 			err)
 	}
 
+	err = c.checkPortfolioConfig()
+	if err != nil {
+		// dress
+		return fmt.Errorf("%w", err)
+	}
+
 	err = c.CheckExchangeConfigValues()
 	if err != nil {
 		return fmt.Errorf(ErrCheckingConfigValues, err)
@@ -1777,6 +1785,64 @@ func (c *Config) CheckConfig() error {
 		c.CheckNTPConfig()
 	}
 
+	return nil
+}
+
+// checkPortfolioConfig upgrades and checks portfolio
+func (c *Config) checkPortfolioConfig() error {
+	if c.OldPortfolio != nil {
+		log.Warnf(log.ConfigMgr,
+			"Upgrading portfolio configuration, please check values and what items require tag/memo for deposits...")
+
+		c.Portfolio.Exchanges = make(map[string]*[]portfolio.Holdings)
+		c.Portfolio.Deposits = make(map[string]*[]portfolio.Wallet)
+		for x := range c.OldPortfolio.Addresses {
+			address := c.OldPortfolio.Addresses[x].Address
+			if c.OldPortfolio.Addresses[x].Description == "Exchange" {
+				if address == "" {
+					log.Warnf(log.ConfigMgr,
+						"Address field not set with exchange name for currency %s",
+						c.OldPortfolio.Addresses[x].CoinType)
+					continue
+				}
+
+				nH := portfolio.Holdings{
+					Account: account.Default,
+					Holding: portfolio.Holding{
+						Currency: c.OldPortfolio.Addresses[x].CoinType,
+						Asset:    asset.Spot.String(),
+						Balance:  c.OldPortfolio.Addresses[x].Balance,
+					},
+				}
+
+				holdings, ok := c.Portfolio.Exchanges[address]
+				if !ok {
+					c.Portfolio.Exchanges[address] = &[]portfolio.Holdings{nH}
+				} else {
+					*holdings = append(*holdings, nH)
+				}
+				continue
+			}
+
+			wallet := portfolio.Wallet{
+				Address:     address,
+				WhiteListed: c.OldPortfolio.Addresses[x].WhiteListed,
+				Holding: portfolio.Holding{
+					Currency: c.OldPortfolio.Addresses[x].CoinType,
+					Asset:    asset.Spot.String(),
+					Balance:  c.OldPortfolio.Addresses[x].Balance,
+				},
+			}
+
+			if c.OldPortfolio.Addresses[x].ColdStorage {
+				c.Portfolio.ColdWallets = append(c.Portfolio.ColdWallets, wallet)
+			} else {
+				c.Portfolio.HotWallets = append(c.Portfolio.HotWallets, wallet)
+			}
+		}
+		// flush old portfolio variables
+		c.OldPortfolio = nil
+	}
 	return nil
 }
 

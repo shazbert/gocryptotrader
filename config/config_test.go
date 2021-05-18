@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -2212,5 +2213,325 @@ func TestMigrateConfig(t *testing.T) {
 				t.Errorf("migrateConfig: %v should exist", got)
 			}
 		})
+	}
+}
+
+func TestCheckPortfolio(t *testing.T) {
+	c := Config{}
+	payload := []byte(`{
+	"portfolioAddresses": {
+		"addresses": [
+		 {
+		  "Address": "rPFXvVo2fYXVPdV9gCHQouHsMgMhQ2aUwM",
+		  "CoinType": "XRP",
+		  "Balance": 151004903.974665,
+		  "Description": "",
+		  "WhiteListed": true,
+		  "ColdStorage": false,
+		  "SupportedExchanges": "poloniex"
+		 },
+		 {
+		  "Address": "1JCe8z4jJVNXSjohjM4i9Hh813dLCNx2Sy",
+		  "CoinType": "BTC",
+		  "Balance": 0.00108832,
+		  "Description": "",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "3Nxwenay9Z8Lc9JBiywExpnEFiLp6Afp8v",
+		  "CoinType": "BTC",
+		  "Balance": 0.00904659,
+		  "Description": "",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "LgY8ahfHRhvjVQC1zJnBhFMG5pCTMuKRqh",
+		  "CoinType": "LTC",
+		  "Balance": 0.03665026,
+		  "Description": "",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "0xb794f5ea0ba39494ce839613fffba74279579268",
+		  "CoinType": "ETH",
+		  "Balance": 0.30878452551325775,
+		  "Description": "",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "r962iS5subzbVeXZN8MTzyEuuaQKo5qksh",
+		  "CoinType": "XRP",
+		  "Balance": 49.98,
+		  "Description": "",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "BTC Markets",
+		  "CoinType": "AUD",
+		  "Balance": 204.3038635,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "Bitfinex",
+		  "CoinType": "XRP",
+		  "Balance": 40.65,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "Binance",
+		  "CoinType": "PPT",
+		  "Balance": 92.741,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "OKEX",
+		  "CoinType": "XLM",
+		  "Balance": 0.001802,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "OKEX",
+		  "CoinType": "USDK",
+		  "Balance": 0.00018336,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "OKEX",
+		  "CoinType": "THETA",
+		  "Balance": 0.0189638,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "OKEX",
+		  "CoinType": "XRP",
+		  "Balance": 5300.59736,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "Poloniex",
+		  "CoinType": "BCHSV",
+		  "Balance": 5e-8,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "FTX",
+		  "CoinType": "USD",
+		  "Balance": 4814.80382461,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "FTX",
+		  "CoinType": "LTC",
+		  "Balance": 0.0087227,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "FTX",
+		  "CoinType": "FTT",
+		  "Balance": 3655.365815,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "Poloniex",
+		  "CoinType": "XRP",
+		  "Balance": 31.14,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "OKEX",
+		  "CoinType": "LTC",
+		  "Balance": 25.0721872,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "Binance",
+		  "CoinType": "DGB",
+		  "Balance": 14577.9957,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "Binance",
+		  "CoinType": "SOL",
+		  "Balance": 22.03808,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "Kraken",
+		  "CoinType": "XRP",
+		  "Balance": 99.73,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "Bitfinex",
+		  "CoinType": "xrp",
+		  "Balance": 121.94999999999999,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "Poloniex",
+		  "CoinType": "BCH",
+		  "Balance": 5e-8,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "Poloniex",
+		  "CoinType": "BCHA",
+		  "Balance": 5e-8,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "BTSE",
+		  "CoinType": "XRP",
+		  "Balance": 57.9,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "LocalBitcoins",
+		  "CoinType": "BTC",
+		  "Balance": 0.00078891,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "Binance",
+		  "CoinType": "BTC",
+		  "Balance": 0.00305151,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "BTC Markets",
+		  "CoinType": "BTC",
+		  "Balance": 0.00093972,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "Binance",
+		  "CoinType": "USDT",
+		  "Balance": 3769.60538407,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "BTC Markets",
+		  "CoinType": "LTC",
+		  "Balance": 0.8,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 },
+		 {
+		  "Address": "Binance",
+		  "CoinType": "BUSD",
+		  "Balance": 326.57676649,
+		  "Description": "Exchange",
+		  "WhiteListed": false,
+		  "ColdStorage": false,
+		  "SupportedExchanges": ""
+		 }
+		]
+	   }
+	}`)
+
+	err := json.Unmarshal(payload, &c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = c.checkPortfolioConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(c.Portfolio.ColdWallets) != 0 {
+		t.Fatal("unexpected values")
+	}
+
+	if len(c.Portfolio.HotWallets) != 6 {
+		t.Fatal("unexpected values", len(c.Portfolio.HotWallets))
+	}
+
+	if len(c.Portfolio.Exchanges) != 9 {
+		t.Fatal("unexpected values", len(c.Portfolio.Exchanges))
 	}
 }

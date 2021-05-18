@@ -600,8 +600,8 @@ Unsupported Example:
 ```go
 // WithdrawFiatFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (f *FTX) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
-	var resp *withdraw.ExchangeResponse
+func (f *FTX) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
+	var resp *withdraw.Response
 	return resp, common.ErrFunctionNotSupported
 }
 ```

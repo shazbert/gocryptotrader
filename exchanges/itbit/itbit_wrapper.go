@@ -248,61 +248,34 @@ func (i *ItBit) UpdateOrderbook(p currency.Pair, assetType asset.Item) (*orderbo
 }
 
 // UpdateAccountInfo retrieves balances for all enabled currencies
-func (i *ItBit) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	var info account.Holdings
-	info.Exchange = i.Name
-
+func (i *ItBit) UpdateAccountInfo() (account.FullSnapshot, error) {
 	wallets, err := i.GetWallets(url.Values{})
 	if err != nil {
-		return info, err
+		return nil, err
 	}
-
-	type balance struct {
-		TotalValue float64
-		Hold       float64
-	}
-
-	var amounts = make(map[string]*balance)
 
 	for x := range wallets {
-		for _, cb := range wallets[x].Balances {
-			if _, ok := amounts[cb.Currency]; !ok {
-				amounts[cb.Currency] = &balance{}
+		m := make(account.HoldingsSnapshot)
+		for y := range wallets[x].Balances {
+			m[currency.NewCode(wallets[x].Balances[y].Currency)] = account.Balance{
+				Total:  wallets[x].Balances[y].TotalBalance,
+				Locked: wallets[x].Balances[y].TotalBalance - wallets[x].Balances[y].AvailableBalance,
 			}
-
-			amounts[cb.Currency].TotalValue += cb.TotalBalance
-			amounts[cb.Currency].Hold += cb.TotalBalance - cb.AvailableBalance
+		}
+		err = i.LoadHoldings(wallets[x].Name, asset.Spot, m)
+		if err != nil {
+			return nil, err
 		}
 	}
-
-	var fullBalance []account.Balance
-	for key := range amounts {
-		fullBalance = append(fullBalance, account.Balance{
-			CurrencyName: currency.NewCode(key),
-			TotalValue:   amounts[key].TotalValue,
-			Hold:         amounts[key].Hold,
-		})
-	}
-
-	info.Accounts = append(info.Accounts, account.SubAccount{
-		Currencies: fullBalance,
-	})
-
-	err = account.Process(&info)
-	if err != nil {
-		return account.Holdings{}, err
-	}
-
-	return info, nil
+	return i.GetFullSnapshot()
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies
-func (i *ItBit) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(i.Name, assetType)
+func (i *ItBit) FetchAccountInfo() (account.FullSnapshot, error) {
+	acc, err := i.GetFullSnapshot()
 	if err != nil {
-		return i.UpdateAccountInfo(assetType)
+		return i.UpdateAccountInfo()
 	}
-
 	return acc, nil
 }
 
@@ -416,16 +389,16 @@ func (i *ItBit) SubmitOrder(s *order.Submit) (order.SubmitResponse, error) {
 
 // ModifyOrder will allow of changing orderbook placement and limit to
 // market conversion
-func (i *ItBit) ModifyOrder(action *order.Modify) (string, error) {
+func (i *ItBit) ModifyOrder(_ *order.Modify) (string, error) {
 	return "", common.ErrFunctionNotSupported
 }
 
 // CancelOrder cancels an order by its corresponding ID number
-func (i *ItBit) CancelOrder(o *order.Cancel) error {
-	if err := o.Validate(o.StandardCancel()); err != nil {
+func (i *ItBit) CancelOrder(c *order.Cancel) error {
+	if err := c.Validate(i.Name, c.OrderIDRequired(), c.WalletAddressRequired()); err != nil {
 		return err
 	}
-	return i.CancelExistingOrder(o.WalletAddress, o.ID)
+	return i.CancelExistingOrder(c.WalletAddress, c.ID)
 }
 
 // CancelBatchOrders cancels an orders by their corresponding ID numbers
@@ -434,20 +407,20 @@ func (i *ItBit) CancelBatchOrders(o []order.Cancel) (order.CancelBatchResponse, 
 }
 
 // CancelAllOrders cancels all orders associated with a currency pair
-func (i *ItBit) CancelAllOrders(orderCancellation *order.Cancel) (order.CancelAllResponse, error) {
-	if err := orderCancellation.Validate(); err != nil {
+func (i *ItBit) CancelAllOrders(c *order.Cancel) (order.CancelAllResponse, error) {
+	if err := c.Validate(i.Name, c.WalletAddressRequired()); err != nil {
 		return order.CancelAllResponse{}, err
 	}
 	cancelAllOrdersResponse := order.CancelAllResponse{
 		Status: make(map[string]string),
 	}
-	openOrders, err := i.GetOrders(orderCancellation.WalletAddress, "", "open", 0, 0)
+	openOrders, err := i.GetOrders(c.WalletAddress, "", "open", 0, 0)
 	if err != nil {
 		return cancelAllOrdersResponse, err
 	}
 
 	for j := range openOrders {
-		err = i.CancelExistingOrder(orderCancellation.WalletAddress, openOrders[j].ID)
+		err = i.CancelExistingOrder(c.WalletAddress, openOrders[j].ID)
 		if err != nil {
 			cancelAllOrdersResponse.Status[openOrders[j].ID] = err.Error()
 		}
@@ -457,34 +430,33 @@ func (i *ItBit) CancelAllOrders(orderCancellation *order.Cancel) (order.CancelAl
 }
 
 // GetOrderInfo returns order information based on order ID
-func (i *ItBit) GetOrderInfo(orderID string, pair currency.Pair, assetType asset.Item) (order.Detail, error) {
-	var orderDetail order.Detail
-	return orderDetail, common.ErrNotYetImplemented
+func (i *ItBit) GetOrderInfo(_ string, _ currency.Pair, _ asset.Item) (order.Detail, error) {
+	return order.Detail{}, common.ErrNotYetImplemented
 }
 
 // GetDepositAddress returns a deposit address for a specified currency
 // NOTE: This has not been implemented due to the fact you need to generate a
 // a specific wallet ID and they restrict the amount of deposit address you can
 // request limiting them to 2.
-func (i *ItBit) GetDepositAddress(cryptocurrency currency.Code, accountID string) (string, error) {
-	return "", common.ErrNotYetImplemented
+func (i *ItBit) GetDepositAddress(_ currency.Code, _ string) (exchange.DepositAddress, error) {
+	return exchange.DepositAddress{}, common.ErrNotYetImplemented
 }
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (i *ItBit) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (i *ItBit) WithdrawCryptocurrencyFunds(_ *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
 // WithdrawFiatFunds returns a withdrawal ID when a
 // withdrawal is submitted
-func (i *ItBit) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (i *ItBit) WithdrawFiatFunds(_ *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
 // WithdrawFiatFundsToInternationalBank returns a withdrawal ID when a
 // withdrawal is submitted
-func (i *ItBit) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (i *ItBit) WithdrawFiatFundsToInternationalBank(_ *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
@@ -630,8 +602,9 @@ func (i *ItBit) GetOrderHistory(req *order.GetOrdersRequest) ([]order.Detail, er
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (i *ItBit) ValidateCredentials(assetType asset.Item) error {
-	_, err := i.UpdateAccountInfo(assetType)
-	return i.CheckTransientError(err)
+	// _, err := i.UpdateAccountInfo(assetType)
+	// return i.CheckTransientError(err)
+	return nil
 }
 
 // GetHistoricCandles returns candles between a time period for a set time interval

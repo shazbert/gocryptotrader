@@ -29,7 +29,6 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/exchanges/stats"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/ticker"
 	"github.com/thrasher-corp/gocryptotrader/log"
-	"github.com/thrasher-corp/gocryptotrader/portfolio"
 )
 
 var (
@@ -445,32 +444,32 @@ func (bot *Engine) GetSpecificTicker(p currency.Pair, exchangeName string, asset
 // GetCollatedExchangeAccountInfoByCoin collates individual exchange account
 // information and turns into into a map string of
 // exchange.AccountCurrencyInfo
-func GetCollatedExchangeAccountInfoByCoin(accounts []account.Holdings) map[currency.Code]account.Balance {
-	result := make(map[currency.Code]account.Balance)
-	for x := range accounts {
-		for y := range accounts[x].Accounts {
-			for z := range accounts[x].Accounts[y].Currencies {
-				currencyName := accounts[x].Accounts[y].Currencies[z].CurrencyName
-				avail := accounts[x].Accounts[y].Currencies[z].TotalValue
-				onHold := accounts[x].Accounts[y].Currencies[z].Hold
-				info, ok := result[currencyName]
-				if !ok {
-					accountInfo := account.Balance{
-						CurrencyName: currencyName,
-						Hold:         onHold,
-						TotalValue:   avail,
-					}
-					result[currencyName] = accountInfo
-				} else {
-					info.Hold += onHold
-					info.TotalValue += avail
-					result[currencyName] = info
-				}
-			}
-		}
-	}
-	return result
-}
+// func GetCollatedExchangeAccountInfoByCoin(accounts []account.Holdings) map[currency.Code]account.Balance {
+// 	result := make(map[currency.Code]account.Balance)
+// 	for x := range accounts {
+// 		for y := range accounts[x].Accounts {
+// 			for z := range accounts[x].Accounts[y].Currencies {
+// 				currencyName := accounts[x].Accounts[y].Currencies[z].CurrencyName
+// 				avail := accounts[x].Accounts[y].Currencies[z].TotalValue
+// 				onHold := accounts[x].Accounts[y].Currencies[z].Hold
+// 				info, ok := result[currencyName]
+// 				if !ok {
+// 					accountInfo := account.Balance{
+// 						CurrencyName: currencyName,
+// 						Hold:         onHold,
+// 						TotalValue:   avail,
+// 					}
+// 					result[currencyName] = accountInfo
+// 				} else {
+// 					info.Hold += onHold
+// 					info.TotalValue += avail
+// 					result[currencyName] = info
+// 				}
+// 			}
+// 		}
+// 	}
+// 	return result
+// }
 
 // GetExchangeHighestPriceByCurrencyPair returns the exchange with the highest
 // price for a given currency pair and asset type
@@ -492,90 +491,6 @@ func GetExchangeLowestPriceByCurrencyPair(p currency.Pair, assetType asset.Item)
 	}
 
 	return result[0].Exchange, nil
-}
-
-// SeedExchangeAccountInfo seeds account info
-func SeedExchangeAccountInfo(accounts []account.Holdings) {
-	if len(accounts) == 0 {
-		return
-	}
-
-	port := portfolio.GetPortfolio()
-
-	for x := range accounts {
-		exchangeName := accounts[x].Exchange
-		var currencies []account.Balance
-		for y := range accounts[x].Accounts {
-			for z := range accounts[x].Accounts[y].Currencies {
-				var update bool
-				for i := range currencies {
-					if accounts[x].Accounts[y].Currencies[z].CurrencyName == currencies[i].CurrencyName {
-						currencies[i].Hold += accounts[x].Accounts[y].Currencies[z].Hold
-						currencies[i].TotalValue += accounts[x].Accounts[y].Currencies[z].TotalValue
-						update = true
-					}
-				}
-
-				if update {
-					continue
-				}
-
-				currencies = append(currencies, account.Balance{
-					CurrencyName: accounts[x].Accounts[y].Currencies[z].CurrencyName,
-					TotalValue:   accounts[x].Accounts[y].Currencies[z].TotalValue,
-					Hold:         accounts[x].Accounts[y].Currencies[z].Hold,
-				})
-			}
-		}
-
-		for x := range currencies {
-			currencyName := currencies[x].CurrencyName
-			total := currencies[x].TotalValue
-
-			if !port.ExchangeAddressExists(exchangeName, currencyName) {
-				if total <= 0 {
-					continue
-				}
-
-				log.Debugf(log.PortfolioMgr, "Portfolio: Adding new exchange address: %s, %s, %f, %s\n",
-					exchangeName,
-					currencyName,
-					total,
-					portfolio.PortfolioAddressExchange)
-
-				port.Addresses = append(
-					port.Addresses,
-					portfolio.Address{Address: exchangeName,
-						CoinType:    currencyName,
-						Balance:     total,
-						Description: portfolio.PortfolioAddressExchange})
-			} else {
-				if total <= 0 {
-					log.Debugf(log.PortfolioMgr, "Portfolio: Removing %s %s entry.\n",
-						exchangeName,
-						currencyName)
-					port.RemoveExchangeAddress(exchangeName, currencyName)
-				} else {
-					balance, ok := port.GetAddressBalance(exchangeName,
-						portfolio.PortfolioAddressExchange,
-						currencyName)
-					if !ok {
-						continue
-					}
-
-					if balance != total {
-						log.Debugf(log.PortfolioMgr, "Portfolio: Updating %s %s entry with balance %f.\n",
-							exchangeName,
-							currencyName,
-							total)
-						port.UpdateExchangeAddressBalance(exchangeName,
-							currencyName,
-							total)
-					}
-				}
-			}
-		}
-	}
 }
 
 // GetCryptocurrenciesByExchange returns a list of cryptocurrencies the exchange supports
@@ -620,64 +535,54 @@ func (bot *Engine) GetCryptocurrenciesByExchange(exchangeName string, enabledExc
 
 // GetCryptocurrencyDepositAddressesByExchange returns the cryptocurrency deposit addresses for a particular exchange
 func (bot *Engine) GetCryptocurrencyDepositAddressesByExchange(exchName string) (map[string]string, error) {
-	if bot.DepositAddressManager != nil {
-		return bot.DepositAddressManager.GetDepositAddressesByExchange(exchName)
+	if bot.Portfolio == nil {
+		return nil, errors.New("portfolio is off")
 	}
-
-	result := bot.GetExchangeCryptocurrencyDepositAddresses()
-	r, ok := result[exchName]
-	if !ok {
-		return nil, ErrExchangeNotFound
-	}
-	return r, nil
+	return bot.Portfolio.GetDepositAddressesByExchange(exchName)
 }
 
 // GetExchangeCryptocurrencyDepositAddress returns the cryptocurrency deposit address for a particular
 // exchange
 func (bot *Engine) GetExchangeCryptocurrencyDepositAddress(exchName, accountID string, item currency.Code) (string, error) {
-	if bot.DepositAddressManager != nil {
-		return bot.DepositAddressManager.GetDepositAddressByExchange(exchName, item)
+	if bot.Portfolio == nil {
+		return "", errors.New("portfolio is off")
 	}
-
-	exch := bot.GetExchangeByName(exchName)
-	if exch == nil {
-		return "", ErrExchangeNotFound
-	}
-	return exch.GetDepositAddress(item, accountID)
+	return bot.Portfolio.GetDepositAddressByExchange(exchName, item)
 }
 
 // GetExchangeCryptocurrencyDepositAddresses obtains an exchanges deposit cryptocurrency list
 func (bot *Engine) GetExchangeCryptocurrencyDepositAddresses() map[string]map[string]string {
-	result := make(map[string]map[string]string)
-	exchanges := bot.GetExchanges()
-	for x := range exchanges {
-		exchName := exchanges[x].GetName()
-		if !exchanges[x].GetAuthenticatedAPISupport(exchange.RestAuthentication) {
-			if bot.Settings.Verbose {
-				log.Debugf(log.ExchangeSys, "GetExchangeCryptocurrencyDepositAddresses: Skippping %s due to disabled authenticated API support.\n", exchName)
-			}
-			continue
-		}
+	// result := make(map[string]map[string]string)
+	// exchanges := bot.GetExchanges()
+	// for x := range exchanges {
+	// 	exchName := exchanges[x].GetName()
+	// 	if !exchanges[x].GetAuthenticatedAPISupport(exchange.RestAuthentication) {
+	// 		if bot.Settings.Verbose {
+	// 			log.Debugf(log.ExchangeSys, "GetExchangeCryptocurrencyDepositAddresses: Skippping %s due to disabled authenticated API support.\n", exchName)
+	// 		}
+	// 		continue
+	// 	}
 
-		cryptoCurrencies, err := bot.GetCryptocurrenciesByExchange(exchName, true, true, asset.Spot)
-		if err != nil {
-			log.Debugf(log.ExchangeSys, "%s failed to get cryptocurrency deposit addresses. Err: %s\n", exchName, err)
-			continue
-		}
+	// 	cryptoCurrencies, err := bot.GetCryptocurrenciesByExchange(exchName, true, true, asset.Spot)
+	// 	if err != nil {
+	// 		log.Debugf(log.ExchangeSys, "%s failed to get cryptocurrency deposit addresses. Err: %s\n", exchName, err)
+	// 		continue
+	// 	}
 
-		cryptoAddr := make(map[string]string)
-		for y := range cryptoCurrencies {
-			cryptocurrency := cryptoCurrencies[y]
-			depositAddr, err := exchanges[x].GetDepositAddress(currency.NewCode(cryptocurrency), "")
-			if err != nil {
-				log.Errorf(log.Global, "%s failed to get cryptocurrency deposit addresses. Err: %s\n", exchName, err)
-				continue
-			}
-			cryptoAddr[cryptocurrency] = depositAddr
-		}
-		result[exchName] = cryptoAddr
-	}
-	return result
+	// 	cryptoAddr := make(map[string]string)
+	// 	for y := range cryptoCurrencies {
+	// 		cryptocurrency := cryptoCurrencies[y]
+	// 		depositAddr, err := exchanges[x].GetDepositAddress(currency.NewCode(cryptocurrency), "")
+	// 		if err != nil {
+	// 			log.Errorf(log.Global, "%s failed to get cryptocurrency deposit addresses. Err: %s\n", exchName, err)
+	// 			continue
+	// 		}
+	// 		cryptoAddr[cryptocurrency] = depositAddr
+	// 	}
+	// 	result[exchName] = cryptoAddr
+	// }
+	// return result
+	return nil
 }
 
 // FormatCurrency is a method that formats and returns a currency pair
@@ -735,12 +640,14 @@ func (bot *Engine) GetAllActiveTickers() []EnabledExchangeCurrencies {
 // GetAllEnabledExchangeAccountInfo returns all the current enabled exchanges
 func (bot *Engine) GetAllEnabledExchangeAccountInfo() AllEnabledExchangeAccounts {
 	var response AllEnabledExchangeAccounts
+	response.Data = make(map[string]account.FullSnapshot)
 	exchanges := bot.GetExchanges()
 	for x := range exchanges {
 		if exchanges[x] == nil || !exchanges[x].IsEnabled() {
 			continue
 		}
-		if !exchanges[x].GetAuthenticatedAPISupport(exchange.RestAuthentication) {
+		if !exchanges[x].GetAuthenticatedAPISupport(exchange.RestAuthentication) &&
+			!exchanges[x].GetAuthenticatedAPISupport(exchange.WebsocketAuthentication) {
 			if bot.Settings.Verbose {
 				log.Debugf(log.ExchangeSys,
 					"GetAllEnabledExchangeAccountInfo: Skipping %s due to disabled authenticated API support.\n",
@@ -748,24 +655,16 @@ func (bot *Engine) GetAllEnabledExchangeAccountInfo() AllEnabledExchangeAccounts
 			}
 			continue
 		}
-		assetTypes := exchanges[x].GetAssetTypes()
-		var exchangeHoldings account.Holdings
-		for y := range assetTypes {
-			accountHoldings, err := exchanges[x].FetchAccountInfo(assetTypes[y])
-			if err != nil {
-				log.Errorf(log.ExchangeSys,
-					"Error encountered retrieving exchange account info for %s. Error %s\n",
-					exchanges[x].GetName(),
-					err)
-				continue
-			}
-			for z := range accountHoldings.Accounts {
-				accountHoldings.Accounts[z].AssetType = assetTypes[y]
-			}
-			exchangeHoldings.Exchange = exchanges[x].GetName()
-			exchangeHoldings.Accounts = append(exchangeHoldings.Accounts, accountHoldings.Accounts...)
+
+		accountHoldings, err := exchanges[x].FetchAccountInfo()
+		if err != nil {
+			log.Errorf(log.ExchangeSys,
+				"Error encountered retrieving exchange account info for %s. Error %s\n",
+				exchanges[x].GetName(),
+				err)
+			continue
 		}
-		response.Data = append(response.Data, exchangeHoldings)
+		response.Data[exchanges[x].GetName()] = accountHoldings
 	}
 	return response
 }

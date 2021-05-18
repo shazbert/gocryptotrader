@@ -8,6 +8,7 @@ import (
 
 	"github.com/thrasher-corp/gocryptotrader/core"
 	"github.com/thrasher-corp/gocryptotrader/currency"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/validate"
 	"github.com/thrasher-corp/gocryptotrader/portfolio"
 	"github.com/thrasher-corp/gocryptotrader/portfolio/banking"
@@ -112,21 +113,31 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	err := portfolio.Portfolio.AddAddress(core.BitcoinDonationAddress, "test", currency.BTC, 1500)
+	err := portfolio.Portfolio.UpdateInsertColdWallet(&portfolio.Wallet{
+		Address:            core.BitcoinDonationAddress,
+		SupportedExchanges: "BTC Markets,Binance",
+		Holding: portfolio.Holding{
+			Currency: currency.BTC.String(),
+			Asset:    asset.Spot.String(),
+		},
+	})
 	if err != nil {
 		fmt.Printf("failed to add portfolio address with reason: %v, unable to continue tests", err)
 		os.Exit(0)
 	}
-	portfolio.Portfolio.Addresses[0].WhiteListed = true
-	portfolio.Portfolio.Addresses[0].ColdStorage = true
-	portfolio.Portfolio.Addresses[0].SupportedExchanges = "BTC Markets,Binance"
 
-	err = portfolio.Portfolio.AddAddress(testBTCAddress, "test", currency.BTC, 1500)
+	err = portfolio.Portfolio.UpdateInsertHotWallet(&portfolio.Wallet{
+		Address:            testBTCAddress,
+		SupportedExchanges: "BTC Markets,Binance",
+		Holding: portfolio.Holding{
+			Currency: currency.BTC.String(),
+			Asset:    asset.Spot.String(),
+		},
+	})
 	if err != nil {
 		fmt.Printf("failed to add portfolio address with reason: %v, unable to continue tests", err)
 		os.Exit(0)
 	}
-	portfolio.Portfolio.Addresses[1].SupportedExchanges = "BTC Markets,Binance"
 
 	banking.Accounts = append(banking.Accounts,
 		banking.Account{

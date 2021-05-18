@@ -111,13 +111,13 @@ func TestWithdraw(t *testing.T) {
 func seedWithdrawData() {
 	for x := 0; x < 20; x++ {
 		test := fmt.Sprintf("test-%v", x)
-		resp := &withdraw.Response{
-			Exchange: withdraw.ExchangeResponse{
-				Name:   testExchanges[0].Name,
-				ID:     test,
-				Status: test,
+		resp := &withdraw.Details{
+			Response: withdraw.Response{
+				WithdrawalID:  test,
+				TransactionID: test,
+				Status:        test,
 			},
-			RequestDetails: withdraw.Request{
+			Request: &withdraw.Request{
 				Exchange:    testExchanges[0].Name,
 				Description: test,
 				Amount:      1.0,
@@ -137,19 +137,20 @@ func seedWithdrawData() {
 		}
 		rnd := rand.Intn(2) // nolint:gosec // used for generating test data, no need to import crypo/rand
 		if rnd == 0 {
-			resp.RequestDetails.Currency = currency.AUD
-			resp.RequestDetails.Type = 1
+			resp.Request.Currency = currency.AUD
+			resp.Request.Type = 1
 		} else {
-			resp.RequestDetails.Currency = currency.BTC
-			resp.RequestDetails.Type = 0
-			resp.RequestDetails.Crypto.Address = test
-			resp.RequestDetails.Crypto.FeeAmount = 0
-			resp.RequestDetails.Crypto.AddressTag = test
+			resp.Request.Currency = currency.BTC
+			resp.Request.Type = 0
+			resp.Request.Crypto.Address = test
+			resp.Request.Crypto.FeeAmount = 0
+			resp.Request.Crypto.AddressTag = test
 		}
 		exchange.ResetExchangeCache()
 		Event(resp)
 	}
 }
+
 func withdrawHelper(t *testing.T) {
 	seedWithdrawData()
 
@@ -165,9 +166,12 @@ func withdrawHelper(t *testing.T) {
 		t.Error(err)
 	}
 
-	if v[0].Exchange.Name != testExchanges[0].Name {
-		t.Fatalf("expected name to be translated to valid string instead received: %v", v[0].Exchange.Name)
+	if v[0].Request.Exchange != testExchanges[0].Name {
+		t.Fatalf("expected name to be translated to valid string instead received: %v",
+			v[0].Request.Exchange)
 	}
+
+	fmt.Println("NAME:", testExchanges[0].Name)
 
 	_, err = GetEventByExchangeID(testExchanges[0].Name, "test-1")
 	if err != nil {
@@ -175,7 +179,7 @@ func withdrawHelper(t *testing.T) {
 	}
 
 	if len(v) > 0 {
-		_, err = GetEventByUUID(v[0].ID.String())
+		_, err = GetEventByUUID(v[0].InternalWithdrawalID.String())
 		if err != nil {
 			if !errors.Is(err, ErrNoResults) {
 				t.Error(err)

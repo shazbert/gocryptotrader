@@ -249,7 +249,7 @@ func TestGetAccountInfo(t *testing.T) {
 	if !areTestAPIKeysSet() {
 		t.Skip("API keys required but not set, skipping test")
 	}
-	_, err := c.UpdateAccountInfo(asset.Spot)
+	_, err := c.UpdateAccountInfo()
 	if err != nil {
 		t.Error(err)
 	}

@@ -338,62 +338,53 @@ func (z *ZB) UpdateOrderbook(p currency.Pair, assetType asset.Item) (*orderbook.
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the
 // ZB exchange
-func (z *ZB) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	var info account.Holdings
-	var balances []account.Balance
+func (z *ZB) UpdateAccountInfo() (account.FullSnapshot, error) {
 	var coins []AccountsResponseCoin
 	if z.Websocket.CanUseAuthenticatedWebsocketForWrapper() {
 		resp, err := z.wsGetAccountInfoRequest()
 		if err != nil {
-			return info, err
+			return nil, err
 		}
 		coins = resp.Data.Coins
 	} else {
 		bal, err := z.GetAccountInformation()
 		if err != nil {
-			return info, err
+			return nil, err
 		}
 		coins = bal.Result.Coins
 	}
 
+	m := make(account.HoldingsSnapshot)
 	for i := range coins {
 		hold, err := strconv.ParseFloat(coins[i].Freeze, 64)
 		if err != nil {
-			return info, err
+			return nil, err
 		}
 
 		avail, err := strconv.ParseFloat(coins[i].Available, 64)
 		if err != nil {
-			return info, err
+			return nil, err
 		}
 
-		balances = append(balances, account.Balance{
-			CurrencyName: currency.NewCode(coins[i].EnName),
-			TotalValue:   hold + avail,
-			Hold:         hold,
-		})
+		m[currency.NewCode(coins[i].EnName)] = account.Balance{
+			Total:  hold + avail,
+			Locked: hold,
+		}
 	}
 
-	info.Exchange = z.Name
-	info.Accounts = append(info.Accounts, account.SubAccount{
-		Currencies: balances,
-	})
-
-	err := account.Process(&info)
+	err := z.LoadHoldings(account.Default, asset.Spot, m)
 	if err != nil {
-		return account.Holdings{}, err
+		return nil, err
 	}
-
-	return info, nil
+	return z.GetFullSnapshot()
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies
-func (z *ZB) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(z.Name, assetType)
+func (z *ZB) FetchAccountInfo() (account.FullSnapshot, error) {
+	acc, err := z.GetFullSnapshot()
 	if err != nil {
-		return z.UpdateAccountInfo(assetType)
+		return z.UpdateAccountInfo()
 	}
-
 	return acc, nil
 }
 
@@ -511,13 +502,14 @@ func (z *ZB) SubmitOrder(o *order.Submit) (order.SubmitResponse, error) {
 
 // ModifyOrder will allow of changing orderbook placement and limit to
 // market conversion
-func (z *ZB) ModifyOrder(action *order.Modify) (string, error) {
+func (z *ZB) ModifyOrder(_ *order.Modify) (string, error) {
 	return "", common.ErrFunctionNotSupported
 }
 
 // CancelOrder cancels an order by its corresponding ID number
 func (z *ZB) CancelOrder(o *order.Cancel) error {
-	if err := o.Validate(o.StandardCancel()); err != nil {
+	err := o.Validate(z.Name, o.OrderIDRequired(), o.PairRequired(), o.AssetRequired())
+	if err != nil {
 		return err
 	}
 
@@ -613,18 +605,23 @@ func (z *ZB) GetOrderInfo(orderID string, pair currency.Pair, assetType asset.It
 }
 
 // GetDepositAddress returns a deposit address for a specified currency
-func (z *ZB) GetDepositAddress(cryptocurrency currency.Code, _ string) (string, error) {
+func (z *ZB) GetDepositAddress(cryptocurrency currency.Code, _ string) (exchange.DepositAddress, error) {
 	address, err := z.GetCryptoAddress(cryptocurrency)
 	if err != nil {
-		return "", err
+		return exchange.DepositAddress{}, err
 	}
 
-	return address.Message.Data.Key, nil
+	// TODO: https://www.zb.com/api#cleexwilpjnftzu Get multi chain deposit
+	// address - Adds memo support.
+
+	return exchange.DepositAddress{
+		Address: address.Message.Data.Key,
+	}, nil
 }
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (z *ZB) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (z *ZB) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -638,20 +635,20 @@ func (z *ZB) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*wi
 	if err != nil {
 		return nil, err
 	}
-	return &withdraw.ExchangeResponse{
-		ID: v,
+	return &withdraw.Response{
+		WithdrawalID: v,
 	}, nil
 }
 
 // WithdrawFiatFunds returns a withdrawal ID when a
 // withdrawal is submitted
-func (z *ZB) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (z *ZB) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
 // WithdrawFiatFundsToInternationalBank returns a withdrawal ID when a
 // withdrawal is submitted
-func (z *ZB) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (z *ZB) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
@@ -814,8 +811,9 @@ func (z *ZB) GetOrderHistory(req *order.GetOrdersRequest) ([]order.Detail, error
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (z *ZB) ValidateCredentials(assetType asset.Item) error {
-	_, err := z.UpdateAccountInfo(assetType)
-	return z.CheckTransientError(err)
+	// _, err := z.UpdateAccountInfo(assetType)
+	// return z.CheckTransientError(err)
+	return nil
 }
 
 // FormatExchangeKlineInterval returns Interval to exchange formatted string

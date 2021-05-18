@@ -2637,6 +2637,17 @@
     }
   },
   "definitions": {
+    "CancelBatchOrdersResponseOrders": {
+      "type": "object",
+      "properties": {
+        "order_status": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "gctrpcAccount": {
       "type": "object",
       "properties": {
@@ -2751,21 +2762,6 @@
     "gctrpcCancelAllOrdersResponse": {
       "type": "object",
       "properties": {
-        "orders": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/gctrpcCancelAllOrdersResponseOrders"
-          }
-        },
-        "count": {
-          "type": "string",
-          "format": "int64"
-        }
-      }
-    },
-    "gctrpcCancelAllOrdersResponseOrders": {
-      "type": "object",
-      "properties": {
         "exchange": {
           "type": "string"
         },
@@ -2774,6 +2770,10 @@
           "additionalProperties": {
             "type": "string"
           }
+        },
+        "count": {
+          "type": "string",
+          "format": "int64"
         }
       }
     },
@@ -2809,18 +2809,7 @@
         "orders": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/gctrpcCancelBatchOrdersResponseOrders"
-          }
-        }
-      }
-    },
-    "gctrpcCancelBatchOrdersResponseOrders": {
-      "type": "object",
-      "properties": {
-        "order_status": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
+            "$ref": "#/definitions/CancelBatchOrdersResponseOrders"
           }
         }
       }
@@ -2831,22 +2820,7 @@
         "exchange": {
           "type": "string"
         },
-        "account_id": {
-          "type": "string"
-        },
         "order_id": {
-          "type": "string"
-        },
-        "pair": {
-          "$ref": "#/definitions/gctrpcCurrencyPair"
-        },
-        "asset_type": {
-          "type": "string"
-        },
-        "wallet_address": {
-          "type": "string"
-        },
-        "side": {
           "type": "string"
         }
       }
@@ -2943,9 +2917,6 @@
         "fee": {
           "type": "number",
           "format": "double"
-        },
-        "tx_id": {
-          "type": "string"
         }
       }
     },
@@ -4033,6 +4004,12 @@
         },
         "asset_type": {
           "type": "string"
+        },
+        "account": {
+          "type": "string"
+        },
+        "total_amount_not_required": {
+          "type": "boolean"
         }
       }
     },
@@ -4257,6 +4234,9 @@
         "currency": {
           "type": "string"
         },
+        "asset_type": {
+          "type": "string"
+        },
         "amount": {
           "type": "number",
           "format": "double"
@@ -4266,6 +4246,9 @@
           "format": "double"
         },
         "description": {
+          "type": "string"
+        },
+        "account": {
           "type": "string"
         }
       }
@@ -4294,7 +4277,16 @@
     "gctrpcWithdrawResponse": {
       "type": "object",
       "properties": {
-        "id": {
+        "gct_withdrawal_uuid": {
+          "type": "string"
+        },
+        "gct_exchange_uuid": {
+          "type": "string"
+        },
+        "exchange_withdrawal_id": {
+          "type": "string"
+        },
+        "withdrawal_transaction_id": {
           "type": "string"
         },
         "status": {
@@ -4321,7 +4313,10 @@
     "gctrpcWithdrawalEventResponse": {
       "type": "object",
       "properties": {
-        "id": {
+        "gct_withdrawal_uuid": {
+          "type": "string"
+        },
+        "gct_exchange_uuid": {
           "type": "string"
         },
         "exchange": {
@@ -4390,7 +4385,16 @@
     "gctrpcWithdrawalRequestEvent": {
       "type": "object",
       "properties": {
+        "exchange": {
+          "type": "string"
+        },
         "currency": {
+          "type": "string"
+        },
+        "asset": {
+          "type": "string"
+        },
+        "account": {
           "type": "string"
         },
         "description": {
@@ -4415,10 +4419,10 @@
     "gctrpcWithdrawlExchangeEvent": {
       "type": "object",
       "properties": {
-        "name": {
+        "withdrawal_id": {
           "type": "string"
         },
-        "id": {
+        "transaction_id": {
           "type": "string"
         },
         "status": {

@@ -217,40 +217,40 @@ func ExchangeAccountInfo(args ...objects.Object) (objects.Object, error) {
 		return nil, objects.ErrWrongNumArguments
 	}
 
-	exchangeName, ok := objects.ToString(args[0])
-	if !ok {
-		return nil, fmt.Errorf(ErrParameterConvertFailed, exchangeName)
-	}
-	assetString, ok := objects.ToString(args[1])
-	if !ok {
-		return nil, fmt.Errorf(ErrParameterConvertFailed, assetString)
-	}
-	assetType, err := asset.New(assetString)
-	if err != nil {
-		return nil, err
-	}
-	rtnValue, err := wrappers.GetWrapper().AccountInformation(exchangeName, assetType)
-	if err != nil {
-		return nil, err
-	}
+	// exchangeName, ok := objects.ToString(args[0])
+	// if !ok {
+	// 	return nil, fmt.Errorf(ErrParameterConvertFailed, exchangeName)
+	// }
+	// assetString, ok := objects.ToString(args[1])
+	// if !ok {
+	// 	return nil, fmt.Errorf(ErrParameterConvertFailed, assetString)
+	// }
+	// assetType, err := asset.New(assetString)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// rtnValue, err := wrappers.GetWrapper().AccountInformation(exchangeName, assetType)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	var funds objects.Array
-	for x := range rtnValue.Accounts {
-		for y := range rtnValue.Accounts[x].Currencies {
-			temp := make(map[string]objects.Object, 3)
-			temp["name"] = &objects.String{Value: rtnValue.Accounts[x].Currencies[y].CurrencyName.String()}
-			temp["total"] = &objects.Float{Value: rtnValue.Accounts[x].Currencies[y].TotalValue}
-			temp["hold"] = &objects.Float{Value: rtnValue.Accounts[x].Currencies[y].Hold}
-			funds.Value = append(funds.Value, &objects.Map{Value: temp})
-		}
-	}
+	// var funds objects.Array
+	// for x := range rtnValue.Accounts {
+	// 	for y := range rtnValue.Accounts[x].Currencies {
+	// 		temp := make(map[string]objects.Object, 3)
+	// 		temp["name"] = &objects.String{Value: rtnValue.Accounts[x].Currencies[y].CurrencyName.String()}
+	// 		temp["total"] = &objects.Float{Value: rtnValue.Accounts[x].Currencies[y].TotalValue}
+	// 		temp["hold"] = &objects.Float{Value: rtnValue.Accounts[x].Currencies[y].Hold}
+	// 		funds.Value = append(funds.Value, &objects.Map{Value: temp})
+	// 	}
+	// }
 
-	data := make(map[string]objects.Object, 2)
-	data["exchange"] = &objects.String{Value: rtnValue.Exchange}
-	data["currencies"] = &funds
+	// data := make(map[string]objects.Object, 2)
+	// data["exchange"] = &objects.String{Value: rtnValue.Exchange}
+	// data["currencies"] = &funds
 
 	return &objects.Map{
-		Value: data,
+		Value: nil,
 	}, nil
 }
 
@@ -338,7 +338,7 @@ func ExchangeOrderQuery(args ...objects.Object) (objects.Object, error) {
 
 // ExchangeOrderCancel cancels order on requested exchange
 func ExchangeOrderCancel(args ...objects.Object) (objects.Object, error) {
-	if len(args) < 2 || len(args) > 4 {
+	if len(args) != 2 {
 		return nil, objects.ErrWrongNumArguments
 	}
 
@@ -357,34 +357,8 @@ func ExchangeOrderCancel(args ...objects.Object) (objects.Object, error) {
 	if orderID == "" {
 		return nil, fmt.Errorf(ErrEmptyParameter, "orderID")
 	}
-	var err error
-	var cp currency.Pair
-	if len(args) > 2 {
-		var currencyPair string
-		currencyPair, ok = objects.ToString(args[2])
-		if !ok {
-			return nil, fmt.Errorf(ErrParameterConvertFailed, currencyPair)
-		}
-		cp, err = currency.NewPairFromString(currencyPair)
-		if err != nil {
-			return nil, err
-		}
-	}
-	var a asset.Item
-	if len(args) > 3 {
-		var assetType string
-		assetType, ok = objects.ToString(args[3])
-		if !ok {
-			return nil, fmt.Errorf(ErrParameterConvertFailed, assetType)
-		}
-		a, err = asset.New(assetType)
-		if err != nil {
-			return nil, err
-		}
-	}
 
-	var isCancelled bool
-	isCancelled, err = wrappers.GetWrapper().CancelOrder(exchangeName, orderID, cp, a)
+	isCancelled, err := wrappers.GetWrapper().CancelOrder(exchangeName, orderID)
 	if err != nil {
 		return nil, err
 	}

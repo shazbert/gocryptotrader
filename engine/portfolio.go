@@ -6,7 +6,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/thrasher-corp/gocryptotrader/currency"
 	"github.com/thrasher-corp/gocryptotrader/engine/subsystem"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/account"
 	"github.com/thrasher-corp/gocryptotrader/log"
 	"github.com/thrasher-corp/gocryptotrader/portfolio"
 )
@@ -20,6 +22,7 @@ type portfolioManager struct {
 	started    int32
 	processing int32
 	shutdown   chan struct{}
+	*portfolio.Base
 }
 
 func (p *portfolioManager) Started() bool {
@@ -56,6 +59,7 @@ func (p *portfolioManager) Stop() error {
 func (p *portfolioManager) run() {
 	log.Debugln(log.PortfolioMgr, "Portfolio manager started.")
 	Bot.ServicesWG.Add(1)
+
 	tick := time.NewTicker(Bot.Settings.PortfolioManagerDelay)
 	defer func() {
 		tick.Stop()
@@ -63,7 +67,10 @@ func (p *portfolioManager) run() {
 		log.Debugf(log.PortfolioMgr, "Portfolio manager shutdown.")
 	}()
 
+	p.Base = portfolio.GetPortfolio()
 	go p.processPortfolio()
+	go p.SyncAddresses(Bot)
+	go portfolio.StartPortfolioWatcher()
 	for {
 		select {
 		case <-p.shutdown:
@@ -78,10 +85,10 @@ func (p *portfolioManager) processPortfolio() {
 	if !atomic.CompareAndSwapInt32(&p.processing, 0, 1) {
 		return
 	}
-	pf := portfolio.GetPortfolio()
-	data := pf.GetPortfolioGroupedCoin()
+
+	data := p.GetPortfolioGroupedCoin()
 	for key, value := range data {
-		err := pf.UpdatePortfolio(value, key)
+		err := p.UpdatePortfolio(value, key)
 		if err != nil {
 			log.Errorf(log.PortfolioMgr,
 				"PortfolioWatcher error %s for currency %s\n",
@@ -95,6 +102,106 @@ func (p *portfolioManager) processPortfolio() {
 			key,
 			value)
 	}
-	SeedExchangeAccountInfo(Bot.GetAllEnabledExchangeAccountInfo().Data)
+
+	enabledExchangeAccounts := Bot.GetAllEnabledExchangeAccountInfo()
+	p.SeedExchangeAccountInfo(enabledExchangeAccounts.Data)
 	atomic.CompareAndSwapInt32(&p.processing, 1, 0)
+}
+
+// SeedExchangeAccountInfo seeds account info
+func (p *portfolioManager) SeedExchangeAccountInfo(accounts map[string]account.FullSnapshot) error {
+	if len(accounts) == 0 {
+		return errors.New("cannot seed portfolio, no account data")
+	}
+
+	for exchName, m1 := range accounts {
+		for acc, m2 := range m1 {
+			for ai, m3 := range m2 {
+				for c, balance := range m3 {
+					err := p.UpdateInsertExchangeBalance(exchName,
+						&portfolio.Holdings{
+							Account: acc,
+							Holding: portfolio.Holding{
+								Currency: c.String(),
+								Asset:    ai.String(),
+								Balance:  balance.Total,
+							},
+						})
+					if err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// Sync synchronises all deposit addresses
+func (d *portfolioManager) SyncAddresses(bot *Engine) error {
+	e := bot.GetExchanges()
+	for x := range e {
+		batched, err := e[x].GetDepositAddresses(account.Default)
+		if err != nil {
+			log.Errorf(log.PortfolioMgr, "GetDepositAddresses ERRORS OCCURED: %v", err)
+		}
+
+		if batched != nil {
+			// On a successful batch call we can integrate all deposit addresses
+			// associaated with the account.
+			for y := range batched {
+				err = d.LoadDepositAddress(e[x].GetName(),
+					account.Default,
+					batched[y].Address,
+					batched[y].TagMemo,
+					batched[y].Currency.String())
+				if err != nil {
+					return err
+				}
+			}
+			continue
+		}
+
+		log.Warnf(log.PortfolioMgr,
+			"Batching is not enabled for retreiving deposit address for exchange: %s, PR's are welcome.",
+			e[x].GetName())
+
+		// This constructs the currency codes needed for request and building
+		// deposit address.
+		m := make(map[currency.Code]struct{})
+		ai := e[x].GetAssetTypes()
+		for y := range ai {
+			pairs, err := e[x].GetEnabledPairs(ai[y])
+			if err != nil {
+				return err
+			}
+
+			for z := range pairs {
+				if pairs[z].Base.IsCryptocurrency() {
+					m[pairs[z].Base] = struct{}{}
+				}
+
+				if pairs[z].Quote.IsCryptocurrency() {
+					m[pairs[z].Quote] = struct{}{}
+				}
+			}
+		}
+
+		for code := range m {
+			addr, err := e[x].GetDepositAddress(code, account.Default)
+			if err != nil {
+				return err
+			}
+
+			err = d.LoadDepositAddress(e[x].GetName(),
+				account.Default,
+				addr.Address,
+				addr.TagMemo,
+				code.String())
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

@@ -303,102 +303,53 @@ func (c *COINUT) UpdateTradablePairs(forceUpdate bool) error {
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the
 // COINUT exchange
-func (c *COINUT) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	var info account.Holdings
+func (c *COINUT) UpdateAccountInfo() (account.FullSnapshot, error) {
 	var bal *UserBalance
 	var err error
 	if c.Websocket.CanUseAuthenticatedWebsocketForWrapper() {
 		var resp *UserBalance
 		resp, err = c.wsGetAccountBalance()
 		if err != nil {
-			return info, err
+			return nil, err
 		}
 		bal = resp
 	} else {
 		bal, err = c.GetUserBalance()
 		if err != nil {
-			return info, err
+			return nil, err
 		}
 	}
 
-	var balances = []account.Balance{
-		{
-			CurrencyName: currency.BCH,
-			TotalValue:   bal.BCH,
-		},
-		{
-			CurrencyName: currency.BTC,
-			TotalValue:   bal.BTC,
-		},
-		{
-			CurrencyName: currency.BTG,
-			TotalValue:   bal.BTG,
-		},
-		{
-			CurrencyName: currency.CAD,
-			TotalValue:   bal.CAD,
-		},
-		{
-			CurrencyName: currency.ETC,
-			TotalValue:   bal.ETC,
-		},
-		{
-			CurrencyName: currency.ETH,
-			TotalValue:   bal.ETH,
-		},
-		{
-			CurrencyName: currency.LCH,
-			TotalValue:   bal.LCH,
-		},
-		{
-			CurrencyName: currency.LTC,
-			TotalValue:   bal.LTC,
-		},
-		{
-			CurrencyName: currency.MYR,
-			TotalValue:   bal.MYR,
-		},
-		{
-			CurrencyName: currency.SGD,
-			TotalValue:   bal.SGD,
-		},
-		{
-			CurrencyName: currency.USD,
-			TotalValue:   bal.USD,
-		},
-		{
-			CurrencyName: currency.USDT,
-			TotalValue:   bal.USDT,
-		},
-		{
-			CurrencyName: currency.XMR,
-			TotalValue:   bal.XMR,
-		},
-		{
-			CurrencyName: currency.ZEC,
-			TotalValue:   bal.ZEC,
-		},
+	m := account.HoldingsSnapshot{
+		currency.BCH:  {Total: bal.BCH},
+		currency.BTC:  {Total: bal.BTC},
+		currency.BTG:  {Total: bal.BTG},
+		currency.CAD:  {Total: bal.CAD},
+		currency.ETC:  {Total: bal.ETC},
+		currency.ETH:  {Total: bal.ETH},
+		currency.LCH:  {Total: bal.LCH},
+		currency.LTC:  {Total: bal.LTC},
+		currency.MYR:  {Total: bal.MYR},
+		currency.SGD:  {Total: bal.SGD},
+		currency.USD:  {Total: bal.USD},
+		currency.USDT: {Total: bal.USDT},
+		currency.XMR:  {Total: bal.XMR},
+		currency.ZEC:  {Total: bal.ZEC},
 	}
-	info.Exchange = c.Name
-	info.Accounts = append(info.Accounts, account.SubAccount{
-		Currencies: balances,
-	})
 
-	err = account.Process(&info)
+	err = c.LoadHoldings(account.Default, asset.Spot, m)
 	if err != nil {
-		return account.Holdings{}, err
+		return nil, err
 	}
-
-	return info, nil
+	return c.GetFullSnapshot()
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies
-func (c *COINUT) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(c.Name, assetType)
+func (c *COINUT) FetchAccountInfo() (account.FullSnapshot, error) {
+	acc, err := c.GetFullSnapshot()
 	if err != nil {
-		return c.UpdateAccountInfo(assetType)
+		return c.UpdateAccountInfo()
 	}
-
 	return acc, nil
 }
 
@@ -642,13 +593,13 @@ func (c *COINUT) SubmitOrder(o *order.Submit) (order.SubmitResponse, error) {
 
 // ModifyOrder will allow of changing orderbook placement and limit to
 // market conversion
-func (c *COINUT) ModifyOrder(action *order.Modify) (string, error) {
+func (c *COINUT) ModifyOrder(_ *order.Modify) (string, error) {
 	return "", common.ErrFunctionNotSupported
 }
 
 // CancelOrder cancels an order by its corresponding ID number
 func (c *COINUT) CancelOrder(o *order.Cancel) error {
-	if err := o.Validate(o.StandardCancel()); err != nil {
+	if err := o.Validate(c.Name, o.PairRequired(), o.OrderIDRequired()); err != nil {
 		return err
 	}
 
@@ -694,13 +645,13 @@ func (c *COINUT) CancelOrder(o *order.Cancel) error {
 }
 
 // CancelBatchOrders cancels an orders by their corresponding ID numbers
-func (c *COINUT) CancelBatchOrders(o []order.Cancel) (order.CancelBatchResponse, error) {
+func (c *COINUT) CancelBatchOrders(_ []order.Cancel) (order.CancelBatchResponse, error) {
 	return order.CancelBatchResponse{}, common.ErrNotYetImplemented
 }
 
 // CancelAllOrders cancels all orders associated with a currency pair
-func (c *COINUT) CancelAllOrders(details *order.Cancel) (order.CancelAllResponse, error) {
-	if err := details.Validate(); err != nil {
+func (c *COINUT) CancelAllOrders(o *order.Cancel) (order.CancelAllResponse, error) {
+	if err := o.Validate(c.Name, o.PairRequired()); err != nil {
 		return order.CancelAllResponse{}, err
 	}
 
@@ -711,20 +662,20 @@ func (c *COINUT) CancelAllOrders(details *order.Cancel) (order.CancelAllResponse
 	}
 	cancelAllOrdersResponse.Status = make(map[string]string)
 	if c.Websocket.CanUseAuthenticatedWebsocketForWrapper() {
-		openOrders, err := c.wsGetOpenOrders(details.Pair.String())
+		openOrders, err := c.wsGetOpenOrders(o.Pair.String())
 		if err != nil {
 			return cancelAllOrdersResponse, err
 		}
 		var ordersToCancel []WsCancelOrderParameters
 		for i := range openOrders.Orders {
 			var fpair currency.Pair
-			fpair, err = c.FormatExchangeCurrency(details.Pair, asset.Spot)
+			fpair, err = c.FormatExchangeCurrency(o.Pair, asset.Spot)
 			if err != nil {
 				return cancelAllOrdersResponse, err
 			}
 			if openOrders.Orders[i].InstrumentID == c.instrumentMap.LookupID(fpair.String()) {
 				ordersToCancel = append(ordersToCancel, WsCancelOrderParameters{
-					Currency: details.Pair,
+					Currency: o.Pair,
 					OrderID:  openOrders.Orders[i].OrderID,
 				})
 			}
@@ -742,7 +693,7 @@ func (c *COINUT) CancelAllOrders(details *order.Cancel) (order.CancelAllResponse
 		var allTheOrders []OrderResponse
 		ids := c.instrumentMap.GetInstrumentIDs()
 		for x := range ids {
-			fpair, err := c.FormatExchangeCurrency(details.Pair, asset.Spot)
+			fpair, err := c.FormatExchangeCurrency(o.Pair, asset.Spot)
 			if err != nil {
 				return cancelAllOrdersResponse, err
 			}
@@ -787,25 +738,25 @@ func (c *COINUT) GetOrderInfo(orderID string, pair currency.Pair, assetType asse
 }
 
 // GetDepositAddress returns a deposit address for a specified currency
-func (c *COINUT) GetDepositAddress(cryptocurrency currency.Code, accountID string) (string, error) {
-	return "", common.ErrFunctionNotSupported
+func (c *COINUT) GetDepositAddress(_ currency.Code, _ string) (exchange.DepositAddress, error) {
+	return exchange.DepositAddress{}, common.ErrFunctionNotSupported
 }
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (c *COINUT) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (c *COINUT) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
 // WithdrawFiatFunds returns a withdrawal ID when a
 // withdrawal is submitted
-func (c *COINUT) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (c *COINUT) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
 // WithdrawFiatFundsToInternationalBank returns a withdrawal ID when a
 // withdrawal is submitted
-func (c *COINUT) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (c *COINUT) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
@@ -1064,8 +1015,9 @@ func (c *COINUT) loadInstrumentsIfNotLoaded() error {
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (c *COINUT) ValidateCredentials(assetType asset.Item) error {
-	_, err := c.UpdateAccountInfo(assetType)
-	return c.CheckTransientError(err)
+	// _, err := c.UpdateAccountInfo(assetType)
+	// return c.CheckTransientError(err)
+	return nil
 }
 
 // GetHistoricCandles returns candles between a time period for a set time interval

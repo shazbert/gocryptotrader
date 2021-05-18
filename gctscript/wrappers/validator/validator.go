@@ -167,51 +167,30 @@ func (w Wrapper) SubmitOrder(o *order.Submit) (*order.SubmitResponse, error) {
 }
 
 // CancelOrder validator for test execution/scripts
-func (w Wrapper) CancelOrder(exch, orderid string, cp currency.Pair, a asset.Item) (bool, error) {
+func (w Wrapper) CancelOrder(exch, orderid string) (bool, error) {
 	if exch == exchError.String() {
 		return false, errTestFailed
 	}
 	if orderid == "" {
 		return false, errTestFailed
 	}
-	if !cp.IsEmpty() && cp.IsInvalid() {
-		return false, errTestFailed
-	}
-	if a != "" && !a.IsValid() {
-		return false, errTestFailed
-	}
 	return true, nil
 }
 
 // AccountInformation validator for test execution/scripts
-func (w Wrapper) AccountInformation(exch string, assetType asset.Item) (account.Holdings, error) {
+func (w Wrapper) AccountInformation(exch string) (account.FullSnapshot, error) {
 	if exch == exchError.String() {
-		return account.Holdings{}, errTestFailed
+		return nil, errTestFailed
 	}
 
-	return account.Holdings{
-		Exchange: exch,
-		Accounts: []account.SubAccount{
-			{
-				ID: exch,
-				Currencies: []account.Balance{
-					{
-						CurrencyName: currency.Code{
-							Item: &currency.Item{
-								ID:         0,
-								FullName:   "Bitcoin",
-								Symbol:     "BTC",
-								Role:       1,
-								AssocChain: "",
-							},
-						},
-						TotalValue: 100,
-						Hold:       0,
-					},
-				},
-			},
-		},
-	}, nil
+	sh := make(account.FullSnapshot)
+	sh[account.Default] = make(map[asset.Item]account.HoldingsSnapshot)
+	sh[account.Default][asset.Spot] = make(account.HoldingsSnapshot)
+	sh[account.Default][asset.Spot][currency.BTC] = account.Balance{
+		Total:  1337,
+		Locked: 1000,
+	}
+	return sh, nil
 }
 
 // DepositAddress validator for test execution/scripts

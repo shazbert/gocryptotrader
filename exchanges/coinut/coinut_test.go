@@ -359,16 +359,11 @@ func TestCancelAllExchangeOrders(t *testing.T) {
 }
 
 func TestGetAccountInfo(t *testing.T) {
-	if apiKey != "" || clientID != "" {
-		_, err := c.UpdateAccountInfo(asset.Spot)
-		if err != nil {
-			t.Error("GetAccountInfo() error", err)
-		}
-	} else {
-		_, err := c.UpdateAccountInfo(asset.Spot)
-		if err == nil {
-			t.Error("GetAccountInfo() Expected error")
-		}
+	_, err := c.UpdateAccountInfo()
+	if areTestAPIKeysSet() && err != nil {
+		t.Error("GetAccountInfo() error", err)
+	} else if err == nil {
+		t.Error("GetAccountInfo() Expected error")
 	}
 }
 

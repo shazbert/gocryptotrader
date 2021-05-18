@@ -42,5 +42,5 @@ type EnabledExchangeCurrencies struct {
 
 // AllEnabledExchangeAccounts holds all enabled accounts info
 type AllEnabledExchangeAccounts struct {
-	Data []account.Holdings `json:"data"`
+	Data map[string]account.FullSnapshot `json:"data"`
 }

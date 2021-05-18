@@ -2,6 +2,8 @@ package engine
 
 import (
 	"errors"
+	"fmt"
+	"os"
 	"strings"
 	"sync"
 
@@ -9,7 +11,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/config"
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	exchange "github.com/thrasher-corp/gocryptotrader/exchanges"
-	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/account"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/binance"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/bitfinex"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/bitflyer"
@@ -307,17 +309,15 @@ func (bot *Engine) LoadExchange(name string, useWG bool, wg *sync.WaitGroup) err
 	base := exch.GetBase()
 	if base.API.AuthenticatedSupport ||
 		base.API.AuthenticatedWebsocketSupport {
-		assetTypes := base.GetAssetTypes()
-		var useAsset asset.Item
-		for a := range assetTypes {
-			err = base.CurrencyPairs.IsAssetEnabled(assetTypes[a])
-			if err != nil {
-				continue
-			}
-			useAsset = assetTypes[a]
-			break
-		}
-		err = exch.ValidateCredentials(useAsset)
+		// TODO: Add key manager, as that will be able to retrieve sub
+		// accounts for individual api keys.
+
+		// This will do two things on start up. This will verify if API keys are
+		// correct. If not will turn off all authenticated systems, for now. And
+		// this will load current account holdings snapshot for usage.
+		var sh account.FullSnapshot
+		sh, err = exch.UpdateAccountInfo()
+		err = base.CheckTransientError(err)
 		if err != nil {
 			log.Warnf(log.ExchangeSys,
 				"%s: Cannot validate credentials, authenticated support has been disabled, Error: %s\n",
@@ -327,6 +327,11 @@ func (bot *Engine) LoadExchange(name string, useWG bool, wg *sync.WaitGroup) err
 			base.API.AuthenticatedWebsocketSupport = false
 			exchCfg.API.AuthenticatedSupport = false
 			exchCfg.API.AuthenticatedWebsocketSupport = false
+			os.Exit(1)
+		}
+
+		if bot.Settings.Verbose {
+			displayAccountInfo(name, sh)
 		}
 	}
 
@@ -339,6 +344,33 @@ func (bot *Engine) LoadExchange(name string, useWG bool, wg *sync.WaitGroup) err
 	}
 
 	return nil
+}
+
+func displayAccountInfo(exch string, sh account.FullSnapshot) {
+	for acc, m1 := range sh {
+		for ai, m2 := range m1 {
+			var balances string
+			for c, bal := range m2 {
+				if bal.Total == 0 {
+					continue
+				}
+				balances += fmt.Sprintf(" [%s: Total:%.2f Locked:%.2f]",
+					strings.ToUpper(c.String()),
+					bal.Total,
+					bal.Locked)
+			}
+
+			if len(balances) < 1 {
+				continue
+			}
+			log.Debugf(log.Accounts,
+				"%s Balance loaded for account: '%s' and asset: '%s' holdings: %s",
+				exch,
+				acc,
+				ai,
+				balances[1:])
+		}
+	}
 }
 
 // SetupExchanges sets up the exchanges used by the Bot

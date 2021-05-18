@@ -7,6 +7,7 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/thrasher-corp/gocryptotrader/common/cache"
 	"github.com/thrasher-corp/gocryptotrader/currency"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/portfolio/banking"
 )
 
@@ -23,24 +24,30 @@ const (
 )
 
 const (
-	// ErrStrAmountMustBeGreaterThanZero message to return when requested amount is less than 0
+	// ErrStrAmountMustBeGreaterThanZero message to return when requested amount
+	// is less than 0
 	ErrStrAmountMustBeGreaterThanZero = "amount must be greater than 0"
-	// ErrStrAddressisInvalid message to return when address is invalid for crypto request
+	// ErrStrAddressisInvalid message to return when address is invalid for
+	// crypto request
 	ErrStrAddressisInvalid = "address is not valid"
 	// ErrStrAddressNotSet message to return when address is empty
 	ErrStrAddressNotSet = "address cannot be empty"
 	// ErrStrNoCurrencySet message to return when no currency is set
 	ErrStrNoCurrencySet = "currency not set"
-	// ErrStrCurrencyNotCrypto message to return when requested currency is not crypto
+	// ErrStrCurrencyNotCrypto message to return when requested currency is not
+	// crypto
 	ErrStrCurrencyNotCrypto = "requested currency is not a cryptocurrency"
-	// ErrStrCurrencyNotFiat message to return when requested currency is not fiat
+	// ErrStrCurrencyNotFiat message to return when requested currency is not
+	// fiat
 	ErrStrCurrencyNotFiat = "requested currency is not fiat"
 	// ErrStrFeeCannotBeNegative message to return when fee amount is negative
 	ErrStrFeeCannotBeNegative = "fee amount cannot be negative"
-	// ErrStrAddressNotWhiteListed message to return when attempting to withdraw to non-whitelisted address
-	ErrStrAddressNotWhiteListed = "address is not whitelisted for withdrawals"
-	// ErrStrExchangeNotSupportedByAddress message to return when attemptign to withdraw to an unsupported exchange
-	ErrStrExchangeNotSupportedByAddress = "address is not supported by exchange"
+	// ErrStrAddressNotWhiteListed message to return when attempting to withdraw
+	// to non-whitelisted address
+	ErrStrAddressNotWhiteListed = "address is not whitelisted for withdrawals in config.json in portfolio addresses"
+	// ErrStrExchangeNotSupportedByAddress message to return when attempting to
+	// withdraw to an unsupported exchange
+	ErrStrExchangeNotSupportedByAddress = "address is not supported by exchange in config.json in portfolio addresses"
 )
 
 var (
@@ -88,9 +95,11 @@ type FiatRequest struct {
 type Request struct {
 	Exchange    string        `json:"exchange"`
 	Currency    currency.Code `json:"currency"`
-	Description string        `json:"description"`
-	Amount      float64       `json:"amount"`
-	Type        RequestType   `json:"type"`
+	Asset       asset.Item
+	Account     string
+	Description string      `json:"description"`
+	Amount      float64     `json:"amount"`
+	Type        RequestType `json:"type"`
 
 	TradePassword   string
 	OneTimePassword int64
@@ -100,21 +109,36 @@ type Request struct {
 	Fiat   FiatRequest   `json:",omitempty"`
 }
 
-// Response holds complete details for Response
-type Response struct {
-	ID uuid.UUID `json:"id"`
-
-	Exchange       ExchangeResponse `json:"exchange"`
-	RequestDetails Request          `json:"request_details"`
-
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+// Details holds complete details for response transactions and database
+// deployment
+type Details struct {
+	// InternalWithdrawalID is a UUID database identifier for a withdrawal
+	// transaction
+	InternalWithdrawalID uuid.UUID
+	// InternalExchangeID is a UUID database identifier for cross referencing
+	// against an exchange
+	InternalExchangeID uuid.UUID
+	// Response is the individual reply from the exchange
+	Response Response
+	// The outgoing accepted request for reference
+	Request *Request
+	// Time at which accepted and deployed in the database
+	CreatedAt time.Time
+	// Time at which an update occured in the database
+	UpdatedAt time.Time
 }
 
 // ExchangeResponse holds information returned from an exchange
-type ExchangeResponse struct {
-	Name   string `json:"name"`
-	UUID   uuid.UUID
-	ID     string `json:"id"`
-	Status string `json:"status"`
+type Response struct {
+	// WithdrawalID is an exchange defined withdrawal ID
+	WithdrawalID string
+	// TransactionID is a protocol level transaction ID for a blockchain. This
+	// can cross reference transaction details by its block explorer.
+	TransactionID string
+	// Generalisation bucket
+	Status string
+	// In the event that the request is done via REST and there is no ability
+	// for the websocket endpoint to reduce position in holdings this will be
+	// set to true
+	ReduceAccountHoldings bool
 }

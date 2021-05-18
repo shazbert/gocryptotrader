@@ -1,24 +1,65 @@
 package portfolio
 
 import (
+	"errors"
+	"fmt"
+	"sync"
 	"time"
 
 	"github.com/thrasher-corp/gocryptotrader/currency"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 )
 
 // Base holds the portfolio base addresses
 type Base struct {
-	Addresses []Address `json:"addresses"`
+	s *State
+	m sync.Mutex
+}
+
+// Designation is a type to specify what this address is defined as.
+type Designation string
+
+var (
+	// DepositDestination defines a portfolio address being a wallet you can
+	// withdraw to, the balance of this wallet will not be tracked as this will
+	// usually be an exchange owned wallet.
+	DepositDestination Designation = "DepositDestination"
+	// Exchange defines a portfolio address of being a balance that an api key
+	// set would be able to interact and manipulate.
+	Exchange Designation = "Exchange"
+	// ColdWallet defines a potential client owned address that will be used
+	// mainly for long term cryptocurrency storage.
+	ColdWallet Designation = "ColdWallet"
+	// ColdWallet defines a potential client owned address that will be used
+	// mainly for short term cryptocurrency storage.
+	HotWallet Designation = "HotWallet"
+)
+
+var errInvalidDesignation = errors.New("invalid designation")
+
+// Validate checks designation
+func (d *Designation) Validate() error {
+	if *d == DepositDestination ||
+		*d == Exchange ||
+		*d == ColdWallet ||
+		*d == HotWallet {
+		return nil
+	}
+	return fmt.Errorf("cannot use %s %w", *d, errInvalidDesignation)
 }
 
 // Address sub type holding address information for portfolio
 type Address struct {
+	Type               Designation
 	Address            string
+	Account            string
+	Asset              asset.Item
 	CoinType           currency.Code
 	Balance            float64
 	Description        string
 	WhiteListed        bool
 	ColdStorage        bool
+	TagRequired        bool
 	SupportedExchanges string
 }
 
@@ -156,4 +197,55 @@ type AccountInfo struct {
 	Domain      string `json:"domain"`
 	Twitter     string `json:"twitter"`
 	Verified    bool   `json:"verified"`
+}
+
+// State defines snapshot of total portfolio tracked items and balances
+type State struct {
+	// Exchanges tracks balances across exchanges
+	Exchanges map[string]*[]Holdings `json:"exchangeBalances,omitempty"`
+	// ColdWallets tracks deposit wallets that are used for long term storage
+	ColdWallets []Wallet `json:"coldWallets"`
+	// HotWallets tracks deposit wallets that are used for short term storage
+	HotWallets []Wallet `json:"hotWallets"`
+	// Deposits track deposit addresses for exchanges
+	// TODO: Deprecate because this is only for POC and to visual the deposit
+	// addresses, not really need to be tied in with the portfolio but easier
+	// to manage as a singular type got the short term.
+	Deposits map[string]*[]Wallet `json:"depositAddresses"`
+}
+
+// Deposit is a deposit address for an exchange
+type Deposit struct {
+	Wallet
+	// SupportedExchanges defines a comma seperated list of exchanges that can
+	// withdraw to this deposit address.
+	SupportedExchanges string `json:"supportedExchanges"`
+}
+
+// Wallet defines a wallet with address
+type Wallet struct {
+	Address     string `json:"address"`
+	WhiteListed bool   `json:"whiteListed"`
+	// TagMemoRequired requirement for a deposit this allows for a check before
+	// a withdrawal occurs. This needs to be vetted by end user.
+	TagMemoRequired    bool   `json:"tagMemoRequired"`
+	TagMemo            string `json:"tagMemo"`
+	SupportedExchanges string `json:"supportedExchanges"`
+	Account            string `json:"account,omitempty"`
+	Holding
+}
+
+// Holdings defines a a holdings associated with an account
+type Holdings struct {
+	Account string `json:"account"`
+	Holding
+}
+
+// Holding defines the currency type and balance
+type Holding struct {
+	Currency string `json:"currency"`
+	Asset    string `json:"asset"`
+	// Balance omitempty used for deposit addresses which will not get tracked
+	// as these are usually exchange aggregated accounts.
+	Balance float64 `json:"balance,omitempty"`
 }

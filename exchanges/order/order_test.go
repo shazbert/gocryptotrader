@@ -995,36 +995,36 @@ func TestClassificationError_Error(t *testing.T) {
 
 func TestValidationOnOrderTypes(t *testing.T) {
 	var cancelMe *Cancel
-	if cancelMe.Validate() != ErrCancelOrderIsNil {
+	if cancelMe.Validate("bruh") != ErrCancelOrderIsNil {
 		t.Fatal("unexpected error")
 	}
 
 	cancelMe = new(Cancel)
-	if cancelMe.Validate() != ErrPairIsEmpty {
+	if cancelMe.Validate("bruh") != ErrPairIsEmpty {
 		t.Fatal("unexpected error")
 	}
 
 	cancelMe.Pair = currency.NewPair(currency.BTC, currency.USDT)
-	if cancelMe.Validate() != ErrAssetNotSet {
+	if cancelMe.Validate("bruh") != ErrAssetNotSet {
 		t.Fatal("unexpected error")
 	}
 
 	cancelMe.AssetType = asset.Spot
-	if cancelMe.Validate() != nil {
+	if cancelMe.Validate("bruh") != nil {
 		t.Fatal("should not error")
 	}
 
-	if cancelMe.Validate(cancelMe.StandardCancel()) == nil {
+	if cancelMe.Validate("bruh", cancelMe.OrderIDRequired()) == nil {
 		t.Fatal("expected error")
 	}
 
-	if cancelMe.Validate(validate.Check(func() error {
+	if cancelMe.Validate("bruh", validate.Check(func() error {
 		return nil
 	})) != nil {
 		t.Fatal("should return nil")
 	}
 	cancelMe.ID = "1337"
-	if cancelMe.Validate(cancelMe.StandardCancel()) != nil {
+	if cancelMe.Validate("bruh", cancelMe.OrderIDRequired()) != nil {
 		t.Fatal("should return nil")
 	}
 

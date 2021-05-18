@@ -12,6 +12,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/core"
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	exchange "github.com/thrasher-corp/gocryptotrader/exchanges"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/account"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
@@ -693,6 +694,97 @@ func TestGetHistoricTrades(t *testing.T) {
 	_, err = p.GetHistoricTrades(currencyPair, asset.Spot, tStart, tEnd)
 	if err != nil {
 		t.Error(err)
+	}
+}
+
+func TestUpdateAccountInfo(t *testing.T) {
+	p.Verbose = true
+	_, err := p.UpdateAccountInfo()
+	if !errors.Is(err, account.ErrAccountNameNotSupplied) {
+		t.Fatalf("expected: %v but received: %v",
+			account.ErrAccountNameNotSupplied,
+			err)
+	}
+
+	_, err = p.UpdateAccountInfo()
+	if !errors.Is(err, asset.ErrNotSupported) {
+		t.Fatalf("expected: %v but received: %v",
+			asset.ErrNotSupported,
+			err)
+	}
+
+	_, err = p.UpdateAccountInfo()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	h, err := p.GetHolding(account.Default, asset.Spot, currency.XRP)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := 40.14
+	if h.GetTotal() != expected {
+		t.Fatalf("expected: %f but received: %f", expected, h.GetTotal())
+	}
+	if h.GetFree() != expected {
+		t.Fatalf("expected: %f but received: %f", expected, h.GetFree())
+	}
+
+	// test websocket interaction on current holdings
+	err = p.loadCurrencyDetails()
+	if err != nil {
+		t.Error(err)
+	}
+
+	executeLimitOrderFrontEnd := []byte(`[1000,"",[["p",431682155857,127,"1000.00000000","1.00000000","0",null],["n",127,431682155857,"0","1000.00000000","1.00000000","2021-04-13 07:19:56","1.00000000",null],["b",243,"e","-1.00000000"]]]`)
+	err = p.wsHandleData(executeLimitOrderFrontEnd)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if h.GetTotal() != expected {
+		t.Fatalf("expected: %f but received: %f", expected, h.GetTotal())
+	}
+
+	if h.GetFree() != expected {
+		t.Fatalf("expected: %f but received: %f", expected, h.GetFree())
+	}
+
+	cancelLimitOrderFrontEnd := []byte(`[1000,"",[["o",431682155857,"0.00000000","c",null,"1.00000000"],["b",243,"e","1.00000000"]]]`)
+	err = p.wsHandleData(cancelLimitOrderFrontEnd)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if h.GetTotal() != expected {
+		t.Fatalf("expected: %f but received: %f", expected, h.GetTotal())
+	}
+
+	if h.GetFree() != expected {
+		t.Fatalf("expected: %f but received: %f", expected, h.GetFree())
+	}
+}
+
+func TestSomething(t *testing.T) {
+	// test websocket interaction on current holdings
+	err := p.loadCurrencyDetails()
+	if err != nil {
+		t.Error(err)
+	}
+
+	// fmt.Printf("%+v\n", p.wsCurrency.codes)
+
+	executeLimitOrderFrontEnd := []byte(`[1000,"",[["p",431682155857,127,"1000.00000000","1.00000000","0",null],["n",127,431682155857,"0","1000.00000000","1.00000000","2021-04-13 07:19:56","1.00000000",null],["b",243,"e","-1.00000000"]]]`)
+	err = p.wsHandleData(executeLimitOrderFrontEnd)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cancelLimitOrderFrontEnd := []byte(`[1000,"",[["o",431682155857,"0.00000000","c",null,"1.00000000"],["b",243,"e","1.00000000"]]]`)
+	err = p.wsHandleData(cancelLimitOrderFrontEnd)
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 

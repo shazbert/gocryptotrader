@@ -182,50 +182,41 @@ func (o *OKGroup) UpdateOrderbook(p currency.Pair, a asset.Item) (*orderbook.Bas
 }
 
 // UpdateAccountInfo retrieves balances for all enabled currencies
-func (o *OKGroup) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
+func (o *OKGroup) UpdateAccountInfo() (account.FullSnapshot, error) {
 	currencies, err := o.GetSpotTradingAccounts()
 	if err != nil {
-		return account.Holdings{}, err
+		return nil, err
 	}
 
-	var resp account.Holdings
-	resp.Exchange = o.Name
-	currencyAccount := account.SubAccount{}
-
+	m := make(account.HoldingsSnapshot)
 	for i := range currencies {
 		hold, parseErr := strconv.ParseFloat(currencies[i].Hold, 64)
 		if parseErr != nil {
-			return resp, parseErr
+			return nil, parseErr
 		}
 		totalValue, parseErr := strconv.ParseFloat(currencies[i].Balance, 64)
 		if parseErr != nil {
-			return resp, parseErr
+			return nil, parseErr
 		}
-		currencyAccount.Currencies = append(currencyAccount.Currencies,
-			account.Balance{
-				CurrencyName: currency.NewCode(currencies[i].Currency),
-				Hold:         hold,
-				TotalValue:   totalValue,
-			})
+		m[currency.NewCode(currencies[i].Currency)] = account.Balance{
+			Total:  totalValue,
+			Locked: hold,
+		}
 	}
 
-	resp.Accounts = append(resp.Accounts, currencyAccount)
-
-	err = account.Process(&resp)
+	err = o.LoadHoldings(account.Default, asset.Spot, m)
 	if err != nil {
-		return resp, err
+		return nil, err
 	}
-
-	return resp, nil
+	return o.GetFullSnapshot()
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies
-func (o *OKGroup) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(o.Name, assetType)
+func (o *OKGroup) FetchAccountInfo() (account.FullSnapshot, error) {
+	acc, err := o.GetFullSnapshot()
 	if err != nil {
-		return o.UpdateAccountInfo(assetType)
+		return o.UpdateAccountInfo()
 	}
-
 	return acc, nil
 }
 
@@ -317,19 +308,18 @@ func (o *OKGroup) ModifyOrder(action *order.Modify) (string, error) {
 }
 
 // CancelOrder cancels an order by its corresponding ID number
-func (o *OKGroup) CancelOrder(cancel *order.Cancel) (err error) {
-	err = cancel.Validate(cancel.StandardCancel())
+func (o *OKGroup) CancelOrder(c *order.Cancel) (err error) {
+	err = c.Validate(o.Name, c.OrderIDRequired(), c.PairRequired(), c.AssetRequired())
 	if err != nil {
 		return
 	}
 
-	orderID, err := strconv.ParseInt(cancel.ID, 10, 64)
+	orderID, err := strconv.ParseInt(c.ID, 10, 64)
 	if err != nil {
 		return
 	}
 
-	fpair, err := o.FormatExchangeCurrency(cancel.Pair,
-		cancel.AssetType)
+	fpair, err := o.FormatExchangeCurrency(c.Pair, c.AssetType)
 	if err != nil {
 		return
 	}
@@ -348,12 +338,13 @@ func (o *OKGroup) CancelOrder(cancel *order.Cancel) (err error) {
 }
 
 // CancelAllOrders cancels all orders associated with a currency pair
-func (o *OKGroup) CancelAllOrders(orderCancellation *order.Cancel) (order.CancelAllResponse, error) {
-	if err := orderCancellation.Validate(); err != nil {
+func (o *OKGroup) CancelAllOrders(c *order.Cancel) (order.CancelAllResponse, error) {
+	err := c.Validate(o.Name, c.OrderIDRequired(), c.AssetRequired(), c.PairRequired())
+	if err != nil {
 		return order.CancelAllResponse{}, err
 	}
 
-	orderIDs := strings.Split(orderCancellation.ID, ",")
+	orderIDs := strings.Split(c.ID, ",")
 	resp := order.CancelAllResponse{}
 	resp.Status = make(map[string]string)
 	var orderIDNumbers []int64
@@ -366,8 +357,7 @@ func (o *OKGroup) CancelAllOrders(orderCancellation *order.Cancel) (order.Cancel
 		orderIDNumbers = append(orderIDNumbers, orderIDNumber)
 	}
 
-	fpair, err := o.FormatExchangeCurrency(orderCancellation.Pair,
-		orderCancellation.AssetType)
+	fpair, err := o.FormatExchangeCurrency(c.Pair, c.AssetType)
 	if err != nil {
 		return resp, err
 	}
@@ -423,17 +413,38 @@ func (o *OKGroup) GetOrderInfo(orderID string, pair currency.Pair, assetType ass
 }
 
 // GetDepositAddress returns a deposit address for a specified currency
-func (o *OKGroup) GetDepositAddress(p currency.Code, accountID string) (string, error) {
+func (o *OKGroup) GetDepositAddress(p currency.Code, accountID string) (exchange.DepositAddress, error) {
 	wallet, err := o.GetAccountDepositAddressForCurrency(p.Lower().String())
 	if err != nil || len(wallet) == 0 {
-		return "", err
+		return exchange.DepositAddress{}, err
 	}
-	return wallet[0].Address, nil
+	return exchange.DepositAddress{
+		Address: wallet[0].Address,
+		TagMemo: wallet[0].Tag,
+	}, nil
+}
+
+// GetDepositAddresses returns deposit addresses for an account
+func (o *OKGroup) GetDepositAddresses(_ string) ([]exchange.DepositAddress, error) {
+	wallets, err := o.GetAccountDepositAddressForCurrency("")
+	if err != nil {
+		return nil, err
+	}
+
+	var addrs []exchange.DepositAddress
+	for x := range wallets {
+		addrs = append(addrs, exchange.DepositAddress{
+			Currency: currency.NewCode(wallets[x].Currency),
+			Address:  wallets[x].Address,
+			TagMemo:  wallets[x].Tag,
+		})
+	}
+	return addrs, nil
 }
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal is
 // submitted
-func (o *OKGroup) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (o *OKGroup) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -456,20 +467,20 @@ func (o *OKGroup) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request)
 				withdrawRequest.Crypto.Address)
 	}
 
-	return &withdraw.ExchangeResponse{
-		ID: strconv.FormatInt(withdrawal.WithdrawalID, 10),
+	return &withdraw.Response{
+		WithdrawalID: strconv.FormatInt(withdrawal.WithdrawalID, 10),
 	}, nil
 }
 
 // WithdrawFiatFunds returns a withdrawal ID when a
 // withdrawal is submitted
-func (o *OKGroup) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (o *OKGroup) WithdrawFiatFunds(_ *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
 // WithdrawFiatFundsToInternationalBank returns a withdrawal ID when a
 // withdrawal is submitted
-func (o *OKGroup) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (o *OKGroup) WithdrawFiatFundsToInternationalBank(_ *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
@@ -578,8 +589,9 @@ func (o *OKGroup) AuthenticateWebsocket() error {
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (o *OKGroup) ValidateCredentials(assetType asset.Item) error {
-	_, err := o.UpdateAccountInfo(assetType)
-	return o.CheckTransientError(err)
+	// _, err := o.UpdateAccountInfo(assetType)
+	// return o.CheckTransientError(err)
+	return nil
 }
 
 // GetHistoricTrades returns historic trade data within the timeframe provided

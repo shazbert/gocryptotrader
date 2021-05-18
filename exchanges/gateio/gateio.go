@@ -511,7 +511,7 @@ func getCryptocurrencyWithdrawalFee(c currency.Code) float64 {
 }
 
 // WithdrawCrypto withdraws cryptocurrency to your selected wallet
-func (g *Gateio) WithdrawCrypto(currency, address string, amount float64) (*withdraw.ExchangeResponse, error) {
+func (g *Gateio) WithdrawCrypto(currency, address string, amount float64) (*withdraw.Response, error) {
 	type response struct {
 		Result  bool   `json:"result"`
 		Message string `json:"message"`
@@ -532,7 +532,7 @@ func (g *Gateio) WithdrawCrypto(currency, address string, amount float64) (*with
 		return nil, fmt.Errorf("code:%d message:%s", result.Code, result.Message)
 	}
 
-	return &withdraw.ExchangeResponse{
+	return &withdraw.Response{
 		Status: result.Message,
 	}, nil
 }

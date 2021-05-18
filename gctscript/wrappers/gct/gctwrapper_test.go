@@ -31,8 +31,6 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 	engine.Bot.LoadExchange(exch.Value, false, nil)
-	engine.Bot.DepositAddressManager = new(engine.DepositAddressManager)
-	go engine.Bot.DepositAddressManager.Sync()
 	err = engine.Bot.OrderManager.Start(engine.Bot)
 	if err != nil {
 		log.Print(err)

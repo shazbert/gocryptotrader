@@ -23,45 +23,6 @@ var (
 	ErrOrderIDNotSet              = errors.New("order id or client order id is not set")
 )
 
-// Submit contains all properties of an order that may be required
-// for an order to be created on an exchange
-// Each exchange has their own requirements, so not all fields
-// are required to be populated
-type Submit struct {
-	ImmediateOrCancel bool
-	HiddenOrder       bool
-	FillOrKill        bool
-	PostOnly          bool
-	ReduceOnly        bool
-	Leverage          float64
-	Price             float64
-	Amount            float64
-	StopPrice         float64
-	LimitPriceUpper   float64
-	LimitPriceLower   float64
-	TriggerPrice      float64
-	TargetAmount      float64
-	ExecutedAmount    float64
-	RemainingAmount   float64
-	Fee               float64
-	Exchange          string
-	InternalOrderID   string
-	ID                string
-	AccountID         string
-	ClientID          string
-	ClientOrderID     string
-	WalletAddress     string
-	Offset            string
-	Type              Type
-	Side              Side
-	Status            Status
-	AssetType         asset.Item
-	Date              time.Time
-	LastUpdated       time.Time
-	Pair              currency.Pair
-	Trades            []TradeHistory
-}
-
 // SubmitResponse is what is returned after submitting an order to an exchange
 type SubmitResponse struct {
 	IsOrderPlaced bool
@@ -149,29 +110,6 @@ type Detail struct {
 	LastUpdated       time.Time
 	Pair              currency.Pair
 	Trades            []TradeHistory
-}
-
-// Cancel contains all properties that may be required
-// to cancel an order on an exchange
-// Each exchange has their own requirements, so not all fields
-// are required to be populated
-type Cancel struct {
-	Price         float64
-	Amount        float64
-	Exchange      string
-	ID            string
-	ClientOrderID string
-	AccountID     string
-	ClientID      string
-	WalletAddress string
-	Type          Type
-	Side          Side
-	Status        Status
-	AssetType     asset.Item
-	Date          time.Time
-	Pair          currency.Pair
-	Symbol        string
-	Trades        []TradeHistory
 }
 
 // CancelAllResponse returns the status from attempting to
@@ -262,6 +200,7 @@ const (
 	UnknownType       Type = "UNKNOWN"
 	Liquidation       Type = "LIQUIDATION"
 	Trigger           Type = "TRIGGER"
+	Margin            Type = "MARGIN"
 )
 
 // Side enforces a standard for order sides across the code base

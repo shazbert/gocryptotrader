@@ -1751,15 +1751,7 @@ func TestGetAccountInfo(t *testing.T) {
 		t.Skip("skipping test: api keys not set")
 	}
 	t.Parallel()
-	_, err := b.UpdateAccountInfo(asset.CoinMarginedFutures)
-	if err != nil {
-		t.Error(err)
-	}
-	_, err = b.UpdateAccountInfo(asset.USDTMarginedFutures)
-	if err != nil {
-		t.Error(err)
-	}
-	_, err = b.UpdateAccountInfo(asset.Spot)
+	_, err := b.UpdateAccountInfo()
 	if err != nil {
 		t.Error(err)
 	}

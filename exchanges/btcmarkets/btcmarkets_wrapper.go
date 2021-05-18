@@ -395,40 +395,33 @@ func (b *BTCMarkets) UpdateOrderbook(p currency.Pair, assetType asset.Item) (*or
 }
 
 // UpdateAccountInfo retrieves balances for all enabled currencies
-func (b *BTCMarkets) UpdateAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	var resp account.Holdings
+func (b *BTCMarkets) UpdateAccountInfo() (account.FullSnapshot, error) {
 	data, err := b.GetAccountBalance()
 	if err != nil {
-		return resp, err
+		return nil, err
 	}
-	var acc account.SubAccount
+
+	m := make(account.HoldingsSnapshot)
 	for key := range data {
-		c := currency.NewCode(data[key].AssetName)
-		hold := data[key].Locked
-		total := data[key].Balance
-		acc.Currencies = append(acc.Currencies,
-			account.Balance{CurrencyName: c,
-				TotalValue: total,
-				Hold:       hold})
+		m[currency.NewCode(data[key].AssetName)] = account.Balance{
+			Total:  data[key].Balance,
+			Locked: data[key].Locked,
+		}
 	}
-	resp.Accounts = append(resp.Accounts, acc)
-	resp.Exchange = b.Name
 
-	err = account.Process(&resp)
+	err = b.LoadHoldings(account.Default, asset.Spot, m)
 	if err != nil {
-		return account.Holdings{}, err
+		return nil, err
 	}
-
-	return resp, nil
+	return b.GetFullSnapshot()
 }
 
 // FetchAccountInfo retrieves balances for all enabled currencies
-func (b *BTCMarkets) FetchAccountInfo(assetType asset.Item) (account.Holdings, error) {
-	acc, err := account.GetHoldings(b.Name, assetType)
+func (b *BTCMarkets) FetchAccountInfo() (account.FullSnapshot, error) {
+	acc, err := b.GetFullSnapshot()
 	if err != nil {
-		return b.UpdateAccountInfo(assetType)
+		return b.UpdateAccountInfo()
 	}
-
 	return acc, nil
 }
 
@@ -535,12 +528,12 @@ func (b *BTCMarkets) ModifyOrder(action *order.Modify) (string, error) {
 }
 
 // CancelOrder cancels an order by its corresponding ID number
-func (b *BTCMarkets) CancelOrder(o *order.Cancel) error {
-	err := o.Validate(o.StandardCancel())
+func (b *BTCMarkets) CancelOrder(c *order.Cancel) error {
+	err := c.Validate(b.Name, c.OrderIDRequired())
 	if err != nil {
 		return err
 	}
-	_, err = b.RemoveOrder(o.ID)
+	_, err = b.RemoveOrder(c.ID)
 	return err
 }
 
@@ -638,16 +631,16 @@ func (b *BTCMarkets) GetOrderInfo(orderID string, pair currency.Pair, assetType 
 }
 
 // GetDepositAddress returns a deposit address for a specified currency
-func (b *BTCMarkets) GetDepositAddress(cryptocurrency currency.Code, accountID string) (string, error) {
+func (b *BTCMarkets) GetDepositAddress(cryptocurrency currency.Code, accountID string) (exchange.DepositAddress, error) {
 	temp, err := b.FetchDepositAddress(strings.ToUpper(cryptocurrency.String()), -1, -1, -1)
 	if err != nil {
-		return "", err
+		return exchange.DepositAddress{}, err
 	}
-	return temp.Address, nil
+	return exchange.DepositAddress{Address: temp.Address}, nil
 }
 
 // WithdrawCryptocurrencyFunds returns a withdrawal ID when a withdrawal is submitted
-func (b *BTCMarkets) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (b *BTCMarkets) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -661,15 +654,15 @@ func (b *BTCMarkets) WithdrawCryptocurrencyFunds(withdrawRequest *withdraw.Reque
 	if err != nil {
 		return nil, err
 	}
-	return &withdraw.ExchangeResponse{
-		ID:     a.ID,
-		Status: a.Status,
+	return &withdraw.Response{
+		WithdrawalID: a.ID,
+		Status:       a.Status,
 	}, nil
 }
 
 // WithdrawFiatFunds returns a withdrawal ID when a
 // withdrawal is submitted
-func (b *BTCMarkets) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (b *BTCMarkets) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	if err := withdrawRequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -687,15 +680,15 @@ func (b *BTCMarkets) WithdrawFiatFunds(withdrawRequest *withdraw.Request) (*with
 	if err != nil {
 		return nil, err
 	}
-	return &withdraw.ExchangeResponse{
-		ID:     a.ID,
-		Status: a.Status,
+	return &withdraw.Response{
+		WithdrawalID: a.ID,
+		Status:       a.Status,
 	}, nil
 }
 
 // WithdrawFiatFundsToInternationalBank returns a withdrawal ID when a
 // withdrawal is submitted
-func (b *BTCMarkets) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.ExchangeResponse, error) {
+func (b *BTCMarkets) WithdrawFiatFundsToInternationalBank(withdrawRequest *withdraw.Request) (*withdraw.Response, error) {
 	return nil, common.ErrFunctionNotSupported
 }
 
@@ -865,20 +858,20 @@ func (b *BTCMarkets) GetOrderHistory(req *order.GetOrdersRequest) ([]order.Detai
 // ValidateCredentials validates current credentials used for wrapper
 // functionality
 func (b *BTCMarkets) ValidateCredentials(assetType asset.Item) error {
-	_, err := b.UpdateAccountInfo(assetType)
-	if err != nil {
-		if b.CheckTransientError(err) == nil {
-			return nil
-		}
-		// Check for specific auth errors; all other errors can be disregarded
-		// as this does not affect authenticated requests.
-		if strings.Contains(err.Error(), "InvalidAPIKey") ||
-			strings.Contains(err.Error(), "InvalidAuthTimestamp") ||
-			strings.Contains(err.Error(), "InvalidAuthSignature") ||
-			strings.Contains(err.Error(), "InsufficientAPIPermission") {
-			return err
-		}
-	}
+	// _, err := b.UpdateAccountInfo(assetType)
+	// if err != nil {
+	// 	if b.CheckTransientError(err) == nil {
+	// 		return nil
+	// 	}
+	// 	// Check for specific auth errors; all other errors can be disregarded
+	// 	// as this does not affect authenticated requests.
+	// 	if strings.Contains(err.Error(), "InvalidAPIKey") ||
+	// 		strings.Contains(err.Error(), "InvalidAuthTimestamp") ||
+	// 		strings.Contains(err.Error(), "InvalidAuthSignature") ||
+	// 		strings.Contains(err.Error(), "InsufficientAPIPermission") {
+	// 		return err
+	// 	}
+	// }
 
 	return nil
 }
