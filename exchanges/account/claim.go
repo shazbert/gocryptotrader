@@ -32,9 +32,8 @@ func (c *Claim) GetAmount() float64 {
 }
 
 // getAmount returns the amount as a decimal for internal use
+// (Warning not protected)
 func (c *Claim) getAmount() decimal.Decimal {
-	c.m.Lock()
-	defer c.m.Unlock()
 	return c.amount
 }
 

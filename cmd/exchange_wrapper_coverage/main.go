@@ -113,7 +113,7 @@ func testWrappers(e exchange.IBotExchange) []string {
 		funcs = append(funcs, "UpdateTradablePairs")
 	}
 
-	_, err = e.FetchAccountInfo()
+	_, err = e.FetchAccountInfo("")
 	if errors.Is(err, common.ErrNotYetImplemented) {
 		funcs = append(funcs, "GetAccountInfo")
 	}
@@ -202,7 +202,7 @@ func testWrappers(e exchange.IBotExchange) []string {
 		funcs = append(funcs, "GetHistoricCandlesExtended")
 	}
 
-	_, err = e.UpdateAccountInfo()
+	_, err = e.UpdateAccountInfo("")
 	if errors.Is(err, common.ErrNotYetImplemented) {
 		funcs = append(funcs, "UpdateAccountInfo")
 	}

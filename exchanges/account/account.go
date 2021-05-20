@@ -19,13 +19,11 @@ func init() {
 // Default defines the default main account for each apikey on an exchange
 const Default = "main"
 
-// ErrAccountNameNotSupplied defines an error that the account name is not
-// supplied
-var ErrAccountNameNotSupplied = errors.New("account name not supplied")
-
-var errExchangeNameUnset = errors.New("exchange name is unset")
-var errExchangeHoldingsNotFound = errors.New("exchange holdings not found")
-var errExchangeAlreadyDeployed = errors.New("exchange already deployed in account services")
+var (
+	errExchangeNameUnset        = errors.New("exchange name is unset")
+	errExchangeHoldingsNotFound = errors.New("exchange holdings not found")
+	errExchangeAlreadyDeployed  = errors.New("exchange already deployed in account services")
+)
 
 // DeployHoldings associates an exchange with with the accounts system and
 // returns a pointer.

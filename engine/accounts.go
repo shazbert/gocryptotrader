@@ -118,14 +118,17 @@ func (a *AccountManager) updateAccountForExchange(exch exchange.IBotExchange, sh
 				// TODO: Check distinct capability
 				break
 			}
-
-			_, err := exch.UpdateAccountInfo()
-			if err != nil {
-				log.Errorf(log.Global,
-					"%s failed to update account holdings for account: %v",
-					exch.GetName(),
-					err)
+			at := exch.GetAssetTypes()
+			for x := range at {
+				_, err := exch.UpdateAccountInfo(at[x])
+				if err != nil {
+					log.Errorf(log.Global,
+						"%s failed to update account holdings for account: %v",
+						exch.GetName(),
+						err)
+				}
 			}
+
 			// TODO: Update portfolio positioning, would need to tie
 			// into websocket as well.
 		case <-shutdown:
