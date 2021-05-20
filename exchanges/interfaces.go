@@ -36,9 +36,16 @@ type IBotExchange interface {
 	GetAvailablePairs(a asset.Item) (currency.Pairs, error)
 
 	// FetchAccountInfo returns a full account snapshot
-	FetchAccountInfo() (account.FullSnapshot, error)
-	// FetchAccountInfo fetches and loads the full acount details
-	UpdateAccountInfo() (account.FullSnapshot, error)
+	FetchAccountInfo(asset.Item) (account.FullSnapshot, error)
+	// UpdateAccountInfo fetches and loads the full acount details
+	UpdateAccountInfo(asset.Item) (account.FullSnapshot, error)
+
+	// // FetchAccountInfoBatch returns a full account snapshot of all asset
+	// // items if supported
+	// FetchAccountInfoBatch() (account.FullSnapshot, error)
+	// // UpdateAccountInfoBatch fetches and loads the full acount details for all
+	// // asset items if supported
+	// UpdateAccountInfoBatch() (account.FullSnapshot, error)
 
 	GetAuthenticatedAPISupport(endpoint uint8) bool
 	SetPairs(pairs currency.Pairs, a asset.Item, enabled bool) error

@@ -57,6 +57,26 @@ type Holdings struct {
 	accMtx            sync.RWMutex
 }
 
+// LoadAccount loads an account for future checking
+func (h *Holdings) LoadAccount(account string) error {
+	if account == "" {
+		return errAccountNameUnset
+	}
+
+	account = strings.ToLower(account)
+
+	h.accMtx.Lock()
+	defer h.accMtx.Unlock()
+
+	for x := range h.availableAccounts {
+		if h.availableAccounts[x] == account {
+			return nil
+		}
+	}
+	h.availableAccounts = append(h.availableAccounts, account)
+	return nil
+}
+
 // GetAccounts returns the loaded accounts in usage associated with the current
 // global API credentials
 func (h *Holdings) GetAccounts() ([]string, error) {
@@ -95,26 +115,6 @@ func (h *Holdings) AccountValid(account string) error {
 		account,
 		errAccountNotFound,
 		h.availableAccounts)
-}
-
-// LoadAccount loads an account for future checking
-func (h *Holdings) LoadAccount(account string) error {
-	if account == "" {
-		return errAccountNameUnset
-	}
-
-	account = strings.ToLower(account)
-
-	h.accMtx.Lock()
-	defer h.accMtx.Unlock()
-
-	for x := range h.availableAccounts {
-		if h.availableAccounts[x] == account {
-			return nil
-		}
-	}
-	h.availableAccounts = append(h.availableAccounts, account)
-	return nil
 }
 
 // GetHolding returns the holding for a specific currency tied to an account
@@ -175,51 +175,6 @@ func (h *Holdings) GetHolding(account string, a asset.Item, c currency.Code) (*H
 	return holding, nil
 }
 
-// GetHoldingsSnapshot returns holdings for an account asset
-func (h *Holdings) GetHoldingsSnapshot(account string, ai asset.Item) (HoldingsSnapshot, error) {
-	if account == "" {
-		return nil, fmt.Errorf("cannot load holdings for %s %s %s: %w",
-			h.Exchange,
-			account,
-			ai,
-			errAccountNameUnset)
-	}
-
-	if !ai.IsValid() {
-		return nil, fmt.Errorf("cannot load holdings for %s %s %s: %w",
-			h.Exchange,
-			account,
-			ai,
-			asset.ErrNotSupported)
-	}
-
-	h.m.Lock()
-	defer h.m.Unlock()
-
-	if h.funds == nil {
-		return nil, errAccountBalancesNotLoaded
-	}
-
-	m1, ok := h.funds[account]
-	if !ok {
-		return nil, errAccountNotFound
-	}
-
-	holdings, ok := m1[ai]
-	if !ok {
-		return nil, errAssetTypeNotFound
-	}
-
-	m := make(HoldingsSnapshot)
-	for c, bal := range holdings {
-		total := bal.GetTotal()
-		if total > 0 {
-			m[currency.Code{Item: c}] = Balance{Total: total, Locked: bal.GetLocked()}
-		}
-	}
-	return m, nil
-}
-
 // LoadHoldings flushes the entire amounts with the supplied account values,
 // this acts as a complete snapshot, anything held in the current holdings that
 // is not part of the supplied values list will be readjusted to zero value.
@@ -253,6 +208,10 @@ func (h *Holdings) LoadHoldings(account string, a asset.Item, snapshot HoldingsS
 	account = strings.ToLower(account)
 
 	h.m.Lock()
+	if h.funds == nil {
+		h.funds = make(map[string]map[asset.Item]map[*currency.Item]*Holding)
+	}
+
 	m1, ok := h.funds[account]
 	if !ok {
 		// Loads instance of account name for other sub-system interactions
@@ -326,6 +285,51 @@ holdings:
 	return nil
 }
 
+// GetHoldingsSnapshot returns holdings for an account asset
+func (h *Holdings) GetHoldingsSnapshot(account string, ai asset.Item) (HoldingsSnapshot, error) {
+	if account == "" {
+		return nil, fmt.Errorf("cannot load holdings for %s %s %s: %w",
+			h.Exchange,
+			account,
+			ai,
+			errAccountNameUnset)
+	}
+
+	if !ai.IsValid() {
+		return nil, fmt.Errorf("cannot load holdings for %s %s %s: %w",
+			h.Exchange,
+			account,
+			ai,
+			asset.ErrNotSupported)
+	}
+
+	h.m.Lock()
+	defer h.m.Unlock()
+
+	if h.funds == nil {
+		return nil, errAccountBalancesNotLoaded
+	}
+
+	m1, ok := h.funds[account]
+	if !ok {
+		return nil, errAccountNotFound
+	}
+
+	holdings, ok := m1[ai]
+	if !ok {
+		return nil, errAssetTypeNotFound
+	}
+
+	m := make(HoldingsSnapshot)
+	for c, bal := range holdings {
+		total := bal.GetTotal()
+		if total > 0 {
+			m[currency.Code{Item: c}] = Balance{Total: total, Locked: bal.GetLocked()}
+		}
+	}
+	return m, nil
+}
+
 // GetFullSnapshot returns a full snapshot of the current exchange' account
 // balances
 func (h *Holdings) GetFullSnapshot() (FullSnapshot, error) {
@@ -337,7 +341,6 @@ func (h *Holdings) GetFullSnapshot() (FullSnapshot, error) {
 
 	h.m.Lock()
 	defer h.m.Unlock()
-
 	for account, m1 := range h.funds {
 		for ai, m2 := range m1 {
 			for c, holding := range m2 {
@@ -368,11 +371,11 @@ func (h *Holdings) GetFullSnapshot() (FullSnapshot, error) {
 func (h *Holdings) publish() {
 	ss, err := h.GetFullSnapshot()
 	if err != nil {
-		log.Error(log.Accounts, "cannot publish to dispatch mux %v", err)
+		log.Errorf(log.Accounts, "cannot publish to dispatch mux %v", err)
 	}
 	err = h.mux.Publish(&ss, h.id)
 	if err != nil {
-		log.Error(log.Accounts, "cannot publish to dispatch mux %v", err)
+		log.Errorf(log.Accounts, "cannot publish to dispatch mux %v", err)
 	}
 }
 
@@ -521,14 +524,3 @@ func (h *Holdings) validate(account string, ai asset.Item, c currency.Code, amou
 	}
 	return h.AccountValid(account)
 }
-
-// // GetHoldings returns a pointer to the holdings TODO: deprecate
-// func (h *Holdings) GetHoldings() (*Holdings, error) {
-// 	h.m.Lock()
-// 	defer h.m.Unlock()
-
-// 	if h.funds == nil {
-// 		return nil, errAccountBalancesNotLoaded
-// 	}
-// 	return h, nil
-// }

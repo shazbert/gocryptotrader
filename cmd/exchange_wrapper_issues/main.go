@@ -20,6 +20,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	"github.com/thrasher-corp/gocryptotrader/engine"
 	exchange "github.com/thrasher-corp/gocryptotrader/exchanges"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/account"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
@@ -490,18 +491,18 @@ func testWrappers(e exchange.IBotExchange, base *exchange.Base, config *Config) 
 			})
 		}
 
-		// var fetchAccountInfoResponse account.Holdings
-		// fetchAccountInfoResponse, err = e.FetchAccountInfo(assetTypes[i])
-		// msg = ""
-		// if err != nil {
-		// 	msg = err.Error()
-		// 	responseContainer.ErrorCount++
-		// }
-		// responseContainer.EndpointResponses = append(responseContainer.EndpointResponses, EndpointResponse{
-		// 	Function: "FetchAccountInfo",
-		// 	Error:    msg,
-		// 	Response: jsonifyInterface([]interface{}{fetchAccountInfoResponse}),
-		// })
+		var fetchAccountInfoResponse account.FullSnapshot
+		fetchAccountInfoResponse, err = e.FetchAccountInfo(assetTypes[i])
+		msg = ""
+		if err != nil {
+			msg = err.Error()
+			responseContainer.ErrorCount++
+		}
+		responseContainer.EndpointResponses = append(responseContainer.EndpointResponses, EndpointResponse{
+			Function: "FetchAccountInfo",
+			Error:    msg,
+			Response: jsonifyInterface([]interface{}{fetchAccountInfoResponse}),
+		})
 
 		var getFundingHistoryResponse []exchange.FundHistory
 		getFundingHistoryResponse, err = e.GetFundingHistory()
