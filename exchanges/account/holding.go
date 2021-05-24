@@ -2,6 +2,7 @@ package account
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/shopspring/decimal"
@@ -12,7 +13,6 @@ var (
 	errAmountExceedsHoldings = errors.New("amount exceeds current free amount")
 	errUnableToReleaseClaim  = errors.New("unable to release claim, holding amounts may be locked")
 	errNoBalance             = errors.New("no balance found for currency")
-	errInvalidHoldings       = errors.New("invalid holdings and claims")
 	errCannotWait            = errors.New("cannot wait supplied claim is not released")
 	errCannotCancelWait      = errors.New("failed to cancel waiting claim, not found")
 	errUnableToReduceClaim   = errors.New("unable to reduce claim, claim not found")
@@ -122,17 +122,6 @@ func (h *Holding) setAmounts(total, locked decimal.Decimal) {
 	h.m.Unlock()
 }
 
-// ValidateAmounts checks to see if the free holdings are in the negative, which
-// account executed an order via front end or moved some assets around.
-func (h *Holding) Validate(amount float64) error {
-	h.m.Lock()
-	defer h.m.Unlock()
-	if h.free.LessThan(decimal.Zero) {
-		return errInvalidHoldings
-	}
-	return nil
-}
-
 // Claim returns a claim to an amount for the exchange account holding. Allows
 // strategies to segregate their own funds from each other while executing in
 // parallel. If total amount is required, this will return an error else the
@@ -165,9 +154,14 @@ func (h *Holding) Claim(amount float64, totalRequired bool) (*Claim, error) {
 	return amountClaim, nil
 }
 
+var errClaimIsNil = errors.New("claim is nil")
+
 // Release is a protected exported function to release funds that has not
 // been successful or is not used
 func (h *Holding) Release(c *Claim) error {
+	if c == nil {
+		return errClaimIsNil
+	}
 	h.m.Lock()
 	defer h.m.Unlock()
 	err := h.release(c, false)
@@ -190,6 +184,10 @@ func (h *Holding) Release(c *Claim) error {
 // ReleaseToPending is a protected exported function to release funds and shift
 // them to pending when an order or a withdrawal opperation has succeeded.
 func (h *Holding) ReleaseToPending(c *Claim) error {
+	if c == nil {
+		return errClaimIsNil
+	}
+
 	h.m.Lock()
 	defer h.m.Unlock()
 	err := h.release(c, true)
@@ -209,8 +207,13 @@ func (h *Holding) ReleaseToPending(c *Claim) error {
 	return nil
 }
 
+var errClaimInvalid = errors.New("claim amount cannot be less than or equal to zero")
+
 // release releases the funds either to pending or free.
 func (h *Holding) release(c *Claim, pending bool) error {
+	if !c.amount.GreaterThan(decimal.Zero) {
+		return errClaimInvalid
+	}
 	for x := range h.claims {
 		if h.claims[x] == c {
 			// Remove claim from claims slice
@@ -246,7 +249,7 @@ func (h *Holding) CheckClaim(c *Claim) bool {
 }
 
 // adjustByBalance defines a way in which the entire holdings can be adjusted by
-// a balance change in reference to pending amounts. TODO: Add in a lot of tests
+// a balance change using pending levels as a reference.
 func (h *Holding) adjustByBalance(amount float64) error {
 	if amount == 0 {
 		return errAmountCannotBeZero
@@ -256,27 +259,46 @@ func (h *Holding) adjustByBalance(amount float64) error {
 	defer h.m.Unlock()
 	amt := decimal.NewFromFloat(amount)
 	amountPending := h.pending.GreaterThan(decimal.Zero)
-	if amt.GreaterThan(decimal.Zero) {
-		// Adds to holdings
+	if amt.GreaterThan(decimal.Zero) { // Adds to holdings
+		fmt.Println("WOW")
+
 		if amountPending {
+			// Amounts here will reduce pending amount, this is assuming that
+			// an order has been cancelled and the required amounts have been
+			// released.
+			h.free = h.free.Add(amt)
+
+			// Remaining amount after we subtract from our pending bucket for
+			// this increase.
 			remaining := h.pending.Sub(amt)
 			if remaining.GreaterThanOrEqual(decimal.Zero) {
 				h.pending = remaining
-				// Increase total holdings for the remainder
-				h.total = h.total.Sub(remaining)
+				// Adjust total is not needed here.
 			} else {
 				h.pending = decimal.Zero
+				h.total = h.total.Sub(remaining)
 			}
 		} else {
-			h.free = h.free.Add(amt)
-			if h.free.GreaterThan(h.total) {
-				// Step up amount
-				h.total = h.free
+			// h.free = h.free.Add(amt)
+			// Decrease locked amount and return to free amount
+			if h.locked.GreaterThan(decimal.Zero) {
+				remaining := amt.Sub(h.locked)
+				if remaining.GreaterThan(decimal.Zero) {
+					h.free = h.free.Add(h.locked)
+					h.locked = decimal.Zero
+				} else {
+
+				}
+				h.locked = h.locked.Sub(amt)
+				// h.free = h.free.Add(amt)
+			} else { // If h.Locked == 0  this will still actuate; could optimise this in future
+				h.free = h.free.Add(h.locked)
+				h.locked = decimal.Zero
+				h.total = h.total.Add(amt)
 			}
-			// Decrease locked amount
-			h.locked = h.locked.Sub(amt)
 		}
 	} else {
+		fmt.Println("MOO")
 		// Remove from holdings
 		if amountPending {
 			remaining := h.pending.Add(amt)

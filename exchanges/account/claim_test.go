@@ -48,7 +48,8 @@ func TestGetTime(t *testing.T) {
 func TestRelease(t *testing.T) {
 	holding := &Holding{}
 	c := &Claim{
-		h: holding,
+		h:      holding,
+		amount: decimal.NewFromFloat(1),
 	}
 	err := c.Release()
 	if !errors.Is(err, errUnableToReleaseClaim) {
