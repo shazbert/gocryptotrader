@@ -258,11 +258,10 @@ func (h *Holding) adjustByBalance(amount float64) error {
 	h.m.Lock()
 	defer h.m.Unlock()
 	amt := decimal.NewFromFloat(amount)
-	amountPending := h.pending.GreaterThan(decimal.Zero)
-	if amt.GreaterThan(decimal.Zero) { // Adds to holdings
-		fmt.Println("WOW")
 
-		if amountPending {
+	if amount > 0 {
+		switch {
+		case h.pending.GreaterThan(decimal.Zero):
 			// Amounts here will reduce pending amount, this is assuming that
 			// an order has been cancelled and the required amounts have been
 			// released.
@@ -272,53 +271,147 @@ func (h *Holding) adjustByBalance(amount float64) error {
 			// this increase.
 			remaining := h.pending.Sub(amt)
 			if remaining.GreaterThanOrEqual(decimal.Zero) {
+				amt = amt.Sub(remaining)
 				h.pending = remaining
 				// Adjust total is not needed here.
 			} else {
+				amt = amt.Sub(h.pending)
 				h.pending = decimal.Zero
 				h.total = h.total.Sub(remaining)
 			}
-		} else {
-			// h.free = h.free.Add(amt)
-			// Decrease locked amount and return to free amount
-			if h.locked.GreaterThan(decimal.Zero) {
-				remaining := amt.Sub(h.locked)
-				if remaining.GreaterThan(decimal.Zero) {
-					h.free = h.free.Add(h.locked)
-					h.locked = decimal.Zero
-				} else {
 
-				}
-				h.locked = h.locked.Sub(amt)
-				// h.free = h.free.Add(amt)
-			} else { // If h.Locked == 0  this will still actuate; could optimise this in future
-				h.free = h.free.Add(h.locked)
-				h.locked = decimal.Zero
-				h.total = h.total.Add(amt)
+			if amt.Equal(decimal.Zero) || !h.locked.GreaterThan(decimal.Zero) {
+				break
 			}
+
+			h.free = h.free.Sub(amt)
+			h.total = h.total.Sub(amt)
+			fallthrough
+		case h.locked.GreaterThan(decimal.Zero):
+			if h.locked.GreaterThanOrEqual(amt) {
+				remaining := h.locked.Sub(amt)
+				h.locked = remaining
+				h.free = h.free.Add(amt)
+			} else {
+				remaining := amt.Sub(h.locked)
+				h.free = h.free.Add(h.locked.Add(remaining))
+				h.total = h.total.Add(remaining)
+				h.locked = decimal.Zero
+			}
+		default:
+			h.total = h.total.Add(amt)
+			h.free = h.free.Add(amt)
 		}
 	} else {
-		fmt.Println("MOO")
-		// Remove from holdings
-		if amountPending {
+		switch {
+		case h.pending.GreaterThan(decimal.Zero):
+			// Amounts here will reduce pending amount, this is assuming that
+			// an order has been cancelled and the required amounts have been
+			// released.
+			h.free = h.free.Add(amt)
+
+			// Remaining amount after we subtract from our pending bucket for
+			// this increase.
 			remaining := h.pending.Add(amt)
 			if remaining.GreaterThanOrEqual(decimal.Zero) {
+				fmt.Println("More test", h.pending, remaining)
+				amt = amt.Add(remaining)
 				h.pending = remaining
-				// Decrease total holdings for the remainder
-				h.total = h.total.Add(amt)
+				// Adjust total is not needed here.
 			} else {
+				fmt.Println("More test", h.pending, remaining)
+				amt = amt.Add(h.pending)
 				h.pending = decimal.Zero
+				h.total = h.total.Add(remaining)
 			}
-		} else {
+
+			if amt.Equal(decimal.Zero) || !h.locked.GreaterThan(decimal.Zero) {
+				break
+			}
+
 			h.free = h.free.Add(amt)
-			if h.free.GreaterThan(h.total) {
-				// Step up amount
-				h.total = h.free
+			h.total = h.total.Add(amt)
+			fallthrough
+		case h.locked.GreaterThan(decimal.Zero):
+			if h.locked.GreaterThanOrEqual(amt) {
+				remaining := h.locked.Add(amt)
+				h.locked = remaining
+				h.free = h.free.Sub(amt)
+			} else {
+				remaining := amt.Add(h.locked)
+				h.free = h.free.Sub(h.locked.Sub(remaining))
+				h.total = h.total.Sub(remaining)
+				h.locked = decimal.Zero
 			}
-			// Increase locked amount
-			h.locked = h.locked.Sub(amt)
+		default:
+			h.total = h.total.Sub(amt)
+			h.free = h.free.Sub(amt)
 		}
 	}
+
+	// if amountPending {
+	// 	// Amounts here will reduce pending amount, this is assuming that
+	// 	// an order has been cancelled and the required amounts have been
+	// 	// released.
+	// 	h.free = h.free.Add(amt)
+
+	// 	// Remaining amount after we subtract from our pending bucket for
+	// 	// this increase.
+	// 	remaining := h.pending.Sub(amt)
+	// 	if remaining.GreaterThanOrEqual(decimal.Zero) {
+	// 		h.pending = remaining
+	// 		// Adjust total is not needed here.
+	// 	} else {
+	// 		h.pending = decimal.Zero
+	// 		h.total = h.total.Sub(remaining)
+	// 	}
+	// } else {
+	// 	// Decrease locked amount and return to free amount
+	// 	if h.locked.GreaterThan(decimal.Zero) {
+	// 		if h.locked.GreaterThanOrEqual(amt) {
+	// 			// locked 1
+	// 			// new amount 1
+
+	// 			// locked 1
+	// 			// new amount .5
+	// 			remaining := h.locked.Sub(amt)
+	// 			h.locked = remaining
+	// 			h.free = h.free.Add(amt)
+	// 		} else {
+	// 			// Locked 0.05
+	// 			// New amount 0.15
+	// 			remaining := amt.Sub(h.locked)
+	// 			h.free = h.free.Add(h.locked.Add(remaining))
+	// 			h.total = h.total.Add(remaining)
+	// 			h.locked = decimal.Zero
+	// 		}
+	// 	} else {
+	// 		h.total = h.total.Add(amt)
+	// 		h.free = h.free.Add(amt)
+	// 	}
+	// }
+	// } else {
+	// 	fmt.Println("MOO")
+	// 	// Remove from holdings
+	// 	if amountPending {
+	// 		remaining := h.pending.Add(amt)
+	// 		if remaining.GreaterThanOrEqual(decimal.Zero) {
+	// 			h.pending = remaining
+	// 			// Decrease total holdings for the remainder
+	// 			h.total = h.total.Add(amt)
+	// 		} else {
+	// 			h.pending = decimal.Zero
+	// 		}
+	// 	} else {
+	// 		h.free = h.free.Add(amt)
+	// 		if h.free.GreaterThan(h.total) {
+	// 			// Step up amount
+	// 			h.total = h.free
+	// 		}
+	// 		// Increase locked amount
+	// 		h.locked = h.locked.Sub(amt)
+	// 	}
+	// }
 	return nil
 }
 
