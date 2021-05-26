@@ -207,6 +207,26 @@ func TestLoad(t *testing.T) {
 	}
 }
 
+func TestGetFullSnapshot(t *testing.T) {
+	h := Holdings{}
+	_, err := h.GetFullSnapshot()
+	if !errors.Is(err, errAccountBalancesNotLoaded) {
+		t.Fatalf("expected: %v but received: %v", errAccountBalancesNotLoaded, err)
+	}
+
+	h.funds = make(map[string]map[asset.Item]map[*currency.Item]*Holding)
+
+	_, err = h.GetFullSnapshot()
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+}
+
+func TestPublish(t *testing.T) {
+	h := Holdings{}
+	h.publish()
+}
+
 func TestGetHoldingsSnapshot(t *testing.T) {
 	h := Holdings{}
 	h.Verbose = true
@@ -265,94 +285,94 @@ func TestGetHoldingsSnapshot(t *testing.T) {
 }
 
 func TestAdjustHolding(t *testing.T) {
-	// h, err := DeployHoldings("someexchange", false)
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
+	h, err := DeployHoldings("someexchange", false)
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
 
-	// // Initial start with limit orders already present on exchange
-	// values := HoldingsSnapshot{
-	// 	currency.XRP: {Total: 40.5, Locked: 6},
-	// }
+	// Initial start with limit orders already present on exchange
+	values := HoldingsSnapshot{
+		currency.XRP: {Total: 40.5, Locked: 6},
+	}
 
-	// h.Verbose = true
+	h.Verbose = true
 
-	// err = h.LoadHoldings("someaccount", asset.Spot, values)
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
+	err = h.LoadHoldings("someaccount", asset.Spot, values)
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
 
-	// err = h.AdjustByBalance("", "", currency.Code{}, 0)
-	// if !errors.Is(err, errAccountNameUnset) {
-	// 	t.Fatalf("expected: %v but received: %v", errAccountNameUnset, err)
-	// }
+	err = h.AdjustByBalance("", "", currency.Code{}, 0)
+	if !errors.Is(err, errAccountNameUnset) {
+		t.Fatalf("expected: %v but received: %v", errAccountNameUnset, err)
+	}
 
-	// err = h.AdjustByBalance("someaccount", "", currency.Code{}, 0)
-	// if !errors.Is(err, asset.ErrNotSupported) {
-	// 	t.Fatalf("expected: %v but received: %v", asset.ErrNotSupported, err)
-	// }
+	err = h.AdjustByBalance("someaccount", "", currency.Code{}, 0)
+	if !errors.Is(err, asset.ErrNotSupported) {
+		t.Fatalf("expected: %v but received: %v", asset.ErrNotSupported, err)
+	}
 
-	// err = h.AdjustByBalance("someaccount", asset.Spot, currency.Code{}, 0)
-	// if !errors.Is(err, errCurrencyCodeEmpty) {
-	// 	t.Fatalf("expected: %v but received: %v", errCurrencyCodeEmpty, err)
-	// }
+	err = h.AdjustByBalance("someaccount", asset.Spot, currency.Code{}, 0)
+	if !errors.Is(err, errCurrencyCodeEmpty) {
+		t.Fatalf("expected: %v but received: %v", errCurrencyCodeEmpty, err)
+	}
 
-	// err = h.AdjustByBalance("someaccount", asset.Spot, currency.XRP, 0)
-	// if !errors.Is(err, errAmountCannotBeLessOrEqualToZero) {
-	// 	t.Fatalf("expected: %v but received: %v",
-	// 		errAmountCannotBeLessOrEqualToZero,
-	// 		err)
-	// }
+	err = h.AdjustByBalance("someaccount", asset.Spot, currency.XRP, 0)
+	if !errors.Is(err, errAmountCannotBeLessOrEqualToZero) {
+		t.Fatalf("expected: %v but received: %v",
+			errAmountCannotBeLessOrEqualToZero,
+			err)
+	}
 
-	// err = h.AdjustByBalance("dummy", asset.Spot, currency.XRP, 1)
-	// if !errors.Is(err, errAccountNotFound) {
-	// 	t.Fatalf("expected: %v but received: %v", errAccountNotFound, err)
-	// }
+	err = h.AdjustByBalance("dummy", asset.Spot, currency.XRP, 1)
+	if !errors.Is(err, errAccountNotFound) {
+		t.Fatalf("expected: %v but received: %v", errAccountNotFound, err)
+	}
 
-	// err = h.AdjustByBalance("someaccount", asset.Futures, currency.XRP, 1)
-	// if !errors.Is(err, errAssetTypeNotFound) {
-	// 	t.Fatalf("expected: %v but received: %v", errAssetTypeNotFound, err)
-	// }
+	err = h.AdjustByBalance("someaccount", asset.Futures, currency.XRP, 1)
+	if !errors.Is(err, errAssetTypeNotFound) {
+		t.Fatalf("expected: %v but received: %v", errAssetTypeNotFound, err)
+	}
 
-	// err = h.AdjustByBalance("someaccount", asset.Spot, currency.BTC, 1)
-	// if !errors.Is(err, errCurrencyItemNotFound) {
-	// 	t.Fatalf("expected: %v but received: %v", errCurrencyItemNotFound, err)
-	// }
+	err = h.AdjustByBalance("someaccount", asset.Spot, currency.BTC, 1)
+	if !errors.Is(err, errCurrencyItemNotFound) {
+		t.Fatalf("expected: %v but received: %v", errCurrencyItemNotFound, err)
+	}
 
-	// holding, err := h.GetHolding("someaccount", asset.Spot, currency.XRP)
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(holding, 40.5, 6, 34.5, 0, 0, t)
+	holding, err := h.GetHolding("someaccount", asset.Spot, currency.XRP)
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(holding, 40.5, 6, 34.5, 0, 0, t)
 
-	// // Balance increased by one - limit order cancelled
-	// err = h.AdjustByBalance("someaccount", asset.Spot, currency.XRP, 1)
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(holding, 40.5, 5, 35.5, 0, 0, t)
+	// Balance increased by one - limit order cancelled
+	err = h.AdjustByBalance("someaccount", asset.Spot, currency.XRP, 1)
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(holding, 40.5, 5, 35.5, 0, 0, t)
 
-	// // limit/market order executed claim by algo or rpc
-	// claim, err := holding.Claim(1, true)
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-	// checkValues(holding, 40.5, 5, 34.5, 0, 1, t)
+	// limit/market order executed claim by algo or rpc
+	claim, err := holding.Claim(1, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkValues(holding, 40.5, 5, 34.5, 0, 1, t)
 
-	// // limit/market order accepted by exchange
-	// err = claim.ReleaseToPending()
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-	// checkValues(holding, 40.5, 5, 34.5, 1, 0, t)
+	// limit/market order accepted by exchange
+	err = claim.ReleaseToPending()
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkValues(holding, 40.5, 5, 34.5, 1, 0, t)
 
-	// // simulate balance change on pending - does not mean it was matched
-	// // this demonstrates Poloniex balance flow
-	// err = h.AdjustByBalance("someaccount", asset.Spot, currency.XRP, -1)
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(holding, 39.5, 5, 34.5, 0, 0, t)
+	// simulate balance change on pending - does not mean it was matched
+	// this demonstrates Poloniex balance flow
+	err = h.AdjustByBalance("someaccount", asset.Spot, currency.XRP, -1)
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(holding, 39.5, 4, 35.5, 0, 0, t)
 }
 
 func TestHoldingsClaim(t *testing.T) {

@@ -259,169 +259,168 @@ func TestReleaseToPending_Holding(t *testing.T) {
 }
 
 func TestAdjustByBalance(t *testing.T) {
-	// addWithPending := &Holding{
-	// 	total: decimal.NewFromFloat(1),
-	// 	free:  decimal.NewFromFloat(1),
-	// }
-	// checkValues(addWithPending, 1, 0, 1, 0, 0, t)
+	addWithPending := &Holding{
+		total: decimal.NewFromFloat(1),
+		free:  decimal.NewFromFloat(1),
+	}
+	checkValues(addWithPending, 1, 0, 1, 0, 0, t)
 
-	// err := addWithPending.adjustByBalance(0)
-	// if !errors.Is(err, errAmountCannotBeZero) {
-	// 	t.Fatalf("expected: %v but received: %v", errAmountCannotBeZero, err)
-	// }
+	err := addWithPending.adjustByBalance(0)
+	if !errors.Is(err, errAmountCannotBeZero) {
+		t.Fatalf("expected: %v but received: %v", errAmountCannotBeZero, err)
+	}
 
-	// c, err := addWithPending.Claim(.2, true) // execute internal claim on .2
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addWithPending, 1, 0, .8, 0, .2, t)
+	c, err := addWithPending.Claim(.2, true) // execute internal claim on .2
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(addWithPending, 1, 0, .8, 0, .2, t)
 
-	// err = c.ReleaseToPending() // simulate accepted market order in management
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addWithPending, 1, 0, .8, .2, 0, t)
+	err = c.ReleaseToPending() // simulate accepted market order in management
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(addWithPending, 1, 0, .8, .2, 0, t)
 
-	// err = addWithPending.adjustByBalance(.2) // simulate an increase in balance from the exchange when order gets cancelled
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addWithPending, 1, 0, 1, 0, 0, t)
+	err = addWithPending.adjustByBalance(.2) // simulate an increase in balance from the exchange when order gets cancelled
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(addWithPending, 1, 0, 1, 0, 0, t)
 
-	// c, err = addWithPending.Claim(.2, true) // execute internal claim on .2
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addWithPending, 1, 0, .8, 0, .2, t)
+	c, err = addWithPending.Claim(.2, true) // execute internal claim on .2
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(addWithPending, 1, 0, .8, 0, .2, t)
 
-	// err = c.ReleaseToPending() // simulate accepted market order in management
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addWithPending, 1, 0, .8, .2, 0, t)
+	err = c.ReleaseToPending() // simulate accepted market order in management
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(addWithPending, 1, 0, .8, .2, 0, t)
 
-	// err = addWithPending.adjustByBalance(.4) // simulate an increase in balance from the exchange when order gets cancelled and another order executes and this balance increases.
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addWithPending, 1.2, 0, 1.2, 0, 0, t)
+	err = addWithPending.adjustByBalance(.4) // simulate an increase in balance from the exchange when order gets cancelled and another order executes and this balance increases.
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(addWithPending, 1.2, 0, 1.2, 0, 0, t)
 
-	// c, err = addWithPending.Claim(.2, true) // execute internal claim on .2
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addWithPending, 1.2, 0, 1, 0, .2, t)
+	c, err = addWithPending.Claim(.2, true) // execute internal claim on .2
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(addWithPending, 1.2, 0, 1, 0, .2, t)
 
-	// err = c.ReleaseToPending() // simulate accepted market order in management
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addWithPending, 1.2, 0, 1, .2, 0, t)
+	err = c.ReleaseToPending() // simulate accepted market order in management
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(addWithPending, 1.2, 0, 1, .2, 0, t)
 
-	// err = addWithPending.adjustByBalance(.1) // simulate reduce only order
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addWithPending, 1.2, 0, 1.1, .1, 0, t)
+	err = addWithPending.adjustByBalance(.1) // simulate reduce only order
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(addWithPending, 1.2, 0, 1.1, .1, 0, t)
 
-	// //  Test without pending amounts add to holdings
-	// addNoPending := &Holding{
-	// 	total:  decimal.NewFromFloat(1),
-	// 	free:   decimal.NewFromFloat(.8),
-	// 	locked: decimal.NewFromFloat(.2), // Simulate an order already on the exchange when starting
-	// }
-	// checkValues(addNoPending, 1, .2, .8, 0, 0, t)
+	//  Test without pending amounts add to holdings
+	addNoPending := &Holding{
+		total:  decimal.NewFromFloat(1),
+		free:   decimal.NewFromFloat(.8),
+		locked: decimal.NewFromFloat(.2), // Simulate an order already on the exchange when starting
+	}
+	checkValues(addNoPending, 1, .2, .8, 0, 0, t)
 
-	// err = addNoPending.adjustByBalance(.2) // Simulate order cancel
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addNoPending, 1, 0, 1, 0, 0, t)
+	err = addNoPending.adjustByBalance(.2) // Simulate order cancel
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(addNoPending, 1, 0, 1, 0, 0, t)
 
-	// addNoPending.total = decimal.NewFromFloat(1.2)
-	// addNoPending.locked = decimal.NewFromFloat(.2) // reset locked
-	// checkValues(addNoPending, 1.2, .2, 1, 0, 0, t)
+	addNoPending.total = decimal.NewFromFloat(1.2)
+	addNoPending.locked = decimal.NewFromFloat(.2) // reset locked
+	checkValues(addNoPending, 1.2, .2, 1, 0, 0, t)
 
-	// err = addNoPending.adjustByBalance(.3) // Simulate order cancel and another order being matched
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addNoPending, 1.3, 0, 1.3, 0, 0, t)
+	err = addNoPending.adjustByBalance(.3) // Simulate order cancel and another order being matched
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(addNoPending, 1.3, 0, 1.3, 0, 0, t)
 
-	// addNoPending.total = decimal.NewFromFloat(1.5)
-	// addNoPending.locked = decimal.NewFromFloat(.2) // reset locked
-	// checkValues(addNoPending, 1.5, .2, 1.3, 0, 0, t)
+	addNoPending.total = decimal.NewFromFloat(1.5)
+	addNoPending.locked = decimal.NewFromFloat(.2) // reset locked
+	checkValues(addNoPending, 1.5, .2, 1.3, 0, 0, t)
 
-	// err = addNoPending.adjustByBalance(.1) // Simulate partial cancel or reduce
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addNoPending, 1.5, .1, 1.4, 0, 0, t)
+	err = addNoPending.adjustByBalance(.1) // Simulate partial cancel or reduce
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(addNoPending, 1.5, .1, 1.4, 0, 0, t)
 
-	// err = addNoPending.adjustByBalance(.05) // Simulate partial cancel or reduce
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addNoPending, 1.5, .05, 1.45, 0, 0, t)
+	err = addNoPending.adjustByBalance(.05) // Simulate partial cancel or reduce
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(addNoPending, 1.5, .05, 1.45, 0, 0, t)
 
-	// err = addNoPending.adjustByBalance(0.15) // Simulate partial cancel or reduce
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addNoPending, 1.6, 0, 1.6, 0, 0, t)
+	err = addNoPending.adjustByBalance(0.15) // Simulate partial cancel or reduce
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(addNoPending, 1.6, 0, 1.6, 0, 0, t)
 
-	// _, err = addNoPending.Claim(.2, true) // Claim but don't release
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addNoPending, 1.6, 0, 1.4, 0, .2, t)
+	_, err = addNoPending.Claim(.2, true) // Claim but don't release
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(addNoPending, 1.6, 0, 1.4, 0, .2, t)
 
-	// err = addNoPending.adjustByBalance(.2)
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addNoPending, 1.8, 0, 1.6, 0, .2, t)
+	err = addNoPending.adjustByBalance(.2)
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(addNoPending, 1.8, 0, 1.6, 0, .2, t)
 
-	// hybridAdd := &Holding{
-	// 	total:  decimal.NewFromFloat(1),
-	// 	free:   decimal.NewFromFloat(.8),
-	// 	locked: decimal.NewFromFloat(.2), // Simulate an order already on the exchange when starting
-	// }
-	// checkValues(hybridAdd, 1, .2, .8, 0, 0, t)
+	hybridAdd := &Holding{
+		total:  decimal.NewFromFloat(1),
+		free:   decimal.NewFromFloat(.8),
+		locked: decimal.NewFromFloat(.2), // Simulate an order already on the exchange when starting
+	}
+	checkValues(hybridAdd, 1, .2, .8, 0, 0, t)
 
-	// c, err = hybridAdd.Claim(.2, true) // execute internal claim on .2
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(hybridAdd, 1, .2, .6, 0, .2, t)
+	c, err = hybridAdd.Claim(.2, true) // execute internal claim on .2
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(hybridAdd, 1, .2, .6, 0, .2, t)
 
-	// err = c.ReleaseToPending() // simulate accepted market order in management
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(hybridAdd, 1, .2, .6, .2, 0, t)
+	err = c.ReleaseToPending() // simulate accepted market order in management
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(hybridAdd, 1, .2, .6, .2, 0, t)
 
-	// err = hybridAdd.adjustByBalance(.1) // simulate reduce only order
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(hybridAdd, 1, .2, .7, .1, 0, t)
+	err = hybridAdd.adjustByBalance(.1) // simulate reduce only order
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(hybridAdd, 1, .2, .7, .1, 0, t)
 
-	// err = hybridAdd.adjustByBalance(.3)
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(hybridAdd, 1, 0, 1, 0, 0, t)
+	err = hybridAdd.adjustByBalance(.3)
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(hybridAdd, 1, 0, 1, 0, 0, t)
 
 	// Remove
-
 	removeWithPending := &Holding{
 		total: decimal.NewFromFloat(1),
 		free:  decimal.NewFromFloat(1),
 	}
 	checkValues(removeWithPending, 1, 0, 1, 0, 0, t)
 
-	c, err := removeWithPending.Claim(.2, true) // execute internal claim on .2
+	c, err = removeWithPending.Claim(.2, true) // execute internal claim on .2
 	if !errors.Is(err, nil) {
 		t.Fatalf("expected: %v but received: %v", nil, err)
 	}
@@ -439,130 +438,152 @@ func TestAdjustByBalance(t *testing.T) {
 	}
 	checkValues(removeWithPending, .8, 0, .8, 0, 0, t)
 
-	// c, err = addWithPending.Claim(.2, true) // execute internal claim on .2
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addWithPending, 1, 0, .8, 0, .2, t)
+	c, err = removeWithPending.Claim(.2, true) // execute internal claim on .2
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(removeWithPending, .8, 0, .6, 0, .2, t)
 
-	// err = c.ReleaseToPending() // simulate accepted market order in management
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addWithPending, 1, 0, .8, .2, 0, t)
+	err = c.ReleaseToPending() // simulate accepted market order in management
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(removeWithPending, .8, 0, .6, .2, 0, t)
 
-	// err = addWithPending.adjustByBalance(.4) // simulate an increase in balance from the exchange when order gets cancelled and another order executes and this balance increases.
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addWithPending, 1.2, 0, 1.2, 0, 0, t)
+	err = removeWithPending.adjustByBalance(-.4)
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(removeWithPending, .4, 0, .4, 0, 0, t)
 
-	// c, err = addWithPending.Claim(.2, true) // execute internal claim on .2
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addWithPending, 1.2, 0, 1, 0, .2, t)
+	c, err = removeWithPending.Claim(.2, true) // execute internal claim on .2
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(removeWithPending, .4, 0, .2, 0, .2, t)
 
-	// err = c.ReleaseToPending() // simulate accepted market order in management
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addWithPending, 1.2, 0, 1, .2, 0, t)
+	err = c.ReleaseToPending() // simulate accepted market order in management
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(removeWithPending, .4, 0, .2, .2, 0, t)
 
-	// err = addWithPending.adjustByBalance(.1) // simulate reduce only order
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addWithPending, 1.2, 0, 1.1, .1, 0, t)
+	err = removeWithPending.adjustByBalance(-.1) // simulate reduce only order
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(removeWithPending, .3, 0, .2, .1, 0, t)
 
-	// //  Test without pending amounts add to holdings
-	// addNoPending := &Holding{
-	// 	total:  decimal.NewFromFloat(1),
-	// 	free:   decimal.NewFromFloat(.8),
-	// 	locked: decimal.NewFromFloat(.2), // Simulate an order already on the exchange when starting
-	// }
-	// checkValues(addNoPending, 1, .2, .8, 0, 0, t)
+	//  Test without pending amounts remove from holdings
+	removeNoPending := &Holding{
+		total:  decimal.NewFromFloat(1),
+		free:   decimal.NewFromFloat(.8),
+		locked: decimal.NewFromFloat(.2),
+	}
+	checkValues(removeNoPending, 1, .2, .8, 0, 0, t)
 
-	// err = addNoPending.adjustByBalance(.2) // Simulate order cancel
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addNoPending, 1, 0, 1, 0, 0, t)
+	err = removeNoPending.adjustByBalance(-.2)
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(removeNoPending, .8, 0, .8, 0, 0, t)
 
-	// addNoPending.total = decimal.NewFromFloat(1.2)
-	// addNoPending.locked = decimal.NewFromFloat(.2) // reset locked
-	// checkValues(addNoPending, 1.2, .2, 1, 0, 0, t)
+	removeNoPending.total = decimal.NewFromFloat(1)
+	removeNoPending.locked = decimal.NewFromFloat(.2)
+	checkValues(removeNoPending, 1, .2, .8, 0, 0, t)
 
-	// err = addNoPending.adjustByBalance(.3) // Simulate order cancel and another order being matched
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addNoPending, 1.3, 0, 1.3, 0, 0, t)
+	err = removeNoPending.adjustByBalance(-.3)
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(removeNoPending, .7, 0, .7, 0, 0, t)
 
-	// addNoPending.total = decimal.NewFromFloat(1.5)
-	// addNoPending.locked = decimal.NewFromFloat(.2) // reset locked
-	// checkValues(addNoPending, 1.5, .2, 1.3, 0, 0, t)
+	removeNoPending.total = decimal.NewFromFloat(1.5)
+	removeNoPending.locked = decimal.NewFromFloat(.2)
+	removeNoPending.free = decimal.NewFromFloat(1.3)
+	checkValues(removeNoPending, 1.5, .2, 1.3, 0, 0, t)
 
-	// err = addNoPending.adjustByBalance(.1) // Simulate partial cancel or reduce
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addNoPending, 1.5, .1, 1.4, 0, 0, t)
+	err = removeNoPending.adjustByBalance(-.1)
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(removeNoPending, 1.4, .1, 1.3, 0, 0, t)
 
-	// err = addNoPending.adjustByBalance(.05) // Simulate partial cancel or reduce
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addNoPending, 1.5, .05, 1.45, 0, 0, t)
+	err = removeNoPending.adjustByBalance(-.05)
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(removeNoPending, 1.35, .05, 1.3, 0, 0, t)
 
-	// err = addNoPending.adjustByBalance(0.15) // Simulate partial cancel or reduce
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addNoPending, 1.6, 0, 1.6, 0, 0, t)
+	err = removeNoPending.adjustByBalance(-0.15)
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(removeNoPending, 1.2, 0, 1.2, 0, 0, t)
 
-	// _, err = addNoPending.Claim(.2, true) // Claim but don't release
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addNoPending, 1.6, 0, 1.4, 0, .2, t)
+	_, err = removeNoPending.Claim(.2, true) // Claim but don't release
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(removeNoPending, 1.2, 0, 1, 0, .2, t)
 
-	// err = addNoPending.adjustByBalance(.2)
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(addNoPending, 1.8, 0, 1.6, 0, .2, t)
+	err = removeNoPending.adjustByBalance(-.2)
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(removeNoPending, 1, 0, .8, 0, .2, t)
 
-	// hybridAdd := &Holding{
-	// 	total:  decimal.NewFromFloat(1),
-	// 	free:   decimal.NewFromFloat(.8),
-	// 	locked: decimal.NewFromFloat(.2), // Simulate an order already on the exchange when starting
-	// }
-	// checkValues(hybridAdd, 1, .2, .8, 0, 0, t)
+	hybridRemove := &Holding{
+		total:  decimal.NewFromFloat(1),
+		free:   decimal.NewFromFloat(.8),
+		locked: decimal.NewFromFloat(.2),
+	}
+	checkValues(hybridRemove, 1, .2, .8, 0, 0, t)
 
-	// c, err = hybridAdd.Claim(.2, true) // execute internal claim on .2
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(hybridAdd, 1, .2, .6, 0, .2, t)
+	c, err = hybridRemove.Claim(.2, true) // execute internal claim on .2
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(hybridRemove, 1, .2, .6, 0, .2, t)
 
-	// err = c.ReleaseToPending() // simulate accepted market order in management
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(hybridAdd, 1, .2, .6, .2, 0, t)
+	err = c.ReleaseToPending()
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(hybridRemove, 1, .2, .6, .2, 0, t)
 
-	// err = hybridAdd.adjustByBalance(.1) // simulate reduce only order
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(hybridAdd, 1, .2, .7, .1, 0, t)
+	err = hybridRemove.adjustByBalance(-.1)
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(hybridRemove, .9, .2, .6, .1, 0, t)
 
-	// err = hybridAdd.adjustByBalance(.3)
-	// if !errors.Is(err, nil) {
-	// 	t.Fatalf("expected: %v but received: %v", nil, err)
-	// }
-	// checkValues(hybridAdd, 1, 0, 1, 0, 0, t)
+	err = hybridRemove.adjustByBalance(-.3)
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+	checkValues(hybridRemove, .6, 0, .6, 0, 0, t)
+}
+
+func TestReduce(t *testing.T) {
+	h := Holding{total: decimal.NewFromFloat(1), verbose: true}
+	c := Claim{
+		amount: decimal.NewFromFloat(1),
+	}
+	err := h.reduce(&c)
+	if !errors.Is(err, errUnableToReduceClaim) {
+		t.Fatalf("expected: %v but received: %v", errUnableToReduceClaim, err)
+	}
+
+	h.claims = append(h.claims, &c)
+	err = h.reduce(&c)
+	if !errors.Is(err, nil) {
+		t.Fatalf("expected: %v but received: %v", nil, err)
+	}
+
+	if !h.total.Equal(decimal.Zero) {
+		t.Fatal("Unexpected amount")
+	}
 }
 
 func checkValues(h *Holding, total, locked, free, pending, claims float64, t *testing.T) {
