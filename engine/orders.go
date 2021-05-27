@@ -19,14 +19,9 @@ import (
 
 // vars for the fund manager package
 var (
-	orderManagerDelay = time.Second * 10
-	// orderManagerDelayWhenWebsocketEnabled is for when there is an active
-	// authenticated websocket connection we can exend the REST calls out
-	// further because we *should* be getting account updates through the
-	// websocket connection.
-	orderManagerDelayWhenWebsocketEnabled = orderManagerDelay * 3 // 30 seconds
-	ErrOrdersAlreadyExists                = errors.New("order already exists")
-	ErrOrderNotFound                      = errors.New("order does not exist")
+	orderManagerDelay      = time.Second * 10
+	ErrOrdersAlreadyExists = errors.New("order already exists")
+	ErrOrderNotFound       = errors.New("order does not exist")
 )
 
 // get returns all orders for all exchanges

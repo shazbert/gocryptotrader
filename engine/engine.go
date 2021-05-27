@@ -510,12 +510,11 @@ func (bot *Engine) Start() error {
 		}
 	}
 
-	bot.AccountManager, err = NewAccountManager(bot)
+	bot.AccountManager, err = NewAccountManager(bot, bot.Settings.Verbose)
 	if err != nil {
 		return err
 	}
 
-	// TODO: Add in syncer settings
 	err = bot.AccountManager.RunUpdater(time.Second * 10)
 	if err != nil {
 		return err
@@ -581,10 +580,9 @@ func (bot *Engine) Stop() {
 	}
 
 	if bot.AccountManager.IsRunning() {
-		// This is not working - I did something silly.
-		// if err := bot.AccountManager.Shutdown(); err != nil {
-		// 	gctlog.Errorf(gctlog.Global, "Account manager system unable to stop. Error: %v", err)
-		// }
+		if err := bot.AccountManager.Shutdown(); err != nil {
+			gctlog.Errorf(gctlog.Global, "Account manager system unable to stop. Error: %v", err)
+		}
 	}
 
 	if bot.Settings.EnableCoinmarketcapAnalysis ||

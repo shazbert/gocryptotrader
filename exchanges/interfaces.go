@@ -36,9 +36,9 @@ type IBotExchange interface {
 	GetAvailablePairs(a asset.Item) (currency.Pairs, error)
 
 	// FetchAccountInfo returns a full account snapshot
-	FetchAccountInfo(asset.Item) (account.FullSnapshot, error)
+	FetchAccountInfo() (account.FullSnapshot, error)
 	// UpdateAccountInfo fetches and loads the full acount details
-	UpdateAccountInfo(asset.Item) (account.FullSnapshot, error)
+	UpdateAccountInfo() (account.FullSnapshot, error)
 
 	// // FetchAccountInfoBatch returns a full account snapshot of all asset
 	// // items if supported

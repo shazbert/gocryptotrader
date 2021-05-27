@@ -29,6 +29,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/database/repository/audit"
 	exchangeDB "github.com/thrasher-corp/gocryptotrader/database/repository/exchange"
 	exchange "github.com/thrasher-corp/gocryptotrader/exchanges"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/account"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
@@ -519,13 +520,12 @@ func (s *RPCServer) GetAccountInfo(_ context.Context, r *gctrpc.GetAccountInfoRe
 		return nil, err
 	}
 
-	// resp, err := exch.FetchAccountInfo(assetType)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	resp, err := exch.FetchAccountInfo()
+	if err != nil {
+		return nil, err
+	}
 
-	// return createAccountInfoRequest(resp)
-	return nil, nil
+	return createAccountInfoRequest(resp, r.Exchange)
 }
 
 // UpdateAccountInfo forces an update of the account info
@@ -541,143 +541,155 @@ func (s *RPCServer) UpdateAccountInfo(_ context.Context, r *gctrpc.GetAccountInf
 		return nil, err
 	}
 
-	// resp, err := exch.UpdateAccountInfo(assetType)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	resp, err := exch.UpdateAccountInfo()
+	if err != nil {
+		return nil, err
+	}
 
-	// return createAccountInfoRequest(resp)
-	return nil, nil
+	return createAccountInfoRequest(resp, r.Exchange)
 }
 
-// func createAccountInfoRequest(h account.Holdings) (*gctrpc.GetAccountInfoResponse, error) {
-// 	// var accounts []*gctrpc.Account
-// 	// for x := range h.Accounts {
-// 	// 	var a gctrpc.Account
-// 	// 	a.Id = h.Accounts[x].ID
-// 	// 	for _, y := range h.Accounts[x].Currencies {
-// 	// 		a.Currencies = append(a.Currencies, &gctrpc.AccountCurrencyInfo{
-// 	// 			Currency:   y.CurrencyName.String(),
-// 	// 			Hold:       y.Hold,
-// 	// 			TotalValue: y.TotalValue,
-// 	// 		})
-// 	// 	}
-// 	// 	accounts = append(accounts, &a)
-// 	// }
-
-// 	// return &gctrpc.GetAccountInfoResponse{Exchange: h.Exchange, Accounts: accounts}, nil
-// 	return nil, nil
-// }
+func createAccountInfoRequest(sh account.FullSnapshot, exch string) (*gctrpc.GetAccountInfoResponse, error) {
+	var accounts []*gctrpc.Account
+	for acc, m1 := range sh {
+		var a gctrpc.Account
+		for _, m2 := range m1 {
+			for code, bal := range m2 {
+				a.Currencies = append(a.Currencies, &gctrpc.AccountCurrencyInfo{
+					Currency:   code.String(),
+					TotalValue: bal.Total,
+					Hold:       bal.Locked,
+				})
+			}
+		}
+		a.Id = acc
+		accounts = append(accounts, &a)
+	}
+	return &gctrpc.GetAccountInfoResponse{
+		Exchange: exch,
+		Accounts: accounts,
+	}, nil
+}
 
 // GetAccountInfoStream streams an account balance for a specific exchange
 func (s *RPCServer) GetAccountInfoStream(r *gctrpc.GetAccountInfoRequest, stream gctrpc.GoCryptoTrader_GetAccountInfoStreamServer) error {
-	// assetType, err := asset.New(r.AssetType)
-	// if err != nil {
-	// 	return err
-	// }
+	assetType, err := asset.New(r.AssetType)
+	if err != nil {
+		return err
+	}
 
-	// exch := s.GetExchangeByName(r.Exchange)
-	// err = checkParams(r.Exchange, exch, assetType, currency.Pair{})
-	// if err != nil {
-	// 	return err
-	// }
+	exch := s.GetExchangeByName(r.Exchange)
+	err = checkParams(r.Exchange, exch, assetType, currency.Pair{})
+	if err != nil {
+		return err
+	}
 
-	// initAcc, err := exch.FetchAccountInfo(assetType)
-	// if err != nil {
-	// 	return err
-	// }
+	sh, err := exch.FetchAccountInfo()
+	if err != nil {
+		return err
+	}
 
-	// var accounts []*gctrpc.Account
-	// for x := range initAcc.Accounts {
-	// 	var subAccounts []*gctrpc.AccountCurrencyInfo
-	// 	for y := range initAcc.Accounts[x].Currencies {
-	// 		subAccounts = append(subAccounts, &gctrpc.AccountCurrencyInfo{
-	// 			Currency:   initAcc.Accounts[x].Currencies[y].CurrencyName.String(),
-	// 			TotalValue: initAcc.Accounts[x].Currencies[y].TotalValue,
-	// 			Hold:       initAcc.Accounts[x].Currencies[y].Hold,
-	// 		})
-	// 	}
-	// 	accounts = append(accounts, &gctrpc.Account{
-	// 		Id:         initAcc.Accounts[x].ID,
-	// 		Currencies: subAccounts,
-	// 	})
-	// }
+	resp, err := createAccountInfoRequest(sh, r.Exchange)
+	if err != nil {
+		return err
+	}
 
-	// err = stream.Send(&gctrpc.GetAccountInfoResponse{
-	// 	Exchange: initAcc.Exchange,
-	// 	Accounts: accounts,
-	// })
-	// if err != nil {
-	// 	return err
-	// }
+	err = stream.Send(resp)
+	if err != nil {
+		return err
+	}
 
-	// pipe, err := account.SubscribeToExchangeAccount(r.Exchange)
-	// if err != nil {
-	// 	return err
-	// }
+	pipe, err := account.SubscribeToExchangeAccount(r.Exchange)
+	if err != nil {
+		return err
+	}
 
-	// defer pipe.Release()
+	defer pipe.Release()
 
-	// for {
-	// 	data, ok := <-pipe.C
-	// 	if !ok {
-	// 		return errDispatchSystem
-	// 	}
+	for {
+		data, ok := <-pipe.C
+		if !ok {
+			return errDispatchSystem
+		}
 
-	// 	acc := (*data.(*interface{})).(account.Holdings)
+		pipeData, ok := data.(*interface{})
+		if !ok {
+			return errors.New("pipe data not a memory address")
+		}
 
-	// 	var accounts []*gctrpc.Account
-	// 	for x := range acc.Accounts {
-	// 		var subAccounts []*gctrpc.AccountCurrencyInfo
-	// 		for y := range acc.Accounts[x].Currencies {
-	// 			subAccounts = append(subAccounts, &gctrpc.AccountCurrencyInfo{
-	// 				Currency:   acc.Accounts[x].Currencies[y].CurrencyName.String(),
-	// 				TotalValue: acc.Accounts[x].Currencies[y].TotalValue,
-	// 				Hold:       acc.Accounts[x].Currencies[y].Hold,
-	// 			})
-	// 		}
-	// 		accounts = append(accounts, &gctrpc.Account{
-	// 			Id:         acc.Accounts[x].ID,
-	// 			Currencies: subAccounts,
-	// 		})
-	// 	}
+		sh, ok = (*pipeData).(account.FullSnapshot)
+		if !ok {
+			return errors.New("type assertion failure, pipe data type is not account.FullSnapshot")
+		}
 
-	// 	err := stream.Send(&gctrpc.GetAccountInfoResponse{
-	// 		Exchange: acc.Exchange,
-	// 		Accounts: accounts,
-	// 	})
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-	return nil
+		resp, err = createAccountInfoRequest(sh, r.Exchange)
+		if err != nil {
+			return err
+		}
+
+		err := stream.Send(resp)
+		if err != nil {
+			return err
+		}
+	}
 }
 
 // GetConfig returns the bots config
 func (s *RPCServer) GetConfig(_ context.Context, r *gctrpc.GetConfigRequest) (*gctrpc.GetConfigResponse, error) {
+	// TODO: Implement this.
 	return &gctrpc.GetConfigResponse{}, common.ErrNotYetImplemented
 }
 
 // GetPortfolio returns the portfolio details
 func (s *RPCServer) GetPortfolio(_ context.Context, r *gctrpc.GetPortfolioRequest) (*gctrpc.GetPortfolioResponse, error) {
-	// var addrs []*gctrpc.PortfolioAddress
-	// botAddrs := s.Portfolio.Addresses
+	state := s.Portfolio.GetState()
+	var addrs []*gctrpc.PortfolioAddress
+	for x := range state.HotWallets {
+		addrs = append(addrs, &gctrpc.PortfolioAddress{
+			Address:     state.HotWallets[x].Address,
+			CoinType:    state.HotWallets[x].Currency,
+			Description: "Hot Wallet",
+			Balance:     state.HotWallets[x].Balance,
+		})
+	}
 
-	// for x := range botAddrs {
-	// 	addrs = append(addrs, &gctrpc.PortfolioAddress{
-	// 		Address:     botAddrs[x].Address,
-	// 		CoinType:    botAddrs[x].CoinType.String(),
-	// 		Description: botAddrs[x].Description,
-	// 		Balance:     botAddrs[x].Balance,
-	// 	})
-	// }
+	for x := range state.ColdWallets {
+		addrs = append(addrs, &gctrpc.PortfolioAddress{
+			Address:     state.ColdWallets[x].Address,
+			CoinType:    state.ColdWallets[x].Currency,
+			Description: "Cold Wallet",
+			Balance:     state.ColdWallets[x].Balance,
+		})
+	}
 
-	// resp := &gctrpc.GetPortfolioResponse{
-	// 	Portfolio: addrs,
-	// }
+	for exch, deposit := range state.Deposits {
+		for x := range *deposit {
+			addrs = append(addrs, &gctrpc.PortfolioAddress{
+				Address:  (*deposit)[x].Address,
+				CoinType: (*deposit)[x].Currency,
+				Description: fmt.Sprintf("%s %s %s: Deposit Address - Memo: %s",
+					exch,
+					(*deposit)[x].Account,
+					(*deposit)[x].Asset,
+					(*deposit)[x].TagMemo),
+			})
+		}
+	}
 
-	// return resp, nil
-	return nil, nil
+	for exch, balances := range state.Exchanges {
+		for x := range *balances {
+			addrs = append(addrs, &gctrpc.PortfolioAddress{
+				CoinType: (*balances)[x].Currency,
+				Description: fmt.Sprintf("%s %s %s: Exchange Holding",
+					exch,
+					(*balances)[x].Account,
+					(*balances)[x].Asset),
+				Balance: (*balances)[x].Balance,
+			})
+		}
+	}
+
+	return &gctrpc.GetPortfolioResponse{Portfolio: addrs}, nil
 }
 
 // GetPortfolioSummary returns the portfolio summary

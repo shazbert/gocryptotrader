@@ -37,11 +37,14 @@ type Balance struct {
 	Locked float64
 }
 
+// FullSnapshot defines a full snapshot of account asset balances
+type FullSnapshot map[string]AssetSnapshot
+
+// AssetSnapshot defines a snapshot for the asset items
+type AssetSnapshot map[asset.Item]HoldingsSnapshot
+
 // HoldingsSnapshot defines a currency and its related balance
 type HoldingsSnapshot map[currency.Code]Balance
-
-// FullSnapshot defines a full snapshot of account asset balances
-type FullSnapshot map[string]map[asset.Item]HoldingsSnapshot
 
 // ident defines identifying variables
 type ident struct {
