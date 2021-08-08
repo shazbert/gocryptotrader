@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sync"
 
 	"github.com/thrasher-corp/gocryptotrader/database"
 	"github.com/thrasher-corp/gocryptotrader/database/drivers"
@@ -23,6 +24,7 @@ var (
 	PostgresTestDatabase *database.Config
 	// MigrationDir default folder for migration's
 	MigrationDir = filepath.Join("..", "..", "migrations")
+	m            sync.Mutex
 )
 
 // GetConnectionDetails returns connection details for CI or test db instances
@@ -114,6 +116,9 @@ func CheckValidConfig(config *drivers.ConnectionDetails) bool {
 }
 
 func migrateDB(db *sql.DB) error {
+	m.Lock() // protects a race with shared databases in test environment when
+	// running migrations
+	defer m.Unlock()
 	return goose.Run("up", db, repository.GetSQLDialect(), MigrationDir, "")
 }
 
