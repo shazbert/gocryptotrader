@@ -10,7 +10,6 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/orderbook"
-	"github.com/thrasher-corp/gocryptotrader/exchanges/stream"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/ticker"
 	"github.com/thrasher-corp/gocryptotrader/portfolio"
 )
@@ -72,19 +71,19 @@ type iBot interface {
 	SetupExchanges() error
 }
 
-// iWebsocketDataReceiver limits exposure of accessible functions to websocket data receiver
-type iWebsocketDataReceiver interface {
-	IsRunning() bool
-	WebsocketDataReceiver(ws *stream.Websocket)
-	WebsocketDataHandler(string, interface{}) error
-}
+// // iWebsocketDataReceiver limits exposure of accessible functions to websocket data receiver
+// type iWebsocketDataReceiver interface {
+// 	IsRunning() bool
+// 	WebsocketDataReceiver(ws *stream.Websocket)
+// 	WebsocketDataHandler(string, interface{}) error
+// }
 
 // iCurrencyPairSyncer defines a limited scoped currency pair syncer
 type iCurrencyPairSyncer interface {
 	IsRunning() bool
 	PrintTickerSummary(*ticker.Price, string, error)
 	PrintOrderbookSummary(*orderbook.Base, string, error)
-	Update(string, currency.Pair, asset.Item, int, error) error
+	Update(string, currency.Pair, asset.Item, SyncItem, error) error
 }
 
 // iDatabaseConnectionManager defines a limited scoped databaseConnectionManager

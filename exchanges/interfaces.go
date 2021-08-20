@@ -41,6 +41,7 @@ type IBotExchange interface {
 	SetPairs(pairs currency.Pairs, a asset.Item, enabled bool) error
 	GetAssetTypes(enabled bool) asset.Items
 	GetRecentTrades(p currency.Pair, a asset.Item) ([]trade.Data, error)
+	IsAssetEnabled(a asset.Item) bool
 	GetHistoricTrades(p currency.Pair, a asset.Item, startTime, endTime time.Time) ([]trade.Data, error)
 	SupportsAutoPairUpdates() bool
 	SupportsRESTTickerBatchUpdates() bool

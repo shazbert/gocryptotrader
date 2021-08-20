@@ -1305,3 +1305,9 @@ func (a *AssetWebsocketSupport) IsAssetWebsocketSupported(aType asset.Item) bool
 	defer a.m.RUnlock()
 	return a.unsupported == nil || !a.unsupported[aType]
 }
+
+// IsAssetEnabled determines if the asset is enabled.
+func (b *Base) IsAssetEnabled(a asset.Item) bool {
+	err := b.CurrencyPairs.IsAssetEnabled(a)
+	return err == nil
+}

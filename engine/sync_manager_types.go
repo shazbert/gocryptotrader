@@ -7,6 +7,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/config"
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
+	"github.com/thrasher-corp/gocryptotrader/log"
 )
 
 // syncBase stores information
@@ -19,8 +20,8 @@ type syncBase struct {
 	NumErrors        int
 }
 
-// currencyPairSyncAgent stores the sync agent info
-type currencyPairSyncAgent struct {
+// syncAgent stores the sync agent info
+type syncAgent struct {
 	Created   time.Time
 	Exchange  string
 	AssetType asset.Item
@@ -52,14 +53,39 @@ type syncManager struct {
 	initSyncStartTime              time.Time
 	fiatDisplayCurrency            currency.Code
 	websocketRoutineManagerEnabled bool
-	mux                            sync.Mutex
+	mtx                            sync.Mutex
 	initSyncWG                     sync.WaitGroup
 	inService                      sync.WaitGroup
 
-	currencyPairs            []currencyPairSyncAgent
+	syncAgents               map[string]map[currency.Pair]map[asset.Item]*syncAgent
 	tickerBatchLastRequested map[string]time.Time
 
 	remoteConfig    *config.RemoteControlConfig
 	config          Config
 	exchangeManager iExchangeManager
+
+	timer    time.Timer
+	jobs     chan job
+	route    map[string]chan job // We can buffer this
+	shutdown chan struct{}
+}
+
+type job struct {
+	Exchange string
+}
+
+func (s *syncManager) router() {
+	for {
+		select {
+		case job := <-s.jobs:
+			pipe, ok := s.route[job.Exchange]
+			if !ok {
+				log.Errorln(log.SyncMgr, "cannot process job:", job.Exchange)
+				break
+			}
+			pipe <- job
+		case <-s.shutdown:
+			return
+		}
+	}
 }
