@@ -37,7 +37,7 @@ var wsSetupRan bool
 func TestMain(m *testing.M) {
 	g.SetDefaults()
 	cfg := config.GetConfig()
-	err := cfg.LoadConfig("../../testdata/configtest.json", true)
+	err := cfg.LoadConfig("../../testdata/configtest.json", true, false)
 	if err != nil {
 		log.Fatal("GateIO load config error", err)
 	}

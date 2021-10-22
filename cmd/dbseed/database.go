@@ -19,7 +19,7 @@ var (
 
 func load(c *cli.Context) error {
 	var conf config.Config
-	err := conf.LoadConfig(c.String("config"), true)
+	err := conf.LoadConfig(c.String("config"), true, true)
 	if err != nil {
 		return err
 	}

@@ -51,7 +51,7 @@ func TestMain(m *testing.M) {
 	o.SetDefaults()
 	o.ExchangeName = OKGroupExchange
 	cfg := config.GetConfig()
-	err := cfg.LoadConfig("../../testdata/configtest.json", true)
+	err := cfg.LoadConfig("../../testdata/configtest.json", true, false)
 	if err != nil {
 		log.Fatal("Okcoin load config error", err)
 	}

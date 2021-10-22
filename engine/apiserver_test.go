@@ -248,7 +248,7 @@ func makeHTTPGetRequest(t *testing.T, response interface{}) *http.Response {
 func TestConfigAllJsonResponse(t *testing.T) {
 	t.Parallel()
 	var c config.Config
-	err := c.LoadConfig(config.TestFile, true)
+	err := c.LoadConfig(config.TestFile, true, false)
 	if err != nil {
 		t.Error(err)
 	}

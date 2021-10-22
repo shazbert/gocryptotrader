@@ -63,7 +63,7 @@ func New() (*Engine, error) {
 	var b Engine
 	b.Config = &config.Cfg
 
-	err := b.Config.LoadConfig("", false)
+	err := b.Config.LoadConfig("", false, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config. Err: %s", err)
 	}
@@ -137,7 +137,7 @@ func loadConfigWithSettings(settings *Settings, flagSet map[string]bool) (*confi
 		conf.DataDirectory = settings.DataDir
 	}
 
-	return conf, conf.CheckConfig()
+	return conf, conf.CheckConfig(true)
 }
 
 // validateSettings validates and sets all bot settings

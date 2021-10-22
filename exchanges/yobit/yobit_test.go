@@ -30,7 +30,7 @@ const (
 func TestMain(m *testing.M) {
 	y.SetDefaults()
 	yobitConfig := config.GetConfig()
-	err := yobitConfig.LoadConfig("../../testdata/configtest.json", true)
+	err := yobitConfig.LoadConfig("../../testdata/configtest.json", true, false)
 	if err != nil {
 		log.Fatal("Yobit load config error", err)
 	}

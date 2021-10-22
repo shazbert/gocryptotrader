@@ -1,0 +1,17 @@
+{{define "temp_test"}}
+package {{.Name}}
+
+import (
+	"testing"
+
+	exchange "github.com/thrasher-corp/gocryptotrader/exchanges"
+)
+
+// Ensures that this exchange package is compatible with IBotExchange
+func TestInterface(t *testing.T) {
+	var e exchange.IBotExchange
+	if e = new({{.CapitalName}}); e == nil {
+		t.Fatal("unable to allocate exchange")
+	}
+}
+{{end}}

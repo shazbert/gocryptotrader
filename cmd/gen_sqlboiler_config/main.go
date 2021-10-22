@@ -42,7 +42,7 @@ func main() {
 	flag.Parse()
 
 	var cfg config.Config
-	err := cfg.LoadConfig(configFile, true)
+	err := cfg.LoadConfig(configFile, true, true)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

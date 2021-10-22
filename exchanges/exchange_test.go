@@ -455,7 +455,7 @@ func TestGetAssetTypes(t *testing.T) {
 
 func TestGetClientBankAccounts(t *testing.T) {
 	cfg := config.GetConfig()
-	err := cfg.LoadConfig(config.TestFile, true)
+	err := cfg.LoadConfig(config.TestFile, true, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -479,7 +479,7 @@ func TestGetClientBankAccounts(t *testing.T) {
 
 func TestGetExchangeBankAccounts(t *testing.T) {
 	cfg := config.GetConfig()
-	err := cfg.LoadConfig(config.TestFile, true)
+	err := cfg.LoadConfig(config.TestFile, true, false)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -108,7 +108,7 @@ func (c *Config) UpdateClientBankAccounts(bankCfg *banking.Account) error {
 }
 
 // CheckClientBankAccounts checks client bank details
-func (c *Config) CheckClientBankAccounts() {
+func (c *Config) CheckClientBankAccounts(warn bool) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -137,7 +137,9 @@ func (c *Config) CheckClientBankAccounts() {
 			err := c.BankAccounts[i].Validate()
 			if err != nil {
 				c.BankAccounts[i].Enabled = false
-				log.Warn(log.ConfigMgr, err.Error())
+				if warn {
+					log.Warn(log.ConfigMgr, err.Error())
+				}
 			}
 		}
 	}
@@ -204,7 +206,7 @@ func (c *Config) UpdateCryptocurrencyProviderConfig(config CryptocurrencyProvide
 
 // CheckCommunicationsConfig checks to see if the variables are set correctly
 // from config.json
-func (c *Config) CheckCommunicationsConfig() {
+func (c *Config) CheckCommunicationsConfig(warn bool) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -269,7 +271,9 @@ func (c *Config) CheckCommunicationsConfig() {
 		}
 
 		if len(c.Communications.SMSGlobalConfig.From) > 11 {
-			log.Warnf(log.ConfigMgr, "SMSGlobal config supplied from name exceeds 11 characters, trimming.\n")
+			if warn {
+				log.Warnf(log.ConfigMgr, "SMSGlobal config supplied from name exceeds 11 characters, trimming.\n")
+			}
 			c.Communications.SMSGlobalConfig.From = c.Communications.SMSGlobalConfig.From[:11]
 		}
 
@@ -301,14 +305,18 @@ func (c *Config) CheckCommunicationsConfig() {
 		c.Communications.SMSGlobalConfig.Name != "SMSGlobal" ||
 		c.Communications.SMTPConfig.Name != "SMTP" ||
 		c.Communications.TelegramConfig.Name != "Telegram" {
-		log.Warnln(log.ConfigMgr, "Communications config name/s not set correctly")
+		if warn {
+			log.Warnln(log.ConfigMgr, "Communications config name/s not set correctly")
+		}
 	}
 	if c.Communications.SlackConfig.Enabled {
 		if c.Communications.SlackConfig.TargetChannel == "" ||
 			c.Communications.SlackConfig.VerificationToken == "" ||
 			c.Communications.SlackConfig.VerificationToken == "testtest" {
 			c.Communications.SlackConfig.Enabled = false
-			log.Warnln(log.ConfigMgr, "Slack enabled in config but variable data not set, disabling.")
+			if warn {
+				log.Warnln(log.ConfigMgr, "Slack enabled in config but variable data not set, disabling.")
+			}
 		}
 	}
 	if c.Communications.SMSGlobalConfig.Enabled {
@@ -316,7 +324,9 @@ func (c *Config) CheckCommunicationsConfig() {
 			c.Communications.SMSGlobalConfig.Password == "" ||
 			len(c.Communications.SMSGlobalConfig.Contacts) == 0 {
 			c.Communications.SMSGlobalConfig.Enabled = false
-			log.Warnln(log.ConfigMgr, "SMSGlobal enabled in config but variable data not set, disabling.")
+			if warn {
+				log.Warnln(log.ConfigMgr, "SMSGlobal enabled in config but variable data not set, disabling.")
+			}
 		}
 	}
 	if c.Communications.SMTPConfig.Enabled {
@@ -325,13 +335,17 @@ func (c *Config) CheckCommunicationsConfig() {
 			c.Communications.SMTPConfig.AccountName == "" ||
 			c.Communications.SMTPConfig.AccountPassword == "" {
 			c.Communications.SMTPConfig.Enabled = false
-			log.Warnln(log.ConfigMgr, "SMTP enabled in config but variable data not set, disabling.")
+			if warn {
+				log.Warnln(log.ConfigMgr, "SMTP enabled in config but variable data not set, disabling.")
+			}
 		}
 	}
 	if c.Communications.TelegramConfig.Enabled {
 		if c.Communications.TelegramConfig.VerificationToken == "" {
 			c.Communications.TelegramConfig.Enabled = false
-			log.Warnln(log.ConfigMgr, "Telegram enabled in config but variable data not set, disabling.")
+			if warn {
+				log.Warnln(log.ConfigMgr, "Telegram enabled in config but variable data not set, disabling.")
+			}
 		}
 	}
 }
@@ -800,7 +814,7 @@ func (c *Config) UpdateExchangeConfig(e *Exchange) error {
 
 // CheckExchangeConfigValues returns configuation values for all enabled
 // exchanges
-func (c *Config) CheckExchangeConfigValues() error {
+func (c *Config) CheckExchangeConfigValues(warn bool) error {
 	if len(c.Exchanges) == 0 {
 		return errors.New("no exchange configs found")
 	}
@@ -907,10 +921,12 @@ func (c *Config) CheckExchangeConfigValues() error {
 					// Checks if we have an old config without the ability to
 					// enable disable the entire asset
 					if err.Error() == "cannot ascertain if asset is enabled, variable is nil" {
-						log.Warnf(log.ConfigMgr,
-							"Exchange %s: upgrading config for asset type %s and setting enabled.\n",
-							c.Exchanges[i].Name,
-							assets[index])
+						if warn {
+							log.Warnf(log.ConfigMgr,
+								"Exchange %s: upgrading config for asset type %s and setting enabled.\n",
+								c.Exchanges[i].Name,
+								assets[index])
+						}
 						err = c.Exchanges[i].CurrencyPairs.SetAssetEnabled(assets[index], true)
 						if err != nil {
 							return err
@@ -925,17 +941,21 @@ func (c *Config) CheckExchangeConfigValues() error {
 			if !atLeastOne {
 				if len(assets) == 0 {
 					c.Exchanges[i].Enabled = false
-					log.Warnf(log.ConfigMgr,
-						"%s no assets found, disabling...",
-						c.Exchanges[i].Name)
+					if warn {
+						log.Warnf(log.ConfigMgr,
+							"%s no assets found, disabling...",
+							c.Exchanges[i].Name)
+					}
 					continue
 				}
 
 				// turn on an asset if all disabled
-				log.Warnf(log.ConfigMgr,
-					"%s assets disabled, turning on asset %s",
-					c.Exchanges[i].Name,
-					assets[0])
+				if warn {
+					log.Warnf(log.ConfigMgr,
+						"%s assets disabled, turning on asset %s",
+						c.Exchanges[i].Name,
+						assets[0])
+				}
 
 				err := c.Exchanges[i].CurrencyPairs.SetAssetEnabled(assets[0], true)
 				if err != nil {
@@ -971,7 +991,9 @@ func (c *Config) CheckExchangeConfigValues() error {
 				if failed {
 					c.Exchanges[i].API.AuthenticatedSupport = false
 					c.Exchanges[i].API.AuthenticatedWebsocketSupport = false
-					log.Warnf(log.ConfigMgr, WarningExchangeAuthAPIDefaultOrEmptyValues, c.Exchanges[i].Name)
+					if warn {
+						log.Warnf(log.ConfigMgr, WarningExchangeAuthAPIDefaultOrEmptyValues, c.Exchanges[i].Name)
+					}
 				}
 			}
 			if !c.Exchanges[i].Features.Supports.RESTCapabilities.AutoPairUpdates &&
@@ -979,54 +1001,68 @@ func (c *Config) CheckExchangeConfigValues() error {
 				lastUpdated := convert.UnixTimestampToTime(c.Exchanges[i].CurrencyPairs.LastUpdated)
 				lastUpdated = lastUpdated.AddDate(0, 0, pairsLastUpdatedWarningThreshold)
 				if lastUpdated.Unix() <= time.Now().Unix() {
-					log.Warnf(log.ConfigMgr,
-						WarningPairsLastUpdatedThresholdExceeded,
-						c.Exchanges[i].Name,
-						pairsLastUpdatedWarningThreshold)
+					if warn {
+						log.Warnf(log.ConfigMgr,
+							WarningPairsLastUpdatedThresholdExceeded,
+							c.Exchanges[i].Name,
+							pairsLastUpdatedWarningThreshold)
+					}
 				}
 			}
 			if c.Exchanges[i].HTTPTimeout <= 0 {
-				log.Warnf(log.ConfigMgr,
-					"Exchange %s HTTP Timeout value not set, defaulting to %v.\n",
-					c.Exchanges[i].Name,
-					defaultHTTPTimeout)
+				if warn {
+					log.Warnf(log.ConfigMgr,
+						"Exchange %s HTTP Timeout value not set, defaulting to %v.\n",
+						c.Exchanges[i].Name,
+						defaultHTTPTimeout)
+				}
 				c.Exchanges[i].HTTPTimeout = defaultHTTPTimeout
 			}
 
 			if c.Exchanges[i].WebsocketResponseCheckTimeout <= 0 {
-				log.Warnf(log.ConfigMgr,
-					"Exchange %s Websocket response check timeout value not set, defaulting to %v.",
-					c.Exchanges[i].Name,
-					defaultWebsocketResponseCheckTimeout)
+				if warn {
+					log.Warnf(log.ConfigMgr,
+						"Exchange %s Websocket response check timeout value not set, defaulting to %v.",
+						c.Exchanges[i].Name,
+						defaultWebsocketResponseCheckTimeout)
+				}
 				c.Exchanges[i].WebsocketResponseCheckTimeout = defaultWebsocketResponseCheckTimeout
 			}
 
 			if c.Exchanges[i].WebsocketResponseMaxLimit <= 0 {
-				log.Warnf(log.ConfigMgr,
-					"Exchange %s Websocket response max limit value not set, defaulting to %v.",
-					c.Exchanges[i].Name,
-					defaultWebsocketResponseMaxLimit)
+				if warn {
+					log.Warnf(log.ConfigMgr,
+						"Exchange %s Websocket response max limit value not set, defaulting to %v.",
+						c.Exchanges[i].Name,
+						defaultWebsocketResponseMaxLimit)
+				}
 				c.Exchanges[i].WebsocketResponseMaxLimit = defaultWebsocketResponseMaxLimit
 			}
 			if c.Exchanges[i].WebsocketTrafficTimeout <= 0 {
-				log.Warnf(log.ConfigMgr,
-					"Exchange %s Websocket response traffic timeout value not set, defaulting to %v.",
-					c.Exchanges[i].Name,
-					defaultWebsocketTrafficTimeout)
+				if warn {
+					log.Warnf(log.ConfigMgr,
+						"Exchange %s Websocket response traffic timeout value not set, defaulting to %v.",
+						c.Exchanges[i].Name,
+						defaultWebsocketTrafficTimeout)
+				}
 				c.Exchanges[i].WebsocketTrafficTimeout = defaultWebsocketTrafficTimeout
 			}
 			if c.Exchanges[i].Orderbook.WebsocketBufferLimit <= 0 {
-				log.Warnf(log.ConfigMgr,
-					"Exchange %s Websocket orderbook buffer limit value not set, defaulting to %v.",
-					c.Exchanges[i].Name,
-					defaultWebsocketOrderbookBufferLimit)
+				if warn {
+					log.Warnf(log.ConfigMgr,
+						"Exchange %s Websocket orderbook buffer limit value not set, defaulting to %v.",
+						c.Exchanges[i].Name,
+						defaultWebsocketOrderbookBufferLimit)
+				}
 				c.Exchanges[i].Orderbook.WebsocketBufferLimit = defaultWebsocketOrderbookBufferLimit
 			}
 			if c.Exchanges[i].Orderbook.PublishPeriod == nil || c.Exchanges[i].Orderbook.PublishPeriod.Nanoseconds() < 0 {
-				log.Warnf(log.ConfigMgr,
-					"Exchange %s Websocket orderbook publish period value not set, defaulting to %v.",
-					c.Exchanges[i].Name,
-					DefaultOrderbookPublishPeriod)
+				if warn {
+					log.Warnf(log.ConfigMgr,
+						"Exchange %s Websocket orderbook publish period value not set, defaulting to %v.",
+						c.Exchanges[i].Name,
+						DefaultOrderbookPublishPeriod)
+				}
 				publishPeriod := DefaultOrderbookPublishPeriod
 				c.Exchanges[i].Orderbook.PublishPeriod = &publishPeriod
 			}
@@ -1046,7 +1082,9 @@ func (c *Config) CheckExchangeConfigValues() error {
 				err := c.Exchanges[i].BankAccounts[x].Validate()
 				if err != nil {
 					c.Exchanges[i].BankAccounts[x].Enabled = false
-					log.Warnln(log.ConfigMgr, err.Error())
+					if warn {
+						log.Warnln(log.ConfigMgr, err.Error())
+					}
 				}
 			}
 			exchanges++
@@ -1060,13 +1098,15 @@ func (c *Config) CheckExchangeConfigValues() error {
 }
 
 // CheckBankAccountConfig checks all bank accounts to see if they are valid
-func (c *Config) CheckBankAccountConfig() {
+func (c *Config) CheckBankAccountConfig(warn bool) {
 	for x := range c.BankAccounts {
 		if c.BankAccounts[x].Enabled {
 			err := c.BankAccounts[x].Validate()
 			if err != nil {
 				c.BankAccounts[x].Enabled = false
-				log.Warn(log.ConfigMgr, err.Error())
+				if warn {
+					log.Warn(log.ConfigMgr, err.Error())
+				}
 			}
 		}
 	}
@@ -1074,14 +1114,16 @@ func (c *Config) CheckBankAccountConfig() {
 }
 
 // CheckCurrencyConfigValues checks to see if the currency config values are correct or not
-func (c *Config) CheckCurrencyConfigValues() error {
+func (c *Config) CheckCurrencyConfigValues(warn bool) error {
 	fxProviders := forexprovider.GetSupportedForexProviders()
 
 	if len(fxProviders) != len(c.Currency.ForexProviders) {
 		for x := range fxProviders {
 			_, err := c.GetForexProvider(fxProviders[x])
 			if err != nil {
-				log.Warnf(log.Global, "%s forex provider not found, adding to config..\n", fxProviders[x])
+				if warn {
+					log.Warnf(log.Global, "%s forex provider not found, adding to config..\n", fxProviders[x])
+				}
 				c.Currency.ForexProviders = append(c.Currency.ForexProviders, currency.FXSettings{
 					Name:             fxProviders[x],
 					RESTPollingDelay: 600,
@@ -1099,8 +1141,10 @@ func (c *Config) CheckCurrencyConfigValues() error {
 				c.Currency.ForexProviders[i].PrimaryProvider &&
 				(c.Currency.ForexProviders[i].APIKey == "" ||
 					c.Currency.ForexProviders[i].APIKey == DefaultUnsetAPIKey) {
-				log.Warnf(log.Global, "%s forex provider no longer supports unset API key requests. Switching to %s FX provider..",
-					c.Currency.ForexProviders[i].Name, DefaultForexProviderExchangeRatesAPI)
+				if warn {
+					log.Warnf(log.Global, "%s forex provider no longer supports unset API key requests. Switching to %s FX provider..",
+						c.Currency.ForexProviders[i].Name, DefaultForexProviderExchangeRatesAPI)
+				}
 				c.Currency.ForexProviders[i].Enabled = false
 				c.Currency.ForexProviders[i].PrimaryProvider = false
 				c.Currency.ForexProviders[i].APIKey = DefaultUnsetAPIKey
@@ -1109,15 +1153,19 @@ func (c *Config) CheckCurrencyConfigValues() error {
 			}
 			if c.Currency.ForexProviders[i].APIKey == DefaultUnsetAPIKey &&
 				c.Currency.ForexProviders[i].Name != DefaultForexProviderExchangeRatesAPI {
-				log.Warnf(log.Global, "%s enabled forex provider API key not set. Please set this in your config.json file\n", c.Currency.ForexProviders[i].Name)
+				if warn {
+					log.Warnf(log.Global, "%s enabled forex provider API key not set. Please set this in your config.json file\n", c.Currency.ForexProviders[i].Name)
+				}
 				c.Currency.ForexProviders[i].Enabled = false
 				c.Currency.ForexProviders[i].PrimaryProvider = false
 				continue
 			}
 
 			if c.Currency.ForexProviders[i].APIKeyLvl == -1 && c.Currency.ForexProviders[i].Name != DefaultForexProviderExchangeRatesAPI {
-				log.Warnf(log.Global, "%s APIKey Level not set, functions limited. Please set this in your config.json file\n",
-					c.Currency.ForexProviders[i].Name)
+				if warn {
+					log.Warnf(log.Global, "%s APIKey Level not set, functions limited. Please set this in your config.json file\n",
+						c.Currency.ForexProviders[i].Name)
+				}
 			}
 			count++
 		}
@@ -1128,8 +1176,10 @@ func (c *Config) CheckCurrencyConfigValues() error {
 			if c.Currency.ForexProviders[x].Name == DefaultForexProviderExchangeRatesAPI {
 				c.Currency.ForexProviders[x].Enabled = true
 				c.Currency.ForexProviders[x].PrimaryProvider = true
-				log.Warnf(log.ConfigMgr, "No valid forex providers configured. Defaulting to %s.",
-					DefaultForexProviderExchangeRatesAPI)
+				if warn {
+					log.Warnf(log.ConfigMgr, "No valid forex providers configured. Defaulting to %s.",
+						DefaultForexProviderExchangeRatesAPI)
+				}
 			}
 		}
 	}
@@ -1145,11 +1195,15 @@ func (c *Config) CheckCurrencyConfigValues() error {
 	if c.Currency.CryptocurrencyProvider.Enabled {
 		if c.Currency.CryptocurrencyProvider.APIkey == "" ||
 			c.Currency.CryptocurrencyProvider.APIkey == DefaultUnsetAPIKey {
-			log.Warnln(log.ConfigMgr, "CryptocurrencyProvider enabled but api key is unset please set this in your config.json file")
+			if warn {
+				log.Warnln(log.ConfigMgr, "CryptocurrencyProvider enabled but api key is unset please set this in your config.json file")
+			}
 		}
 		if c.Currency.CryptocurrencyProvider.AccountPlan == "" ||
 			c.Currency.CryptocurrencyProvider.AccountPlan == DefaultUnsetAccountPlan {
-			log.Warnln(log.ConfigMgr, "CryptocurrencyProvider enabled but account plan is unset please set this in your config.json file")
+			if warn {
+				log.Warnln(log.ConfigMgr, "CryptocurrencyProvider enabled but account plan is unset please set this in your config.json file")
+			}
 		}
 	} else {
 		if c.Currency.CryptocurrencyProvider.APIkey == "" {
@@ -1259,7 +1313,7 @@ func (c *Config) RetrieveConfigCurrencyPairs(enabledOnly bool, assetType asset.I
 
 // CheckLoggerConfig checks to see logger values are present and valid in config
 // if not creates a default instance of the logger
-func (c *Config) CheckLoggerConfig() error {
+func (c *Config) CheckLoggerConfig(warn bool) error {
 	m.Lock()
 	defer m.Unlock()
 
@@ -1279,7 +1333,11 @@ func (c *Config) CheckLoggerConfig() error {
 			c.Logging.LoggerFileConfig.Rotate = convert.BoolPtr(false)
 		}
 		if c.Logging.LoggerFileConfig.MaxSize <= 0 {
-			log.Warnf(log.Global, "Logger rotation size invalid, defaulting to %v", log.DefaultMaxFileSize)
+			if warn {
+				log.Warnf(log.Global,
+					"Logger rotation size invalid, defaulting to %v",
+					log.DefaultMaxFileSize)
+			}
 			c.Logging.LoggerFileConfig.MaxSize = log.DefaultMaxFileSize
 		}
 		log.FileLoggingConfiguredCorrectly = true
@@ -1358,7 +1416,7 @@ func (c *Config) checkDatabaseConfig() error {
 }
 
 // CheckNTPConfig checks for missing or incorrectly configured NTPClient and recreates with known safe defaults
-func (c *Config) CheckNTPConfig() {
+func (c *Config) CheckNTPConfig(warn bool) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -1373,7 +1431,9 @@ func (c *Config) CheckNTPConfig() {
 	}
 
 	if len(c.NTPClient.Pool) < 1 {
-		log.Warnln(log.ConfigMgr, "NTPClient enabled with no servers configured, enabling default pool.")
+		if warn {
+			log.Warnln(log.ConfigMgr, "NTPClient enabled with no servers configured, enabling default pool.")
+		}
 		c.NTPClient.Pool = []string{"pool.ntp.org:123"}
 	}
 }
@@ -1761,8 +1821,8 @@ func (c *Config) CheckRemoteControlConfig() {
 }
 
 // CheckConfig checks all config settings
-func (c *Config) CheckConfig() error {
-	err := c.CheckLoggerConfig()
+func (c *Config) CheckConfig(warn bool) error {
+	err := c.CheckLoggerConfig(warn)
 	if err != nil {
 		log.Errorf(log.ConfigMgr,
 			"Failed to configure logger, some logging features unavailable: %s\n",
@@ -1776,7 +1836,7 @@ func (c *Config) CheckConfig() error {
 			err)
 	}
 
-	err = c.CheckExchangeConfigValues()
+	err = c.CheckExchangeConfigValues(warn)
 	if err != nil {
 		return fmt.Errorf(ErrCheckingConfigValues, err)
 	}
@@ -1791,43 +1851,45 @@ func (c *Config) CheckConfig() error {
 	c.CheckConnectionMonitorConfig()
 	c.CheckDataHistoryMonitorConfig()
 	c.CheckCurrencyStateManager()
-	c.CheckCommunicationsConfig()
-	c.CheckClientBankAccounts()
-	c.CheckBankAccountConfig()
+	c.CheckCommunicationsConfig(warn)
+	c.CheckClientBankAccounts(warn)
+	c.CheckBankAccountConfig(warn)
 	c.CheckRemoteControlConfig()
 
-	err = c.CheckCurrencyConfigValues()
+	err = c.CheckCurrencyConfigValues(warn)
 	if err != nil {
 		return err
 	}
 
 	if c.GlobalHTTPTimeout <= 0 {
-		log.Warnf(log.ConfigMgr,
-			"Global HTTP Timeout value not set, defaulting to %v.\n",
-			defaultHTTPTimeout)
+		if warn {
+			log.Warnf(log.ConfigMgr,
+				"Global HTTP Timeout value not set, defaulting to %v.\n",
+				defaultHTTPTimeout)
+		}
 		c.GlobalHTTPTimeout = defaultHTTPTimeout
 	}
 
 	if c.NTPClient.Level != 0 {
-		c.CheckNTPConfig()
+		c.CheckNTPConfig(warn)
 	}
 
 	return nil
 }
 
 // LoadConfig loads your configuration file into your configuration object
-func (c *Config) LoadConfig(configPath string, dryrun bool) error {
+func (c *Config) LoadConfig(configPath string, dryrun, warn bool) error {
 	err := c.ReadConfigFromFile(configPath, dryrun)
 	if err != nil {
 		return fmt.Errorf(ErrFailureOpeningConfig, configPath, err)
 	}
 
-	return c.CheckConfig()
+	return c.CheckConfig(warn)
 }
 
 // UpdateConfig updates the config with a supplied config file
 func (c *Config) UpdateConfig(configPath string, newCfg *Config, dryrun bool) error {
-	err := newCfg.CheckConfig()
+	err := newCfg.CheckConfig(true)
 	if err != nil {
 		return err
 	}
@@ -1848,7 +1910,7 @@ func (c *Config) UpdateConfig(configPath string, newCfg *Config, dryrun bool) er
 		}
 	}
 
-	return c.LoadConfig(configPath, dryrun)
+	return c.LoadConfig(configPath, dryrun, true)
 }
 
 // GetConfig returns a pointer to a configuration object

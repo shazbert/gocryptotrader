@@ -70,7 +70,7 @@ func TestLoadDataCandles(t *testing.T) {
 		Database: dbConfg,
 	}
 
-	err = bot.Config.CheckConfig()
+	err = bot.Config.CheckConfig(true)
 	if err != nil && verbose {
 		// this loads the database config to the global database
 		// the errors are unrelated and likely prone to change for reasons that
@@ -150,7 +150,7 @@ func TestLoadDataTrades(t *testing.T) {
 		Database: dbConfg,
 	}
 
-	err = bot.Config.CheckConfig()
+	err = bot.Config.CheckConfig(true)
 	if err != nil && verbose {
 		// this loads the database config to the global database
 		// the errors are unrelated and likely prone to change for reasons that

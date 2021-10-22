@@ -31,7 +31,7 @@ var b Bittrex
 func TestMain(m *testing.M) {
 	b.SetDefaults()
 	cfg := config.GetConfig()
-	err := cfg.LoadConfig("../../testdata/configtest.json", true)
+	err := cfg.LoadConfig("../../testdata/configtest.json", true, false)
 	if err != nil {
 		log.Fatal(err)
 	}

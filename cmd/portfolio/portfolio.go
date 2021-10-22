@@ -71,7 +71,7 @@ func main() {
 	log.Println("GoCryptoTrader: portfolio tool.")
 
 	var cfg config.Config
-	err := cfg.LoadConfig(inFile, true)
+	err := cfg.LoadConfig(inFile, true, true)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
