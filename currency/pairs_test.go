@@ -2,6 +2,7 @@ package currency
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 )
 
@@ -214,4 +215,28 @@ func TestContains(t *testing.T) {
 	if pairs.Contains(NewPair(ETH, USD), false) {
 		t.Errorf("TestContains: Non-existent pair was found")
 	}
+}
+
+func TestGetCrypto(t *testing.T) {
+	pairs := Pairs{
+		NewPair(BTC, USD),
+		NewPair(LTC, USD),
+		NewPair(USD, ZRX),
+		NewPair(LTC, USDT),
+	}
+
+	cryptos := pairs.GetCrypto()
+	fmt.Println(cryptos)
+}
+
+func TestGetFiat(t *testing.T) {
+	pairs := Pairs{
+		NewPair(BTC, USD),
+		NewPair(LTC, USD),
+		NewPair(USD, ZRX),
+		NewPair(LTC, USDT),
+	}
+
+	cryptos := pairs.GetFiat()
+	fmt.Println(cryptos)
 }

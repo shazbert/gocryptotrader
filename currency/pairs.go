@@ -190,3 +190,39 @@ func (p Pairs) GetRandomPair() Pair {
 	}
 	return Pair{}
 }
+
+// GetCrypto returns all the cryptos contained in the list.
+func (p Pairs) GetCrypto() []Code {
+	m := make(map[*Item]struct{})
+	for x := range p {
+		if p[x].Base.IsCryptocurrency() {
+			m[p[x].Base.Item] = struct{}{}
+		}
+		if p[x].Quote.IsCryptocurrency() {
+			m[p[x].Quote.Item] = struct{}{}
+		}
+	}
+	var cryptos []Code
+	for code := range m {
+		cryptos = append(cryptos, Code{Item: code})
+	}
+	return cryptos
+}
+
+// GetFiat returns all the cryptos contained in the list.
+func (p Pairs) GetFiat() []Code {
+	m := make(map[*Item]struct{})
+	for x := range p {
+		if p[x].Base.IsFiatCurrency() {
+			m[p[x].Base.Item] = struct{}{}
+		}
+		if p[x].Quote.IsFiatCurrency() {
+			m[p[x].Quote.Item] = struct{}{}
+		}
+	}
+	var fiat []Code
+	for code := range m {
+		fiat = append(fiat, Code{Item: code})
+	}
+	return fiat
+}
