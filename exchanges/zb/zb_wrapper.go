@@ -16,6 +16,7 @@ import (
 	exchange "github.com/thrasher-corp/gocryptotrader/exchanges"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/account"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/chain"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/deposit"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
@@ -976,7 +977,7 @@ func (z *ZB) validateCandlesRequest(p currency.Pair, a asset.Item, start, end ti
 
 // GetAvailableTransferChains returns the available transfer blockchains for the specific
 // cryptocurrency
-func (z *ZB) GetAvailableTransferChains(ctx context.Context, cryptocurrency currency.Code) ([]string, error) {
+func (z *ZB) GetAvailableTransferChains(ctx context.Context, cryptocurrency currency.Code) (chain.Items, error) {
 	chains, err := z.GetMultiChainDepositAddress(ctx, cryptocurrency)
 	if err != nil {
 		// returned on valid currencies like BTC, despite having a deposit

@@ -17,6 +17,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/config"
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/chain"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/currencystate"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/protocol"
@@ -621,6 +622,7 @@ func (b *Base) SetupDefaults(exch *config.Exchange) error {
 	}
 	b.CanVerifyOrderbook = !exch.Orderbook.VerificationBypass
 	b.States = currencystate.NewCurrencyStates()
+	b.ChainTranslator = chain.NewTranslator()
 	return err
 }
 
@@ -1394,6 +1396,6 @@ func (b *Base) UpdateCurrencyStates(ctx context.Context, a asset.Item) error {
 
 // GetAvailableTransferChains returns a list of supported transfer chains based
 // on the supplied cryptocurrency
-func (b *Base) GetAvailableTransferChains(_ context.Context, _ currency.Code) ([]string, error) {
+func (b *Base) GetAvailableTransferChains(_ context.Context, _ currency.Code) ([]chain.Item, error) {
 	return nil, common.ErrFunctionNotSupported
 }

@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/pquerna/otp/totp"
-	"github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/common/file"
 	"github.com/thrasher-corp/gocryptotrader/config"
 	"github.com/thrasher-corp/gocryptotrader/currency"
@@ -630,43 +629,28 @@ func GetExchangeLowestPriceByCurrencyPair(p currency.Pair, assetType asset.Item)
 }
 
 // GetCryptocurrenciesByExchange returns a list of cryptocurrencies the exchange supports
-func (bot *Engine) GetCryptocurrenciesByExchange(exchangeName string, enabledExchangesOnly, enabledPairs bool, assetType asset.Item) ([]string, error) {
-	var cryptocurrencies []string
+func (bot *Engine) GetCryptocurrenciesByExchange(exchangeName string, enabledExchangesOnly, enabledPairs bool, assetType asset.Item) ([]currency.Code, error) {
 	for x := range bot.Config.Exchanges {
 		if !strings.EqualFold(bot.Config.Exchanges[x].Name, exchangeName) {
 			continue
 		}
 		if enabledExchangesOnly && !bot.Config.Exchanges[x].Enabled {
-			continue
+			return nil, errors.New("exchange not enabled")
 		}
 
 		var err error
-		var pairs []currency.Pair
+		var pairs currency.Pairs
 		if enabledPairs {
 			pairs, err = bot.Config.GetEnabledPairs(exchangeName, assetType)
-			if err != nil {
-				return nil, err
-			}
 		} else {
 			pairs, err = bot.Config.GetAvailablePairs(exchangeName, assetType)
-			if err != nil {
-				return nil, err
-			}
 		}
-
-		for y := range pairs {
-			if pairs[y].Base.IsCryptocurrency() &&
-				!common.StringDataCompareInsensitive(cryptocurrencies, pairs[y].Base.String()) {
-				cryptocurrencies = append(cryptocurrencies, pairs[y].Base.String())
-			}
-
-			if pairs[y].Quote.IsCryptocurrency() &&
-				!common.StringDataCompareInsensitive(cryptocurrencies, pairs[y].Quote.String()) {
-				cryptocurrencies = append(cryptocurrencies, pairs[y].Quote.String())
-			}
+		if err != nil {
+			return nil, err
 		}
+		return pairs.GetCrypto(), nil
 	}
-	return cryptocurrencies, nil
+	return nil, errors.New("exchange not found")
 }
 
 // GetCryptocurrencyDepositAddressesByExchange returns the cryptocurrency deposit addresses for a particular exchange
@@ -734,16 +718,16 @@ func (bot *Engine) GetAllExchangeCryptocurrencyDepositAddresses() map[string]map
 				isSingular := false
 				var depositAddrs []deposit.Address
 				if supportsMultiChain {
-					availChains, err := exchanges[x].GetAvailableTransferChains(context.TODO(), currency.NewCode(cryptocurrency))
+					availChains, err := exchanges[x].GetAvailableTransferChains(context.TODO(), cryptocurrency)
 					if err != nil {
 						log.Errorf(log.Global, "%s failed to get cryptocurrency available transfer chains. Err: %s\n", exchName, err)
 						continue
 					}
 					if len(availChains) > 0 {
 						// store the default non-chain specified address for a specified crypto
-						chainContainsItself := common.StringDataCompareInsensitive(availChains, cryptocurrency)
+						chainContainsItself := availChains.Contains(cryptocurrency)
 						if !chainContainsItself && !requiresChainSet {
-							depositAddr, err := exchanges[x].GetDepositAddress(context.TODO(), currency.NewCode(cryptocurrency), "", "")
+							depositAddr, err := exchanges[x].GetDepositAddress(context.TODO(), cryptocurrency, "", "")
 							if err != nil {
 								log.Errorf(log.Global, "%s failed to get cryptocurrency deposit address for %s. Err: %s\n",
 									exchName,
@@ -751,11 +735,12 @@ func (bot *Engine) GetAllExchangeCryptocurrencyDepositAddresses() map[string]map
 									err)
 								continue
 							}
-							depositAddr.Chain = cryptocurrency
+							depositAddr.Chain = cryptocurrency.String()
 							depositAddrs = append(depositAddrs, *depositAddr)
 						}
 						for z := range availChains {
-							depositAddr, err := exchanges[x].GetDepositAddress(context.TODO(), currency.NewCode(cryptocurrency), "", availChains[z])
+							fmt.Println("CHAINS WORKING OUT", exchName, availChains[z])
+							depositAddr, err := exchanges[x].GetDepositAddress(context.TODO(), cryptocurrency, "", availChains[z])
 							if err != nil {
 								log.Errorf(log.Global, "%s failed to get cryptocurrency deposit address for %s [chain %s]. Err: %s\n",
 									exchName,
@@ -774,7 +759,7 @@ func (bot *Engine) GetAllExchangeCryptocurrencyDepositAddresses() map[string]map
 				}
 
 				if !supportsMultiChain || isSingular {
-					depositAddr, err := exchanges[x].GetDepositAddress(context.TODO(), currency.NewCode(cryptocurrency), "", "")
+					depositAddr, err := exchanges[x].GetDepositAddress(context.TODO(), cryptocurrency, "", "")
 					if err != nil {
 						log.Errorf(log.Global, "%s failed to get cryptocurrency deposit address for %s. Err: %s\n",
 							exchName,
@@ -784,7 +769,7 @@ func (bot *Engine) GetAllExchangeCryptocurrencyDepositAddresses() map[string]map
 					}
 					depositAddrs = append(depositAddrs, *depositAddr)
 				}
-				cryptoAddr[cryptocurrency] = depositAddrs
+				cryptoAddr[cryptocurrency.String()] = depositAddrs
 			}
 			m.Lock()
 			result[exchName] = cryptoAddr

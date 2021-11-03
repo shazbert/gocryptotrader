@@ -17,6 +17,7 @@ import (
 	exchange "github.com/thrasher-corp/gocryptotrader/exchanges"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/account"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/chain"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/deposit"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
@@ -1166,7 +1167,7 @@ func (b *Bitfinex) fixCasing(in currency.Pair, a asset.Item) (string, error) {
 
 // GetAvailableTransferChains returns the available transfer blockchains for the specific
 // cryptocurrency
-func (b *Bitfinex) GetAvailableTransferChains(ctx context.Context, cryptocurrency currency.Code) ([]string, error) {
+func (b *Bitfinex) GetAvailableTransferChains(ctx context.Context, cryptocurrency currency.Code) (chain.Items, error) {
 	if err := b.PopulateAcceptableMethods(ctx); err != nil {
 		return nil, err
 	}

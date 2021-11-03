@@ -16,6 +16,7 @@ import (
 	exchange "github.com/thrasher-corp/gocryptotrader/exchanges"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/account"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/chain"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/deposit"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
@@ -1224,7 +1225,7 @@ func (f *FTX) UpdateOrderExecutionLimits(ctx context.Context, _ asset.Item) erro
 
 // GetAvailableTransferChains returns the available transfer blockchains for the specific
 // cryptocurrency
-func (f *FTX) GetAvailableTransferChains(ctx context.Context, cryptocurrency currency.Code) ([]string, error) {
+func (f *FTX) GetAvailableTransferChains(ctx context.Context, cryptocurrency currency.Code) (chain.Items, error) {
 	coins, err := f.GetCoins(ctx)
 	if err != nil {
 		return nil, err

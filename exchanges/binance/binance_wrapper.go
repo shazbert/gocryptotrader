@@ -16,6 +16,7 @@ import (
 	exchange "github.com/thrasher-corp/gocryptotrader/exchanges"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/account"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/chain"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/deposit"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
@@ -1747,13 +1748,13 @@ func (b *Binance) UpdateOrderExecutionLimits(ctx context.Context, a asset.Item) 
 
 // GetAvailableTransferChains returns the available transfer blockchains for the specific
 // cryptocurrency
-func (b *Binance) GetAvailableTransferChains(ctx context.Context, cryptocurrency currency.Code) ([]string, error) {
+func (b *Binance) GetAvailableTransferChains(ctx context.Context, cryptocurrency currency.Code) (chain.Items, error) {
 	coinInfo, err := b.GetAllCoinsInfo(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	var availableChains []string
+	var availableChains []chain.Item
 	for x := range coinInfo {
 		if strings.EqualFold(coinInfo[x].Coin, cryptocurrency.String()) {
 			for y := range coinInfo[x].NetworkList {

@@ -16,6 +16,7 @@ import (
 	exchange "github.com/thrasher-corp/gocryptotrader/exchanges"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/account"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/chain"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/deposit"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
@@ -1780,7 +1781,7 @@ func compatibleVars(side, orderPriceType string, status int64) (OrderVars, error
 
 // GetAvailableTransferChains returns the available transfer blockchains for the specific
 // cryptocurrency
-func (h *HUOBI) GetAvailableTransferChains(ctx context.Context, cryptocurrency currency.Code) ([]string, error) {
+func (h *HUOBI) GetAvailableTransferChains(ctx context.Context, cryptocurrency currency.Code) (chain.Items, error) {
 	chains, err := h.GetCurrenciesIncludingChains(ctx, cryptocurrency)
 	if err != nil {
 		return nil, err

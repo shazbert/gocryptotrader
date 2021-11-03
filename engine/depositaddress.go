@@ -20,8 +20,9 @@ var (
 
 // DepositAddressManager manages the exchange deposit address store
 type DepositAddressManager struct {
-	m     sync.RWMutex
-	store map[string]map[string][]deposit.Address
+	m                sync.RWMutex
+	store            map[string]map[string][]deposit.Address
+	chainTranslation map[string]map[*currency.Item]string
 }
 
 // IsSynced returns whether or not the deposit address store has synced its data
