@@ -42,7 +42,7 @@ func (f *FTX) GetDefaultConfig() (*config.Exchange, error) {
 		return nil, err
 	}
 
-	if f.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if f.Features.Supports.REST.AutoPairUpdates {
 		err = f.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -90,11 +90,9 @@ func (f *FTX) SetDefaults() {
 		log.Errorln(log.ExchangeSys, err)
 	}
 
-	f.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
+	f.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
 				TickerFetching:        true,
 				TickerBatching:        true,
 				KlineFetching:         true,
@@ -116,7 +114,7 @@ func (f *FTX) SetDefaults() {
 				MultiChainDeposits:    true,
 				MultiChainWithdrawals: true,
 			},
-			WebsocketCapabilities: protocol.Features{
+			Websocket: protocol.Components{
 				OrderbookFetching: true,
 				TradeFetching:     true,
 				Subscribe:         true,
@@ -130,7 +128,7 @@ func (f *FTX) SetDefaults() {
 				Intervals:  true,
 			},
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 			Kline: kline.ExchangeCapabilitiesEnabled{
 				Intervals: map[string]bool{
@@ -189,7 +187,7 @@ func (f *FTX) Setup(exch *config.Exchange) error {
 		Subscriber:            f.Subscribe,
 		Unsubscriber:          f.Unsubscribe,
 		GenerateSubscriptions: f.GenerateDefaultSubscriptions,
-		Features:              &f.Features.Supports.WebsocketCapabilities,
+		Features:              &f.Features,
 		TradeFeed:             f.Features.Enabled.TradeFeed,
 		FillsFeed:             f.Features.Enabled.FillsFeed,
 	})

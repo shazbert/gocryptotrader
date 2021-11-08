@@ -42,7 +42,7 @@ func (c *CoinbasePro) GetDefaultConfig() (*config.Exchange, error) {
 		return nil, err
 	}
 
-	if c.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if c.Features.Supports.REST.AutoPairUpdates {
 		err = c.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -69,11 +69,10 @@ func (c *CoinbasePro) SetDefaults() {
 		log.Errorln(log.ExchangeSys, err)
 	}
 
-	c.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
+	c.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
+				Enabled:           true,
 				TickerFetching:    true,
 				KlineFetching:     true,
 				TradeFetching:     true,
@@ -97,7 +96,8 @@ func (c *CoinbasePro) SetDefaults() {
 				FiatWithdrawalFee: true,
 				CandleHistory:     true,
 			},
-			WebsocketCapabilities: protocol.Features{
+			Websocket: protocol.Components{
+				Enabled:                true,
 				TickerFetching:         true,
 				OrderbookFetching:      true,
 				Subscribe:              true,
@@ -114,7 +114,7 @@ func (c *CoinbasePro) SetDefaults() {
 				Intervals:  true,
 			},
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 			Kline: kline.ExchangeCapabilitiesEnabled{
 				Intervals: map[string]bool{
@@ -173,7 +173,7 @@ func (c *CoinbasePro) Setup(exch *config.Exchange) error {
 		Subscriber:            c.Subscribe,
 		Unsubscriber:          c.Unsubscribe,
 		GenerateSubscriptions: c.GenerateDefaultSubscriptions,
-		Features:              &c.Features.Supports.WebsocketCapabilities,
+		Features:              &c.Features,
 		SortBuffer:            true,
 	})
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	exchange "github.com/thrasher-corp/gocryptotrader/exchanges"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/protocol"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/stream"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/ticker"
 )
@@ -30,8 +31,8 @@ func TestWsHandleData(t *testing.T) {
 	dummy := Bithumb{
 		Base: exchange.Base{
 			Name: "dummy",
-			Features: exchange.Features{
-				Enabled: exchange.FeaturesEnabled{SaveTradeData: true},
+			Features: protocol.Features{
+				Enabled: protocol.Enabled{SaveTradeData: true},
 			},
 			CurrencyPairs: currency.PairsManager{
 				Pairs: map[asset.Item]*currency.PairStore{

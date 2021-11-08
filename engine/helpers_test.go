@@ -1016,8 +1016,9 @@ func (f fakeDepositExchange) GetAuthenticatedAPISupport(endpoint uint8) bool {
 
 func (f fakeDepositExchange) GetBase() *exchange.Base {
 	return &exchange.Base{
-		Features: exchange.Features{Supports: exchange.FeaturesSupported{
-			RESTCapabilities: protocol.Features{
+		Features: protocol.FeaturesSupports: protocol.Capabilities{
+			REST:
+ protocol.Components{
 				MultiChainDeposits:                f.SupportsMultiChain,
 				MultiChainDepositRequiresChainSet: f.RequiresChainSet,
 			},

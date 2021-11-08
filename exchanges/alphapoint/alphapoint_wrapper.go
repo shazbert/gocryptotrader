@@ -43,11 +43,10 @@ func (a *Alphapoint) SetDefaults() {
 	a.API.CredentialsValidator.RequiresKey = true
 	a.API.CredentialsValidator.RequiresSecret = true
 
-	a.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
+	a.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
+				Enabled:           true,
 				AccountInfo:       true,
 				TickerFetching:    true,
 				TradeFetching:     true,
@@ -62,11 +61,9 @@ func (a *Alphapoint) SetDefaults() {
 				CryptoWithdrawal:  true,
 				TradeFee:          true,
 			},
-
-			WebsocketCapabilities: protocol.Features{
+			Websocket: protocol.Components{
 				AccountInfo: true,
 			},
-
 			WithdrawPermissions: exchange.WithdrawCryptoWith2FA |
 				exchange.AutoWithdrawCryptoWithAPIPermission |
 				exchange.NoFiatWithdrawals,

@@ -123,8 +123,8 @@ func (b *Base) SetFeatureDefaults() {
 			Supports: config.FeaturesSupportedConfig{
 				Websocket: b.Features.Supports.Websocket,
 				REST:      b.Features.Supports.REST,
-				RESTCapabilities: protocol.Features{
-					AutoPairUpdates: b.Features.Supports.RESTCapabilities.AutoPairUpdates,
+				REST: protocol.Components{
+					AutoPairUpdates: b.Features.Supports.REST.AutoPairUpdates,
 				},
 			},
 		}
@@ -133,8 +133,8 @@ func (b *Base) SetFeatureDefaults() {
 			s.Supports.RESTCapabilities.AutoPairUpdates = *b.Config.SupportsAutoPairUpdates
 			s.Enabled.AutoPairUpdates = *b.Config.SupportsAutoPairUpdates
 		} else {
-			s.Supports.RESTCapabilities.AutoPairUpdates = b.Features.Supports.RESTCapabilities.AutoPairUpdates
-			s.Enabled.AutoPairUpdates = b.Features.Supports.RESTCapabilities.AutoPairUpdates
+			s.Supports.RESTCapabilities.AutoPairUpdates = b.Features.Supports.REST.AutoPairUpdates
+			s.Enabled.AutoPairUpdates = b.Features.Supports.REST.AutoPairUpdates
 			if !s.Supports.RESTCapabilities.AutoPairUpdates {
 				b.Config.CurrencyPairs.LastUpdated = time.Now().Unix()
 				b.CurrencyPairs.LastUpdated = b.Config.CurrencyPairs.LastUpdated
@@ -143,10 +143,10 @@ func (b *Base) SetFeatureDefaults() {
 		b.Config.Features = s
 		b.Config.SupportsAutoPairUpdates = nil
 	} else {
-		if b.Features.Supports.RESTCapabilities.AutoPairUpdates != b.Config.Features.Supports.RESTCapabilities.AutoPairUpdates {
-			b.Config.Features.Supports.RESTCapabilities.AutoPairUpdates = b.Features.Supports.RESTCapabilities.AutoPairUpdates
+		if b.Features.Supports.REST.AutoPairUpdates != b.Config.Features.Supports.REST.AutoPairUpdates {
+			b.Config.Features.Supports.REST.AutoPairUpdates = b.Features.Supports.REST.AutoPairUpdates
 
-			if !b.Config.Features.Supports.RESTCapabilities.AutoPairUpdates {
+			if !b.Config.Features.Supports.REST.AutoPairUpdates {
 				b.Config.CurrencyPairs.LastUpdated = time.Now().Unix()
 			}
 		}
@@ -215,7 +215,7 @@ func (b *Base) SupportsRESTTickerBatchUpdates() bool {
 // SupportsAutoPairUpdates returns whether or not the exchange supports
 // auto currency pair updating
 func (b *Base) SupportsAutoPairUpdates() bool {
-	if b.Features.Supports.RESTCapabilities.AutoPairUpdates ||
+	if b.Features.Supports.REST.AutoPairUpdates ||
 		b.Features.Supports.WebsocketCapabilities.AutoPairUpdates {
 		return true
 	}
@@ -363,12 +363,12 @@ func (b *Base) GetName() string {
 }
 
 // GetEnabledFeatures returns the exchanges enabled features
-func (b *Base) GetEnabledFeatures() FeaturesEnabled {
+func (b *Base) GetEnabledFeatures() protocol.Enabled {
 	return b.Features.Enabled
 }
 
 // GetSupportedFeatures returns the exchanges supported features
-func (b *Base) GetSupportedFeatures() FeaturesSupported {
+func (b *Base) GetSupportedFeatures() protocol.Capabilities {
 	return b.Features.Supports
 }
 

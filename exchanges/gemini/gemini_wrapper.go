@@ -43,7 +43,7 @@ func (g *Gemini) GetDefaultConfig() (*config.Exchange, error) {
 		return nil, err
 	}
 
-	if g.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if g.Features.Supports.REST.AutoPairUpdates {
 		err := g.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -74,11 +74,10 @@ func (g *Gemini) SetDefaults() {
 		log.Errorln(log.ExchangeSys, err)
 	}
 
-	g.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
+	g.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
+				Enabled:             true,
 				TickerFetching:      true,
 				TradeFetching:       true,
 				OrderbookFetching:   true,
@@ -95,7 +94,8 @@ func (g *Gemini) SetDefaults() {
 				FiatWithdrawalFee:   true,
 				CryptoWithdrawalFee: true,
 			},
-			WebsocketCapabilities: protocol.Features{
+			Websocket: protocol.Components{
+				Enabled:                true,
 				OrderbookFetching:      true,
 				TradeFetching:          true,
 				AuthenticatedEndpoints: true,
@@ -108,7 +108,7 @@ func (g *Gemini) SetDefaults() {
 				exchange.AutoWithdrawCryptoWithSetup |
 				exchange.WithdrawFiatViaWebsiteOnly,
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 		},
 	}
@@ -162,7 +162,7 @@ func (g *Gemini) Setup(exch *config.Exchange) error {
 		Subscriber:            g.Subscribe,
 		Unsubscriber:          g.Unsubscribe,
 		GenerateSubscriptions: g.GenerateDefaultSubscriptions,
-		Features:              &g.Features.Supports.WebsocketCapabilities,
+		Features:              &g.Features,
 	})
 	if err != nil {
 		return err

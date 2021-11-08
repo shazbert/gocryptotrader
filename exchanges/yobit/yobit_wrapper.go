@@ -41,7 +41,7 @@ func (y *Yobit) GetDefaultConfig() (*config.Exchange, error) {
 		return nil, err
 	}
 
-	if y.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if y.Features.Supports.REST.AutoPairUpdates {
 		err = y.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -66,11 +66,10 @@ func (y *Yobit) SetDefaults() {
 		log.Errorln(log.ExchangeSys, err)
 	}
 
-	y.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: false,
-			RESTCapabilities: protocol.Features{
+	y.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
+				Enabled:             true,
 				TickerBatching:      true,
 				TickerFetching:      true,
 				TradeFetching:       true,
@@ -91,7 +90,7 @@ func (y *Yobit) SetDefaults() {
 			WithdrawPermissions: exchange.AutoWithdrawCryptoWithAPIPermission |
 				exchange.WithdrawFiatViaWebsiteOnly,
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 		},
 	}

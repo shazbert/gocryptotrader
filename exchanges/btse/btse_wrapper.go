@@ -43,7 +43,7 @@ func (b *BTSE) GetDefaultConfig() (*config.Exchange, error) {
 		return nil, err
 	}
 
-	if b.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if b.Features.Supports.REST.AutoPairUpdates {
 		err = b.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -89,11 +89,10 @@ func (b *BTSE) SetDefaults() {
 		log.Errorln(log.ExchangeSys, err)
 	}
 
-	b.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
+	b.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
+				Enabled:             true,
 				TickerFetching:      true,
 				TickerBatching:      true,
 				KlineFetching:       true,
@@ -111,7 +110,8 @@ func (b *BTSE) SetDefaults() {
 				FiatWithdrawalFee:   true,
 				CryptoWithdrawalFee: true,
 			},
-			WebsocketCapabilities: protocol.Features{
+			Websocket: protocol.Components{
+				Enabled:           true,
 				OrderbookFetching: true,
 				TradeFetching:     true,
 				Subscribe:         true,
@@ -125,7 +125,7 @@ func (b *BTSE) SetDefaults() {
 				Intervals:  true,
 			},
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 			Kline: kline.ExchangeCapabilitiesEnabled{
 				Intervals: map[string]bool{
@@ -192,7 +192,7 @@ func (b *BTSE) Setup(exch *config.Exchange) error {
 		Subscriber:            b.Subscribe,
 		Unsubscriber:          b.Unsubscribe,
 		GenerateSubscriptions: b.GenerateDefaultSubscriptions,
-		Features:              &b.Features.Supports.WebsocketCapabilities,
+		Features:              &b.Features,
 	})
 	if err != nil {
 		return err

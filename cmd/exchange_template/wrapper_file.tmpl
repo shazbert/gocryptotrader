@@ -35,7 +35,7 @@ func ({{.Variable}} *{{.CapitalName}}) GetDefaultConfig() (*config.Exchange, err
 
 	{{.Variable}}.SetupDefaults(exchCfg)
 
-	if {{.Variable}}.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if {{.Variable}}.Features.Supports.REST.AutoPairUpdates {
 		err := {{.Variable}}.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -92,22 +92,23 @@ func ({{.Variable}} *{{.CapitalName}}) SetDefaults() {
 	}
 
 	// Fill out the capabilities/features that the exchange supports
-	{{.Variable}}.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
+	{{.Variable}}.Features = protocol.Features{
+		Supports: protocol.Capabilities{
 			{{ if .REST }} REST: true, {{ end }}
 			{{ if .WS }} Websocket: true, {{ end }}
-			RESTCapabilities: protocol.Features{
+			REST:
+ protocol.Components{
 				TickerFetching: true,
 				OrderbookFetching: true,
 			},
-			WebsocketCapabilities: protocol.Features{
+			Websocket: protocol.Components{
 				TickerFetching: true,
 				OrderbookFetching: true,
 			},
 			WithdrawPermissions: exchange.AutoWithdrawCrypto | 
 				exchange.AutoWithdrawFiat,
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 		},
 	}

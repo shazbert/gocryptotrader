@@ -43,7 +43,7 @@ func (c *COINUT) GetDefaultConfig() (*config.Exchange, error) {
 		return nil, err
 	}
 
-	if c.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if c.Features.Supports.REST.AutoPairUpdates {
 		err = c.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -68,11 +68,9 @@ func (c *COINUT) SetDefaults() {
 		log.Errorln(log.ExchangeSys, err)
 	}
 
-	c.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
+	c.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
 				TickerFetching:    true,
 				TradeFetching:     true,
 				OrderbookFetching: true,
@@ -88,7 +86,7 @@ func (c *COINUT) SetDefaults() {
 				FiatDepositFee:    true,
 				FiatWithdrawalFee: true,
 			},
-			WebsocketCapabilities: protocol.Features{
+			Websocket: protocol.Components{
 				AccountBalance:         true,
 				GetOrders:              true,
 				CancelOrders:           true,
@@ -108,7 +106,7 @@ func (c *COINUT) SetDefaults() {
 			WithdrawPermissions: exchange.WithdrawCryptoViaWebsiteOnly |
 				exchange.WithdrawFiatViaWebsiteOnly,
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 		},
 	}
@@ -155,7 +153,7 @@ func (c *COINUT) Setup(exch *config.Exchange) error {
 		Subscriber:            c.Subscribe,
 		Unsubscriber:          c.Unsubscribe,
 		GenerateSubscriptions: c.GenerateDefaultSubscriptions,
-		Features:              &c.Features.Supports.WebsocketCapabilities,
+		Features:              &c.Features,
 		SortBuffer:            true,
 		SortBufferByUpdateIDs: true,
 	})

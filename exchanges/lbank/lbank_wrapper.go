@@ -40,7 +40,7 @@ func (l *Lbank) GetDefaultConfig() (*config.Exchange, error) {
 		return nil, err
 	}
 
-	if l.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if l.Features.Supports.REST.AutoPairUpdates {
 		err = l.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -65,10 +65,10 @@ func (l *Lbank) SetDefaults() {
 		log.Errorln(log.ExchangeSys, err)
 	}
 
-	l.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST: true,
-			RESTCapabilities: protocol.Features{
+	l.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
+				Enabled:             true,
 				TickerBatching:      true,
 				TickerFetching:      true,
 				KlineFetching:       true,
@@ -89,7 +89,7 @@ func (l *Lbank) SetDefaults() {
 			WithdrawPermissions: exchange.AutoWithdrawCryptoWithAPIPermission |
 				exchange.NoFiatWithdrawals,
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 			Kline: kline.ExchangeCapabilitiesEnabled{
 				Intervals: map[string]bool{

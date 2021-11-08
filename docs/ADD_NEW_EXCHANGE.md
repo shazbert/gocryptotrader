@@ -1149,11 +1149,12 @@ func (f *FTX) Setup(exch *config.Exchange) error {
 Below are the features supported by FTX API protocol:
 
   ```go
-  f.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
+  f.Features = protocol.Features{
+		Supports: protocol.Capabilities{
 			REST:      true,
 			Websocket: true,
-			RESTCapabilities: protocol.Features{
+			REST:
+ protocol.Components{
 				TickerFetching:      true,
 				KlineFetching:       true,
 				TradeFetching:       true,
@@ -1170,7 +1171,7 @@ Below are the features supported by FTX API protocol:
 				FiatWithdrawalFee:   true,
 				CryptoWithdrawalFee: true,
 			},
-			WebsocketCapabilities: protocol.Features{
+			Websocket: protocol.Components{
 				OrderbookFetching: true,
 				TradeFetching:     true,
 				Subscribe:         true,
@@ -1180,7 +1181,7 @@ Below are the features supported by FTX API protocol:
 			},
 			WithdrawPermissions: exchange.NoAPIWithdrawalMethods,
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 		},
 	}

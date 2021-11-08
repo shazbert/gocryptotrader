@@ -42,7 +42,7 @@ func (b *BTCMarkets) GetDefaultConfig() (*config.Exchange, error) {
 		return nil, err
 	}
 
-	if b.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if b.Features.Supports.REST.AutoPairUpdates {
 		err = b.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -67,11 +67,10 @@ func (b *BTCMarkets) SetDefaults() {
 		log.Errorln(log.ExchangeSys, err)
 	}
 
-	b.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
+	b.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
+				Enabled:             true,
 				TickerBatching:      true,
 				TickerFetching:      true,
 				TradeFetching:       true,
@@ -89,7 +88,8 @@ func (b *BTCMarkets) SetDefaults() {
 				FiatWithdrawalFee:   true,
 				CryptoWithdrawalFee: true,
 			},
-			WebsocketCapabilities: protocol.Features{
+			Websocket: protocol.Components{
+				Enabled:                true,
 				TickerFetching:         true,
 				TradeFetching:          true,
 				OrderbookFetching:      true,
@@ -106,7 +106,7 @@ func (b *BTCMarkets) SetDefaults() {
 				Intervals:  true,
 			},
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 			Kline: kline.ExchangeCapabilitiesEnabled{
 				Intervals: map[string]bool{
@@ -160,7 +160,7 @@ func (b *BTCMarkets) Setup(exch *config.Exchange) error {
 		Connector:             b.WsConnect,
 		Subscriber:            b.Subscribe,
 		GenerateSubscriptions: b.generateDefaultSubscriptions,
-		Features:              &b.Features.Supports.WebsocketCapabilities,
+		Features:              &b.Features,
 		SortBuffer:            true,
 	})
 	if err != nil {

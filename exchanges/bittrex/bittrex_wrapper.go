@@ -41,7 +41,7 @@ func (b *Bittrex) GetDefaultConfig() (*config.Exchange, error) {
 		return nil, err
 	}
 
-	if b.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if b.Features.Supports.REST.AutoPairUpdates {
 		err = b.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -74,11 +74,10 @@ func (b *Bittrex) SetDefaults() {
 		log.Errorln(log.ExchangeSys, err)
 	}
 
-	b.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
+	b.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
+				Enabled:             true,
 				TickerBatching:      true,
 				TickerFetching:      true,
 				KlineFetching:       true,
@@ -98,7 +97,8 @@ func (b *Bittrex) SetDefaults() {
 				TradeFee:            true,
 				CryptoWithdrawalFee: true,
 			},
-			WebsocketCapabilities: protocol.Features{
+			Websocket: protocol.Components{
+				Enabled:           true,
 				TickerFetching:    true,
 				OrderbookFetching: true,
 				Subscribe:         true,
@@ -107,7 +107,7 @@ func (b *Bittrex) SetDefaults() {
 			WithdrawPermissions: exchange.AutoWithdrawCryptoWithAPIPermission |
 				exchange.NoFiatWithdrawals,
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 			Kline: kline.ExchangeCapabilitiesEnabled{
 				Intervals: map[string]bool{
@@ -162,11 +162,11 @@ func (b *Bittrex) Setup(exch *config.Exchange) error {
 		ExchangeConfig:        exch,
 		DefaultURL:            bittrexAPIWSURL, // Default ws endpoint so we can roll back via CLI if needed.
 		RunningURL:            wsRunningEndpoint,
-		Connector:             b.WsConnect,                                // Connector function outlined above.
-		Subscriber:            b.Subscribe,                                // Subscriber function outlined above.
-		Unsubscriber:          b.Unsubscribe,                              // Unsubscriber function outlined above.
-		GenerateSubscriptions: b.GenerateDefaultSubscriptions,             // GenerateDefaultSubscriptions function outlined above.
-		Features:              &b.Features.Supports.WebsocketCapabilities, // Defines the capabilities of the websocket outlined in supported features struct. This allows the websocket connection to be flushed appropriately if we have a pair/asset enable/disable change. This is outlined below.
+		Connector:             b.WsConnect,                    // Connector function outlined above.
+		Subscriber:            b.Subscribe,                    // Subscriber function outlined above.
+		Unsubscriber:          b.Unsubscribe,                  // Unsubscriber function outlined above.
+		GenerateSubscriptions: b.GenerateDefaultSubscriptions, // GenerateDefaultSubscriptions function outlined above.
+		Features:              &b.Features,                    // Defines the capabilities of the websocket outlined in supported features struct. This allows the websocket connection to be flushed appropriately if we have a pair/asset enable/disable change. This is outlined below.
 
 		// Orderbook buffer specific variables for processing orderbook updates via websocket feed.
 		// Other orderbook buffer vars:

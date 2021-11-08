@@ -42,7 +42,7 @@ func (c *Coinbene) GetDefaultConfig() (*config.Exchange, error) {
 		return nil, err
 	}
 
-	if c.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if c.Features.Supports.REST.AutoPairUpdates {
 		err = c.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -88,11 +88,10 @@ func (c *Coinbene) SetDefaults() {
 		log.Errorln(log.ExchangeSys, err)
 	}
 
-	c.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
+	c.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
+				Enabled:               true,
 				TickerFetching:        true,
 				TradeFetching:         true,
 				OrderbookFetching:     true,
@@ -109,7 +108,8 @@ func (c *Coinbene) SetDefaults() {
 				MultiChainDeposits:    true,
 				MultiChainWithdrawals: true,
 			},
-			WebsocketCapabilities: protocol.Features{
+			Websocket: protocol.Components{
+				Enabled:                true,
 				TickerFetching:         true,
 				AccountBalance:         true,
 				AccountInfo:            true,
@@ -129,7 +129,7 @@ func (c *Coinbene) SetDefaults() {
 				Intervals:  true,
 			},
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 			Kline: kline.ExchangeCapabilitiesEnabled{
 				Intervals: map[string]bool{
@@ -193,7 +193,7 @@ func (c *Coinbene) Setup(exch *config.Exchange) error {
 		Subscriber:            c.Subscribe,
 		Unsubscriber:          c.Unsubscribe,
 		GenerateSubscriptions: c.GenerateDefaultSubscriptions,
-		Features:              &c.Features.Supports.WebsocketCapabilities,
+		Features:              &c.Features,
 		SortBuffer:            true,
 	})
 	if err != nil {

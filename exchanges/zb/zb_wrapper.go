@@ -42,7 +42,7 @@ func (z *ZB) GetDefaultConfig() (*config.Exchange, error) {
 		return nil, err
 	}
 
-	if z.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if z.Features.Supports.REST.AutoPairUpdates {
 		err = z.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -67,11 +67,9 @@ func (z *ZB) SetDefaults() {
 		log.Errorln(log.ExchangeSys, err)
 	}
 
-	z.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
+	z.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
 				TickerBatching:      true,
 				TickerFetching:      true,
 				KlineFetching:       true,
@@ -88,7 +86,7 @@ func (z *ZB) SetDefaults() {
 				CryptoWithdrawalFee: true,
 				MultiChainDeposits:  true,
 			},
-			WebsocketCapabilities: protocol.Features{
+			Websocket: protocol.Components{
 				TickerFetching:         true,
 				TradeFetching:          true,
 				OrderbookFetching:      true,
@@ -107,7 +105,7 @@ func (z *ZB) SetDefaults() {
 				Intervals: true,
 			},
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 			Kline: kline.ExchangeCapabilitiesEnabled{
 				Intervals: map[string]bool{
@@ -171,7 +169,7 @@ func (z *ZB) Setup(exch *config.Exchange) error {
 		Connector:             z.WsConnect,
 		GenerateSubscriptions: z.GenerateDefaultSubscriptions,
 		Subscriber:            z.Subscribe,
-		Features:              &z.Features.Supports.WebsocketCapabilities,
+		Features:              &z.Features,
 	})
 	if err != nil {
 		return err

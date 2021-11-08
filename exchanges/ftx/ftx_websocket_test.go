@@ -10,6 +10,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/fill"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/protocol"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/stream"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/ticker"
 )
@@ -31,8 +32,8 @@ func parseRaw(t *testing.T, input string) interface{} {
 	x := FTX{
 		exchange.Base{
 			Name: "FTX",
-			Features: exchange.Features{
-				Enabled: exchange.FeaturesEnabled{
+			Features: protocol.Features{
+				Enabled: protocol.Enabled{
 					FillsFeed: true,
 				},
 			},

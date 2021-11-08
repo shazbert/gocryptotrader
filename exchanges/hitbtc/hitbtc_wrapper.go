@@ -42,7 +42,7 @@ func (h *HitBTC) GetDefaultConfig() (*config.Exchange, error) {
 		return nil, err
 	}
 
-	if h.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if h.Features.Supports.REST.AutoPairUpdates {
 		err = h.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -67,11 +67,10 @@ func (h *HitBTC) SetDefaults() {
 		log.Errorln(log.ExchangeSys, err)
 	}
 
-	h.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
+	h.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
+				Enabled:             true,
 				TickerBatching:      true,
 				TickerFetching:      true,
 				KlineFetching:       true,
@@ -92,7 +91,8 @@ func (h *HitBTC) SetDefaults() {
 				CryptoDepositFee:    true,
 				CryptoWithdrawalFee: true,
 			},
-			WebsocketCapabilities: protocol.Features{
+			Websocket: protocol.Components{
+				Enabled:                true,
 				TickerFetching:         true,
 				OrderbookFetching:      true,
 				Subscribe:              true,
@@ -111,7 +111,7 @@ func (h *HitBTC) SetDefaults() {
 				DateRanges: true,
 			},
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 			Kline: kline.ExchangeCapabilitiesEnabled{
 				Intervals: map[string]bool{
@@ -171,7 +171,7 @@ func (h *HitBTC) Setup(exch *config.Exchange) error {
 		Subscriber:            h.Subscribe,
 		Unsubscriber:          h.Unsubscribe,
 		GenerateSubscriptions: h.GenerateDefaultSubscriptions,
-		Features:              &h.Features.Supports.WebsocketCapabilities,
+		Features:              &h.Features,
 		SortBuffer:            true,
 		SortBufferByUpdateIDs: true,
 	})

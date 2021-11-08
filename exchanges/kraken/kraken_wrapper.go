@@ -43,7 +43,7 @@ func (k *Kraken) GetDefaultConfig() (*config.Exchange, error) {
 		return nil, err
 	}
 
-	if k.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if k.Features.Supports.REST.AutoPairUpdates {
 		err = k.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -100,11 +100,10 @@ func (k *Kraken) SetDefaults() {
 		log.Errorln(log.ExchangeSys, err)
 	}
 
-	k.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
+	k.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
+				Enabled:               true,
 				TickerBatching:        true,
 				TickerFetching:        true,
 				KlineFetching:         true,
@@ -129,7 +128,8 @@ func (k *Kraken) SetDefaults() {
 				MultiChainDeposits:    true,
 				MultiChainWithdrawals: true,
 			},
-			WebsocketCapabilities: protocol.Features{
+			Websocket: protocol.Components{
+				Enabled:            true,
 				TickerFetching:     true,
 				TradeFetching:      true,
 				KlineFetching:      true,
@@ -152,7 +152,7 @@ func (k *Kraken) SetDefaults() {
 				Intervals:  true,
 			},
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 			Kline: kline.ExchangeCapabilitiesEnabled{
 				Intervals: map[string]bool{
@@ -218,7 +218,7 @@ func (k *Kraken) Setup(exch *config.Exchange) error {
 		Subscriber:            k.Subscribe,
 		Unsubscriber:          k.Unsubscribe,
 		GenerateSubscriptions: k.GenerateDefaultSubscriptions,
-		Features:              &k.Features.Supports.WebsocketCapabilities,
+		Features:              &k.Features,
 		SortBuffer:            true,
 	})
 	if err != nil {

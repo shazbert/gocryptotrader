@@ -43,7 +43,7 @@ func (b *Bitmex) GetDefaultConfig() (*config.Exchange, error) {
 		return nil, err
 	}
 
-	if b.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if b.Features.Supports.REST.AutoPairUpdates {
 		err = b.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -77,11 +77,10 @@ func (b *Bitmex) SetDefaults() {
 		log.Errorln(log.ExchangeSys, err)
 	}
 
-	b.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
+	b.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
+				Enabled:             true,
 				TickerBatching:      true,
 				TickerFetching:      true,
 				TradeFetching:       true,
@@ -103,7 +102,8 @@ func (b *Bitmex) SetDefaults() {
 				TradeFee:            true,
 				CryptoWithdrawalFee: true,
 			},
-			WebsocketCapabilities: protocol.Features{
+			Websocket: protocol.Components{
+				Enabled:                true,
 				TradeFetching:          true,
 				OrderbookFetching:      true,
 				Subscribe:              true,
@@ -119,7 +119,7 @@ func (b *Bitmex) SetDefaults() {
 				exchange.WithdrawCryptoWith2FA |
 				exchange.NoFiatWithdrawals,
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 		},
 	}
@@ -166,7 +166,7 @@ func (b *Bitmex) Setup(exch *config.Exchange) error {
 		Subscriber:            b.Subscribe,
 		Unsubscriber:          b.Unsubscribe,
 		GenerateSubscriptions: b.GenerateDefaultSubscriptions,
-		Features:              &b.Features.Supports.WebsocketCapabilities,
+		Features:              &b.Features,
 		UpdateEntriesByID:     true,
 	})
 	if err != nil {

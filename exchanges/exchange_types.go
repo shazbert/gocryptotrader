@@ -8,7 +8,6 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/currencystate"
-	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/protocol"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/request"
@@ -147,32 +146,6 @@ type WithdrawalHistory struct {
 	BankTo          string
 }
 
-// Features stores the supported and enabled features
-// for the exchange
-type Features struct {
-	Supports FeaturesSupported
-	Enabled  FeaturesEnabled
-}
-
-// FeaturesEnabled stores the exchange enabled features
-type FeaturesEnabled struct {
-	AutoPairUpdates bool
-	Kline           kline.ExchangeCapabilitiesEnabled
-	SaveTradeData   bool
-	TradeFeed       bool
-	FillsFeed       bool
-}
-
-// FeaturesSupported stores the exchanges supported features
-type FeaturesSupported struct {
-	REST                  bool
-	RESTCapabilities      protocol.Features
-	Websocket             bool
-	WebsocketCapabilities protocol.Features
-	WithdrawPermissions   uint32
-	Kline                 kline.ExchangeCapabilitiesSupported
-}
-
 // Endpoints stores running url endpoints for exchanges
 type Endpoints struct {
 	Exchange string
@@ -217,7 +190,7 @@ type Base struct {
 	API                           API
 	BaseCurrencies                currency.Currencies
 	CurrencyPairs                 currency.PairsManager
-	Features                      Features
+	Features                      protocol.Features
 	HTTPTimeout                   time.Duration
 	HTTPUserAgent                 string
 	HTTPRecording                 bool

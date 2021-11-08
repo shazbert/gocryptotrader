@@ -45,7 +45,7 @@ func TestSupportsRESTTickerBatchUpdates(t *testing.T) {
 		Features: Features{
 			Supports: FeaturesSupported{
 				REST: true,
-				RESTCapabilities: protocol.Features{
+				REST: protocol.Components{
 					TickerBatching: true,
 				},
 			},
@@ -306,7 +306,7 @@ func TestSetFeatureDefaults(t *testing.T) {
 		Features: Features{
 			Supports: FeaturesSupported{
 				REST: true,
-				RESTCapabilities: protocol.Features{
+				REST: protocol.Components{
 					TickerBatching: true,
 				},
 				Websocket: true,
@@ -323,7 +323,7 @@ func TestSetFeatureDefaults(t *testing.T) {
 	b.Config.Features = nil
 	b.Config.SupportsAutoPairUpdates = bptr(true)
 	b.SetFeatureDefaults()
-	if !b.Config.Features.Supports.RESTCapabilities.AutoPairUpdates &&
+	if !b.Config.Features.Supports.REST.AutoPairUpdates &&
 		!b.Features.Enabled.AutoPairUpdates {
 		t.Error("incorrect values")
 	}
@@ -372,7 +372,7 @@ func TestSetAutoPairDefaults(t *testing.T) {
 			CurrencyPairs: &currency.PairsManager{},
 			Features: &config.FeaturesConfig{
 				Supports: config.FeaturesSupportedConfig{
-					RESTCapabilities: protocol.Features{
+					REST: protocol.Components{
 						AutoPairUpdates: true,
 					},
 				},
@@ -385,7 +385,7 @@ func TestSetAutoPairDefaults(t *testing.T) {
 		t.Fatalf("TestSetAutoPairDefaults load config failed. Error %s", err)
 	}
 
-	if !exch.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if !exch.Features.Supports.REST.AutoPairUpdates {
 		t.Fatalf("TestSetAutoPairDefaults Incorrect value")
 	}
 
@@ -393,14 +393,14 @@ func TestSetAutoPairDefaults(t *testing.T) {
 		t.Fatalf("TestSetAutoPairDefaults Incorrect value")
 	}
 
-	exch.Features.Supports.RESTCapabilities.AutoPairUpdates = false
+	exch.Features.Supports.REST.AutoPairUpdates = false
 
 	exch, err = cfg.GetExchangeConfig(bs)
 	if err != nil {
 		t.Fatalf("TestSetAutoPairDefaults load config failed. Error %s", err)
 	}
 
-	if exch.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if exch.Features.Supports.REST.AutoPairUpdates {
 		t.Fatal("TestSetAutoPairDefaults Incorrect value")
 	}
 }
@@ -416,7 +416,7 @@ func TestSupportsAutoPairUpdates(t *testing.T) {
 		t.Error("exchange shouldn't support auto pair updates")
 	}
 
-	b.Features.Supports.RESTCapabilities.AutoPairUpdates = true
+	b.Features.Supports.REST.AutoPairUpdates = true
 	if !b.SupportsAutoPairUpdates() {
 		t.Error("exchange should support auto pair updates")
 	}
@@ -771,7 +771,7 @@ func TestGetFeatures(t *testing.T) {
 	}
 
 	// Test GetSupportedFeatures
-	b.Features.Supports.RESTCapabilities.AutoPairUpdates = true
+	b.Features.Supports.REST.AutoPairUpdates = true
 	if !b.GetSupportedFeatures().RESTCapabilities.AutoPairUpdates {
 		t.Error("auto pair updates should be supported")
 	}
@@ -1324,7 +1324,7 @@ func TestSetupDefaults(t *testing.T) {
 			Name:                    "test",
 			Features:                &config.FeaturesConfig{},
 		},
-		Features:              &protocol.Features{},
+		Features:              &protocol.Components{},
 		DefaultURL:            "ws://something.com",
 		RunningURL:            "ws://something.com",
 		Connector:             func() error { return nil },
@@ -1679,7 +1679,7 @@ func TestIsWebsocketEnabled(t *testing.T) {
 				},
 			},
 		},
-		Features:              &protocol.Features{},
+		Features:              &protocol.Components{},
 		DefaultURL:            "ws://something.com",
 		RunningURL:            "ws://something.com",
 		Connector:             func() error { return nil },

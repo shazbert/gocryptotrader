@@ -48,7 +48,7 @@ func (b *Bithumb) GetDefaultConfig() (*config.Exchange, error) {
 		return nil, err
 	}
 
-	if b.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if b.Features.Supports.REST.AutoPairUpdates {
 		err = b.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -73,10 +73,10 @@ func (b *Bithumb) SetDefaults() {
 		log.Errorln(log.ExchangeSys, err)
 	}
 
-	b.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST: true,
-			RESTCapabilities: protocol.Features{
+	b.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
+				Enabled:             true,
 				TickerBatching:      true,
 				TickerFetching:      true,
 				TradeFetching:       true,
@@ -99,8 +99,8 @@ func (b *Bithumb) SetDefaults() {
 				CryptoWithdrawalFee: true,
 				KlineFetching:       true,
 			},
-			Websocket: true,
-			WebsocketCapabilities: protocol.Features{
+			Websocket: protocol.Components{
+				Enabled:           true,
 				TradeFetching:     true,
 				TickerFetching:    true,
 				OrderbookFetching: true,
@@ -112,7 +112,7 @@ func (b *Bithumb) SetDefaults() {
 				Intervals: true,
 			},
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 			Kline: kline.ExchangeCapabilitiesEnabled{
 				Intervals: map[string]bool{
@@ -173,7 +173,7 @@ func (b *Bithumb) Setup(exch *config.Exchange) error {
 		Connector:             b.WsConnect,
 		Subscriber:            b.Subscribe,
 		GenerateSubscriptions: b.GenerateSubscriptions,
-		Features:              &b.Features.Supports.WebsocketCapabilities,
+		Features:              &b.Features,
 	})
 	if err != nil {
 		return err

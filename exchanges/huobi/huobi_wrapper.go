@@ -42,7 +42,7 @@ func (h *HUOBI) GetDefaultConfig() (*config.Exchange, error) {
 		return nil, err
 	}
 
-	if h.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if h.Features.Supports.REST.AutoPairUpdates {
 		err = h.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -97,11 +97,10 @@ func (h *HUOBI) SetDefaults() {
 		log.Errorln(log.ExchangeSys, err)
 	}
 
-	h.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
+	h.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
+				Enabled:               true,
 				TickerFetching:        true,
 				KlineFetching:         true,
 				TradeFetching:         true,
@@ -119,7 +118,8 @@ func (h *HUOBI) SetDefaults() {
 				MultiChainDeposits:    true,
 				MultiChainWithdrawals: true,
 			},
-			WebsocketCapabilities: protocol.Features{
+			Websocket: protocol.Components{
+				Enabled:                true,
 				KlineFetching:          true,
 				OrderbookFetching:      true,
 				TradeFetching:          true,
@@ -138,7 +138,7 @@ func (h *HUOBI) SetDefaults() {
 				Intervals: true,
 			},
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 			Kline: kline.ExchangeCapabilitiesEnabled{
 				Intervals: map[string]bool{
@@ -202,7 +202,7 @@ func (h *HUOBI) Setup(exch *config.Exchange) error {
 		Subscriber:            h.Subscribe,
 		Unsubscriber:          h.Unsubscribe,
 		GenerateSubscriptions: h.GenerateDefaultSubscriptions,
-		Features:              &h.Features.Supports.WebsocketCapabilities,
+		Features:              &h.Features,
 	})
 	if err != nil {
 		return err

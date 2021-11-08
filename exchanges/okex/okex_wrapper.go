@@ -37,7 +37,7 @@ func (o *OKEX) GetDefaultConfig() (*config.Exchange, error) {
 		return nil, err
 	}
 
-	if o.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if o.Features.Supports.REST.AutoPairUpdates {
 		err = o.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -122,11 +122,10 @@ func (o *OKEX) SetDefaults() {
 		log.Errorln(log.ExchangeSys, err)
 	}
 
-	o.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
+	o.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
+				Enabled:             true,
 				TickerBatching:      true,
 				TickerFetching:      true,
 				KlineFetching:       true,
@@ -148,7 +147,8 @@ func (o *OKEX) SetDefaults() {
 				TradeFee:            true,
 				CryptoWithdrawalFee: true,
 			},
-			WebsocketCapabilities: protocol.Features{
+			Websocket: protocol.Components{
+				Enabled:                true,
 				TickerFetching:         true,
 				TradeFetching:          true,
 				KlineFetching:          true,
@@ -168,7 +168,7 @@ func (o *OKEX) SetDefaults() {
 				Intervals:  true,
 			},
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 			Kline: kline.ExchangeCapabilitiesEnabled{
 				Intervals: map[string]bool{

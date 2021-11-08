@@ -42,7 +42,7 @@ func (p *Poloniex) GetDefaultConfig() (*config.Exchange, error) {
 		return nil, err
 	}
 
-	if p.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if p.Features.Supports.REST.AutoPairUpdates {
 		err = p.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -75,11 +75,10 @@ func (p *Poloniex) SetDefaults() {
 		log.Errorln(log.ExchangeSys, err)
 	}
 
-	p.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
+	p.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
+				Enabled:               true,
 				TickerBatching:        true,
 				TickerFetching:        true,
 				KlineFetching:         true,
@@ -102,7 +101,8 @@ func (p *Poloniex) SetDefaults() {
 				MultiChainDeposits:    true,
 				MultiChainWithdrawals: true,
 			},
-			WebsocketCapabilities: protocol.Features{
+			Websocket: protocol.Components{
+				Enabled:                true,
 				TickerFetching:         true,
 				TradeFetching:          true,
 				OrderbookFetching:      true,
@@ -118,7 +118,7 @@ func (p *Poloniex) SetDefaults() {
 				Intervals: true,
 			},
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 			Kline: kline.ExchangeCapabilitiesEnabled{
 				Intervals: map[string]bool{
@@ -175,7 +175,7 @@ func (p *Poloniex) Setup(exch *config.Exchange) error {
 		Subscriber:            p.Subscribe,
 		Unsubscriber:          p.Unsubscribe,
 		GenerateSubscriptions: p.GenerateDefaultSubscriptions,
-		Features:              &p.Features.Supports.WebsocketCapabilities,
+		Features:              &p.Features,
 		SortBuffer:            true,
 		SortBufferByUpdateIDs: true,
 	})

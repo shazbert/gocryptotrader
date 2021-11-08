@@ -43,7 +43,7 @@ func (g *Gateio) GetDefaultConfig() (*config.Exchange, error) {
 		return nil, err
 	}
 
-	if g.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if g.Features.Supports.REST.AutoPairUpdates {
 		err = g.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -68,11 +68,10 @@ func (g *Gateio) SetDefaults() {
 		log.Errorln(log.ExchangeSys, err)
 	}
 
-	g.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: true,
-			RESTCapabilities: protocol.Features{
+	g.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
+				Enabled:               true,
 				TickerBatching:        true,
 				TickerFetching:        true,
 				KlineFetching:         true,
@@ -93,7 +92,8 @@ func (g *Gateio) SetDefaults() {
 				MultiChainDeposits:    true,
 				MultiChainWithdrawals: true,
 			},
-			WebsocketCapabilities: protocol.Features{
+			Websocket: protocol.Components{
+				Enabled:                true,
 				TickerFetching:         true,
 				OrderbookFetching:      true,
 				TradeFetching:          true,
@@ -111,7 +111,7 @@ func (g *Gateio) SetDefaults() {
 				Intervals: true,
 			},
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 			Kline: kline.ExchangeCapabilitiesEnabled{
 				Intervals: map[string]bool{
@@ -171,7 +171,7 @@ func (g *Gateio) Setup(exch *config.Exchange) error {
 		Connector:             g.WsConnect,
 		Subscriber:            g.Subscribe,
 		GenerateSubscriptions: g.GenerateDefaultSubscriptions,
-		Features:              &g.Features.Supports.WebsocketCapabilities,
+		Features:              &g.Features,
 	})
 	if err != nil {
 		return err

@@ -781,10 +781,10 @@ func TestProcessOrders(t *testing.T) {
 		AuthenticatedSupport:          true,
 		AuthenticatedWebsocketSupport: false,
 	}
-	exch.GetBase().Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
+	exch.GetBase().Features = protocol.Features{
+		Supports: protocol.Capabilities{
 			REST: true,
-			RESTCapabilities: protocol.Features{
+			REST: protocol.Components{
 				GetOrder: true,
 			},
 		},

@@ -851,7 +851,7 @@ func (c *Config) CheckExchangeConfigValues() error {
 		}
 
 		if c.Exchanges[i].SupportsAutoPairUpdates != nil {
-			c.Exchanges[i].Features.Supports.RESTCapabilities.AutoPairUpdates = *c.Exchanges[i].SupportsAutoPairUpdates
+			c.Exchanges[i].Features.Supports.REST.AutoPairUpdates = *c.Exchanges[i].SupportsAutoPairUpdates
 			c.Exchanges[i].Features.Enabled.AutoPairUpdates = *c.Exchanges[i].SupportsAutoPairUpdates
 			c.Exchanges[i].SupportsAutoPairUpdates = nil
 		}
@@ -974,7 +974,7 @@ func (c *Config) CheckExchangeConfigValues() error {
 					log.Warnf(log.ConfigMgr, WarningExchangeAuthAPIDefaultOrEmptyValues, c.Exchanges[i].Name)
 				}
 			}
-			if !c.Exchanges[i].Features.Supports.RESTCapabilities.AutoPairUpdates &&
+			if !c.Exchanges[i].Features.Supports.REST.AutoPairUpdates &&
 				!c.Exchanges[i].Features.Supports.WebsocketCapabilities.AutoPairUpdates {
 				lastUpdated := convert.UnixTimestampToTime(c.Exchanges[i].CurrencyPairs.LastUpdated)
 				lastUpdated = lastUpdated.AddDate(0, 0, pairsLastUpdatedWarningThreshold)

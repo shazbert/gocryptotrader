@@ -53,7 +53,7 @@ func (o *OKGroup) Setup(exch *config.Exchange) error {
 		Subscriber:            o.Subscribe,
 		Unsubscriber:          o.Unsubscribe,
 		GenerateSubscriptions: o.GenerateDefaultSubscriptions,
-		Features:              &o.Features.Supports.WebsocketCapabilities,
+		Features:              &o.Features,
 	})
 	if err != nil {
 		return err

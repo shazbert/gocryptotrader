@@ -41,7 +41,7 @@ func (e *EXMO) GetDefaultConfig() (*config.Exchange, error) {
 		return nil, err
 	}
 
-	if e.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if e.Features.Supports.REST.AutoPairUpdates {
 		err = e.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -73,11 +73,10 @@ func (e *EXMO) SetDefaults() {
 		log.Errorln(log.ExchangeSys, err)
 	}
 
-	e.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: false,
-			RESTCapabilities: protocol.Features{
+	e.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
+				Enabled:                           true,
 				TickerBatching:                    true,
 				TickerFetching:                    true,
 				TradeFetching:                     true,
@@ -105,7 +104,7 @@ func (e *EXMO) SetDefaults() {
 			WithdrawPermissions: exchange.AutoWithdrawCryptoWithSetup |
 				exchange.NoFiatWithdrawals,
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 		},
 	}

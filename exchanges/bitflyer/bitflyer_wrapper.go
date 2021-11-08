@@ -39,7 +39,7 @@ func (b *Bitflyer) GetDefaultConfig() (*config.Exchange, error) {
 		return nil, err
 	}
 
-	if b.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if b.Features.Supports.REST.AutoPairUpdates {
 		err = b.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -73,11 +73,10 @@ func (b *Bitflyer) SetDefaults() {
 		log.Errorln(log.ExchangeSys, err)
 	}
 
-	b.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: false,
-			RESTCapabilities: protocol.Features{
+	b.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
+				Enabled:           true,
 				TickerFetching:    true,
 				OrderbookFetching: true,
 				AutoPairUpdates:   true,
@@ -88,7 +87,7 @@ func (b *Bitflyer) SetDefaults() {
 			WithdrawPermissions: exchange.WithdrawCryptoViaWebsiteOnly |
 				exchange.AutoWithdrawFiat,
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 		},
 	}

@@ -42,7 +42,7 @@ func (l *LocalBitcoins) GetDefaultConfig() (*config.Exchange, error) {
 		return nil, err
 	}
 
-	if l.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if l.Features.Supports.REST.AutoPairUpdates {
 		err = l.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -67,11 +67,9 @@ func (l *LocalBitcoins) SetDefaults() {
 		log.Errorln(log.ExchangeSys, err)
 	}
 
-	l.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: false,
-			RESTCapabilities: protocol.Features{
+	l.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
 				TickerBatching:    true,
 				TickerFetching:    true,
 				AutoPairUpdates:   true,
@@ -88,7 +86,7 @@ func (l *LocalBitcoins) SetDefaults() {
 			WithdrawPermissions: exchange.AutoWithdrawCrypto |
 				exchange.WithdrawFiatViaWebsiteOnly,
 		},
-		Enabled: exchange.FeaturesEnabled{
+		Enabled: protocol.Enabled{
 			AutoPairUpdates: true,
 		},
 	}

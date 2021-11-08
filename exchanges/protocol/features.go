@@ -1,8 +1,34 @@
 package protocol
 
-// Features holds all variables for the exchanges supported features
-// for a protocol (e.g REST or Websocket)
+import "github.com/thrasher-corp/gocryptotrader/exchanges/kline"
+
+// Features stores the supported and enabled features for the exchange
 type Features struct {
+	Supports Capabilities
+	Enabled  Enabled
+}
+
+// Capabilities stores the exchanges supported features
+type Capabilities struct {
+	REST                Components
+	Websocket           Components
+	WithdrawPermissions uint32
+	Kline               kline.ExchangeCapabilitiesSupported
+}
+
+// Enabled stores the exchange enabled features
+type Enabled struct {
+	AutoPairUpdates bool
+	Kline           kline.ExchangeCapabilitiesEnabled
+	SaveTradeData   bool
+	TradeFeed       bool
+	FillsFeed       bool
+}
+
+// Components holds all variables for the exchanges supported components for an
+// individual protocol (e.g REST or Websocket)
+type Components struct {
+	Enabled             bool `json:"enabled,omitempty"`
 	TickerBatching      bool `json:"tickerBatching,omitempty"`
 	AutoPairUpdates     bool `json:"autoPairUpdates,omitempty"`
 	AccountBalance      bool `json:"accountBalance,omitempty"`

@@ -76,7 +76,7 @@ var defaultSetup = &WebsocketSetup{
 			{Channel: "TestSub4"},
 		}, nil
 	},
-	Features: &protocol.Features{Subscribe: true, Unsubscribe: true},
+	Features: &protocol.Components{Subscribe: true, Unsubscribe: true},
 }
 
 type dodgyConnection struct {
@@ -131,7 +131,7 @@ func TestSetup(t *testing.T) {
 		t.Fatalf("received: '%v' but expected: '%v'", err, errWebsocketFeaturesIsUnset)
 	}
 
-	websocketSetup.Features = &protocol.Features{}
+	websocketSetup.Features = &protocol.Components{}
 	err = w.Setup(websocketSetup)
 	if !errors.Is(err, errConfigFeaturesIsNil) {
 		t.Fatalf("received: '%v' but expected: '%v'", err, errConfigFeaturesIsNil)
@@ -1122,7 +1122,7 @@ func TestFlushChannels(t *testing.T) {
 		Subscriber:   newgen.SUBME,
 		Unsubscriber: newgen.UNSUBME,
 		Wg:           new(sync.WaitGroup),
-		features:     &protocol.Features{
+		features:     &protocol.Components{
 			// No features
 		},
 		trafficTimeout: time.Second * 30, // Added for when we utilise connect()

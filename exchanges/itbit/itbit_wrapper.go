@@ -41,7 +41,7 @@ func (i *ItBit) GetDefaultConfig() (*config.Exchange, error) {
 		return nil, err
 	}
 
-	if i.Features.Supports.RESTCapabilities.AutoPairUpdates {
+	if i.Features.Supports.REST.AutoPairUpdates {
 		err = i.UpdateTradablePairs(context.TODO(), true)
 		if err != nil {
 			return nil, err
@@ -66,11 +66,10 @@ func (i *ItBit) SetDefaults() {
 		log.Errorln(log.ExchangeSys, err)
 	}
 
-	i.Features = exchange.Features{
-		Supports: exchange.FeaturesSupported{
-			REST:      true,
-			Websocket: false,
-			RESTCapabilities: protocol.Features{
+	i.Features = protocol.Features{
+		Supports: protocol.Capabilities{
+			REST: protocol.Components{
+				Enabled:           true,
 				TickerFetching:    true,
 				TradeFetching:     true,
 				OrderbookFetching: true,
@@ -88,9 +87,6 @@ func (i *ItBit) SetDefaults() {
 			},
 			WithdrawPermissions: exchange.WithdrawCryptoViaWebsiteOnly |
 				exchange.WithdrawFiatViaWebsiteOnly,
-		},
-		Enabled: exchange.FeaturesEnabled{
-			AutoPairUpdates: false,
 		},
 	}
 
