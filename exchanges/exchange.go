@@ -121,9 +121,9 @@ func (b *Base) SetFeatureDefaults() {
 	if b.Config.Features == nil {
 		s := &config.FeaturesConfig{
 			Supports: config.FeaturesSupportedConfig{
-				Websocket: b.Features.Supports.Websocket,
-				REST:      b.Features.Supports.REST,
-				REST: protocol.Components{
+				Websocket: b.Features.Supports.Websocket.Enabled,
+				REST:      b.Features.Supports.REST.Enabled,
+				RESTCapabilities: protocol.Components{
 					AutoPairUpdates: b.Features.Supports.REST.AutoPairUpdates,
 				},
 			},
@@ -143,24 +143,24 @@ func (b *Base) SetFeatureDefaults() {
 		b.Config.Features = s
 		b.Config.SupportsAutoPairUpdates = nil
 	} else {
-		if b.Features.Supports.REST.AutoPairUpdates != b.Config.Features.Supports.REST.AutoPairUpdates {
-			b.Config.Features.Supports.REST.AutoPairUpdates = b.Features.Supports.REST.AutoPairUpdates
+		if b.Features.Supports.REST.AutoPairUpdates != b.Config.Features.Supports.RESTCapabilities.AutoPairUpdates {
+			b.Config.Features.Supports.RESTCapabilities.AutoPairUpdates = b.Features.Supports.REST.AutoPairUpdates
 
-			if !b.Config.Features.Supports.REST.AutoPairUpdates {
+			if !b.Config.Features.Supports.RESTCapabilities.AutoPairUpdates {
 				b.Config.CurrencyPairs.LastUpdated = time.Now().Unix()
 			}
 		}
 
-		if b.Features.Supports.REST != b.Config.Features.Supports.REST {
-			b.Config.Features.Supports.REST = b.Features.Supports.REST
+		if b.Features.Supports.REST.Enabled != b.Config.Features.Supports.REST {
+			b.Config.Features.Supports.REST = b.Features.Supports.REST.Enabled
 		}
 
-		if b.Features.Supports.RESTCapabilities.TickerBatching != b.Config.Features.Supports.RESTCapabilities.TickerBatching {
-			b.Config.Features.Supports.RESTCapabilities.TickerBatching = b.Features.Supports.RESTCapabilities.TickerBatching
+		if b.Features.Supports.REST.TickerBatching != b.Config.Features.Supports.RESTCapabilities.TickerBatching {
+			b.Config.Features.Supports.RESTCapabilities.TickerBatching = b.Features.Supports.REST.TickerBatching
 		}
 
-		if b.Features.Supports.Websocket != b.Config.Features.Supports.Websocket {
-			b.Config.Features.Supports.Websocket = b.Features.Supports.Websocket
+		if b.Features.Supports.Websocket.Enabled != b.Config.Features.Supports.Websocket {
+			b.Config.Features.Supports.Websocket = b.Features.Supports.Websocket.Enabled
 		}
 
 		if b.IsSaveTradeDataEnabled() != b.Config.Features.Enabled.SaveTradeData {
@@ -209,17 +209,14 @@ func (b *Base) SetAPICredentialDefaults() {
 // SupportsRESTTickerBatchUpdates returns whether or not the
 // exhange supports REST batch ticker fetching
 func (b *Base) SupportsRESTTickerBatchUpdates() bool {
-	return b.Features.Supports.RESTCapabilities.TickerBatching
+	return b.Features.Supports.REST.TickerBatching
 }
 
 // SupportsAutoPairUpdates returns whether or not the exchange supports
 // auto currency pair updating
 func (b *Base) SupportsAutoPairUpdates() bool {
-	if b.Features.Supports.REST.AutoPairUpdates ||
-		b.Features.Supports.WebsocketCapabilities.AutoPairUpdates {
-		return true
-	}
-	return false
+	return b.Features.Supports.REST.AutoPairUpdates ||
+		b.Features.Supports.Websocket.AutoPairUpdates
 }
 
 // GetLastPairsUpdateTime returns the unix timestamp of when the exchanges
@@ -903,7 +900,7 @@ func (b *Base) SetAPIURL() error {
 // SupportsREST returns whether or not the exchange supports
 // REST
 func (b *Base) SupportsREST() bool {
-	return b.Features.Supports.REST
+	return b.Features.Supports.REST.Enabled
 }
 
 // GetWithdrawPermissions passes through the exchange's withdraw permissions
@@ -1098,7 +1095,7 @@ func (b *Base) GetWebsocket() (*stream.Websocket, error) {
 // SupportsWebsocket returns whether or not the exchange supports
 // websocket
 func (b *Base) SupportsWebsocket() bool {
-	return b.Features.Supports.Websocket
+	return b.Features.Supports.Websocket.Enabled
 }
 
 // IsWebsocketEnabled returns whether or not the exchange has its

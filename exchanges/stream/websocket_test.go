@@ -76,7 +76,14 @@ var defaultSetup = &WebsocketSetup{
 			{Channel: "TestSub4"},
 		}, nil
 	},
-	Features: &protocol.Components{Subscribe: true, Unsubscribe: true},
+	Features: &protocol.Features{
+		Supports: protocol.Capabilities{
+			Websocket: protocol.Components{
+				Subscribe:   true,
+				Unsubscribe: true,
+			},
+		},
+	},
 }
 
 type dodgyConnection struct {
@@ -131,7 +138,7 @@ func TestSetup(t *testing.T) {
 		t.Fatalf("received: '%v' but expected: '%v'", err, errWebsocketFeaturesIsUnset)
 	}
 
-	websocketSetup.Features = &protocol.Components{}
+	websocketSetup.Features = &protocol.Features{}
 	err = w.Setup(websocketSetup)
 	if !errors.Is(err, errConfigFeaturesIsNil) {
 		t.Fatalf("received: '%v' but expected: '%v'", err, errConfigFeaturesIsNil)
@@ -150,7 +157,7 @@ func TestSetup(t *testing.T) {
 	}
 
 	websocketSetup.Subscriber = func([]ChannelSubscription) error { return nil }
-	websocketSetup.Features.Unsubscribe = true
+	websocketSetup.Features.Supports.Websocket.Unsubscribe = true
 	err = w.Setup(websocketSetup)
 	if !errors.Is(err, errWebsocketUnsubscriberUnset) {
 		t.Fatalf("received: '%v' but expected: '%v'", err, errWebsocketUnsubscriberUnset)
@@ -1122,7 +1129,7 @@ func TestFlushChannels(t *testing.T) {
 		Subscriber:   newgen.SUBME,
 		Unsubscriber: newgen.UNSUBME,
 		Wg:           new(sync.WaitGroup),
-		features:     &protocol.Components{
+		features:     &protocol.Features{
 			// No features
 		},
 		trafficTimeout: time.Second * 30, // Added for when we utilise connect()
@@ -1149,7 +1156,7 @@ func TestFlushChannels(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	web.features.FullPayloadSubscribe = true
+	web.features.Supports.Websocket.FullPayloadSubscribe = true
 	web.GenerateSubs = problemFunc
 	err = web.FlushChannels() // error on full subscribeToChannels
 	if err == nil {
@@ -1174,8 +1181,8 @@ func TestFlushChannels(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	web.features.FullPayloadSubscribe = false
-	web.features.Subscribe = true
+	web.features.Supports.Websocket.FullPayloadSubscribe = false
+	web.features.Supports.Websocket.Subscribe = true
 
 	web.GenerateSubs = problemFunc
 	err = web.FlushChannels()
@@ -1212,7 +1219,7 @@ func TestFlushChannels(t *testing.T) {
 	}
 
 	web.setConnectedStatus(true)
-	web.features.Unsubscribe = true
+	web.features.Supports.Websocket.Unsubscribe = true
 	err = web.FlushChannels()
 	if err != nil {
 		t.Fatal(err)

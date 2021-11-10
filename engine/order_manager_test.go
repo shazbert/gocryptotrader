@@ -783,8 +783,8 @@ func TestProcessOrders(t *testing.T) {
 	}
 	exch.GetBase().Features = protocol.Features{
 		Supports: protocol.Capabilities{
-			REST: true,
 			REST: protocol.Components{
+				Enabled:  true,
 				GetOrder: true,
 			},
 		},

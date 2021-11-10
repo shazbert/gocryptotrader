@@ -660,7 +660,7 @@ func (m *OrderManager) processOrders() {
 				}
 				requiresProcessing[upsertResponse.OrderDetails.InternalOrderID] = false
 			}
-			if !exchanges[i].GetBase().GetSupportedFeatures().RESTCapabilities.GetOrder {
+			if !exchanges[i].GetBase().GetSupportedFeatures().REST.GetOrder {
 				continue
 			}
 			wg.Add(1)

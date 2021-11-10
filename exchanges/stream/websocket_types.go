@@ -104,13 +104,14 @@ type WebsocketSetup struct {
 	Unsubscriber          func([]ChannelSubscription) error
 	GenerateSubscriptions func() ([]ChannelSubscription, error)
 	Features              *protocol.Features
+	// Enabled               *protocol.Enabled
 	// Local orderbook buffer config values
 	SortBuffer            bool
 	SortBufferByUpdateIDs bool
 	UpdateEntriesByID     bool
-	TradeFeed             bool
-	// Fill data config values
-	FillsFeed bool
+	// TradeFeed             bool
+	// // Fill data config values
+	// FillsFeed bool
 }
 
 // WebsocketConnection contains all the data needed to send a message to a WS

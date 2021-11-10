@@ -42,10 +42,10 @@ func TestSupportsRESTTickerBatchUpdates(t *testing.T) {
 
 	b := Base{
 		Name: "RAWR",
-		Features: Features{
-			Supports: FeaturesSupported{
-				REST: true,
+		Features: protocol.Features{
+			Supports: protocol.Capabilities{
 				REST: protocol.Components{
+					Enabled:        true,
 					TickerBatching: true,
 				},
 			},
@@ -303,13 +303,15 @@ func TestSetFeatureDefaults(t *testing.T) {
 		Config: &config.Exchange{
 			CurrencyPairs: &currency.PairsManager{},
 		},
-		Features: Features{
-			Supports: FeaturesSupported{
-				REST: true,
+		Features: protocol.Features{
+			Supports: protocol.Capabilities{
 				REST: protocol.Components{
+					Enabled:        true,
 					TickerBatching: true,
 				},
-				Websocket: true,
+				Websocket: protocol.Components{
+					Enabled: true,
+				},
 			},
 		},
 	}
@@ -323,7 +325,7 @@ func TestSetFeatureDefaults(t *testing.T) {
 	b.Config.Features = nil
 	b.Config.SupportsAutoPairUpdates = bptr(true)
 	b.SetFeatureDefaults()
-	if !b.Config.Features.Supports.REST.AutoPairUpdates &&
+	if !b.Config.Features.Supports.RESTCapabilities.AutoPairUpdates &&
 		!b.Features.Enabled.AutoPairUpdates {
 		t.Error("incorrect values")
 	}
@@ -334,9 +336,9 @@ func TestSetFeatureDefaults(t *testing.T) {
 	b.Config.Features.Supports.Websocket = false
 	b.SetFeatureDefaults()
 
-	if !b.Features.Supports.REST ||
-		!b.Features.Supports.RESTCapabilities.TickerBatching ||
-		!b.Features.Supports.Websocket {
+	if !b.Features.Supports.REST.Enabled ||
+		!b.Features.Supports.REST.TickerBatching ||
+		!b.Features.Supports.Websocket.Enabled {
 		t.Error("incorrect values")
 	}
 }
@@ -372,7 +374,7 @@ func TestSetAutoPairDefaults(t *testing.T) {
 			CurrencyPairs: &currency.PairsManager{},
 			Features: &config.FeaturesConfig{
 				Supports: config.FeaturesSupportedConfig{
-					REST: protocol.Components{
+					RESTCapabilities: protocol.Components{
 						AutoPairUpdates: true,
 					},
 				},
@@ -385,7 +387,7 @@ func TestSetAutoPairDefaults(t *testing.T) {
 		t.Fatalf("TestSetAutoPairDefaults load config failed. Error %s", err)
 	}
 
-	if !exch.Features.Supports.REST.AutoPairUpdates {
+	if !exch.Features.Supports.RESTCapabilities.AutoPairUpdates {
 		t.Fatalf("TestSetAutoPairDefaults Incorrect value")
 	}
 
@@ -393,14 +395,14 @@ func TestSetAutoPairDefaults(t *testing.T) {
 		t.Fatalf("TestSetAutoPairDefaults Incorrect value")
 	}
 
-	exch.Features.Supports.REST.AutoPairUpdates = false
+	exch.Features.Supports.RESTCapabilities.AutoPairUpdates = false
 
 	exch, err = cfg.GetExchangeConfig(bs)
 	if err != nil {
 		t.Fatalf("TestSetAutoPairDefaults load config failed. Error %s", err)
 	}
 
-	if exch.Features.Supports.REST.AutoPairUpdates {
+	if exch.Features.Supports.RESTCapabilities.AutoPairUpdates {
 		t.Fatal("TestSetAutoPairDefaults Incorrect value")
 	}
 }
@@ -772,10 +774,10 @@ func TestGetFeatures(t *testing.T) {
 
 	// Test GetSupportedFeatures
 	b.Features.Supports.REST.AutoPairUpdates = true
-	if !b.GetSupportedFeatures().RESTCapabilities.AutoPairUpdates {
+	if !b.GetSupportedFeatures().REST.AutoPairUpdates {
 		t.Error("auto pair updates should be supported")
 	}
-	if b.GetSupportedFeatures().RESTCapabilities.TickerBatching {
+	if b.GetSupportedFeatures().REST.TickerBatching {
 		t.Error("ticker batching shouldn't be supported")
 	}
 }
@@ -1317,14 +1319,14 @@ func TestSetupDefaults(t *testing.T) {
 
 	// Test websocket support
 	b.Websocket = stream.New()
-	b.Features.Supports.Websocket = true
+	b.Features.Supports.Websocket.Enabled = true
 	err = b.Websocket.Setup(&stream.WebsocketSetup{
 		ExchangeConfig: &config.Exchange{
 			WebsocketTrafficTimeout: time.Second * 30,
 			Name:                    "test",
 			Features:                &config.FeaturesConfig{},
 		},
-		Features:              &protocol.Components{},
+		Features:              &protocol.Features{},
 		DefaultURL:            "ws://something.com",
 		RunningURL:            "ws://something.com",
 		Connector:             func() error { return nil },
@@ -1639,7 +1641,7 @@ func TestSupportsWebsocket(t *testing.T) {
 		t.Error("exchange doesn't support websocket")
 	}
 
-	b.Features.Supports.Websocket = true
+	b.Features.Supports.Websocket.Enabled = true
 	if !b.SupportsWebsocket() {
 		t.Error("exchange supports websocket")
 	}
@@ -1653,7 +1655,7 @@ func TestSupportsREST(t *testing.T) {
 		t.Error("exchange doesn't support REST")
 	}
 
-	b.Features.Supports.REST = true
+	b.Features.Supports.REST.Enabled = true
 	if !b.SupportsREST() {
 		t.Error("exchange supports REST")
 	}
@@ -1679,7 +1681,7 @@ func TestIsWebsocketEnabled(t *testing.T) {
 				},
 			},
 		},
-		Features:              &protocol.Components{},
+		Features:              &protocol.Features{},
 		DefaultURL:            "ws://something.com",
 		RunningURL:            "ws://something.com",
 		Connector:             func() error { return nil },
@@ -2004,8 +2006,8 @@ func TestBase_ValidateKline(t *testing.T) {
 				},
 			},
 		},
-		Features: Features{
-			Enabled: FeaturesEnabled{
+		Features: protocol.Features{
+			Enabled: protocol.Enabled{
 				Kline: kline.ExchangeCapabilitiesEnabled{
 					Intervals: map[string]bool{
 						kline.OneMin.Word(): true,
@@ -2166,8 +2168,8 @@ func TestFormatExchangeKlineInterval(t *testing.T) {
 
 func TestSetSaveTradeDataStatus(t *testing.T) {
 	b := Base{
-		Features: Features{
-			Enabled: FeaturesEnabled{
+		Features: protocol.Features{
+			Enabled: protocol.Enabled{
 				SaveTradeData: false,
 			},
 		},
@@ -2196,8 +2198,8 @@ func TestSetSaveTradeDataStatus(t *testing.T) {
 
 func TestAddTradesToBuffer(t *testing.T) {
 	b := Base{
-		Features: Features{
-			Enabled: FeaturesEnabled{},
+		Features: protocol.Features{
+			Enabled: protocol.Enabled{},
 		},
 		Config: &config.Exchange{
 			Features: &config.FeaturesConfig{

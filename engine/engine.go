@@ -788,11 +788,11 @@ func (bot *Engine) LoadExchange(name string, wg *sync.WaitGroup) error {
 			exchCfg.Features.Enabled.Websocket = true
 		}
 		if bot.Settings.EnableExchangeAutoPairUpdates &&
-			exchCfg.Features.Supports.REST.AutoPairUpdates {
+			exchCfg.Features.Supports.RESTCapabilities.AutoPairUpdates {
 			exchCfg.Features.Enabled.AutoPairUpdates = true
 		}
 		if bot.Settings.DisableExchangeAutoPairUpdates {
-			if exchCfg.Features.Supports.REST.AutoPairUpdates {
+			if exchCfg.Features.Supports.RESTCapabilities.AutoPairUpdates {
 				exchCfg.Features.Enabled.AutoPairUpdates = false
 			}
 		}

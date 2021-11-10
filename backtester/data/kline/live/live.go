@@ -45,7 +45,7 @@ func LoadData(ctx context.Context, exch exchange.IBotExchange, dataType int64, i
 			return nil, err
 		}
 		base := exch.GetBase()
-		if len(candles.Candles) <= 1 && base.GetSupportedFeatures().RESTCapabilities.TradeHistory {
+		if len(candles.Candles) <= 1 && base.GetSupportedFeatures().REST.TradeHistory {
 			trades, err = exch.GetHistoricTrades(ctx,
 				fPair,
 				a,

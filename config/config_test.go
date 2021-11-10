@@ -1419,7 +1419,7 @@ func TestCheckExchangeConfigValues(t *testing.T) {
 
 	if !cfg.Exchanges[0].Features.Enabled.AutoPairUpdates ||
 		!cfg.Exchanges[0].Features.Enabled.Websocket ||
-		!cfg.Exchanges[0].Features.Supports.REST.AutoPairUpdates {
+		!cfg.Exchanges[0].Features.Supports.RESTCapabilities.AutoPairUpdates {
 		t.Error("unexpected values")
 	}
 
@@ -1514,7 +1514,7 @@ func TestCheckExchangeConfigValues(t *testing.T) {
 	}
 
 	// Test AutoPairUpdates
-	cfg.Exchanges[0].Features.Supports.REST.AutoPairUpdates = false
+	cfg.Exchanges[0].Features.Supports.RESTCapabilities.AutoPairUpdates = false
 	cfg.Exchanges[0].Features.Supports.WebsocketCapabilities.AutoPairUpdates = false
 	cfg.Exchanges[0].CurrencyPairs.LastUpdated = 0
 	err = cfg.CheckExchangeConfigValues()

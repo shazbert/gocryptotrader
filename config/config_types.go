@@ -271,10 +271,10 @@ type CryptocurrencyProvider struct {
 
 // FeaturesSupportedConfig stores the exchanges supported features
 type FeaturesSupportedConfig struct {
-	REST                  bool              `json:"restAPI"`
-	RESTCapabilities      protocol.Features `json:"restCapabilities,omitempty"`
-	Websocket             bool              `json:"websocketAPI"`
-	WebsocketCapabilities protocol.Features `json:"websocketCapabilities,omitempty"`
+	REST                  bool                `json:"restAPI"`
+	RESTCapabilities      protocol.Components `json:"restCapabilities,omitempty"`
+	Websocket             bool                `json:"websocketAPI"`
+	WebsocketCapabilities protocol.Components `json:"websocketCapabilities,omitempty"`
 }
 
 // FeaturesEnabledConfig stores the exchanges enabled features

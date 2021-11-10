@@ -104,7 +104,7 @@ func (w *Websocket) Setup(s *WebsocketSetup) error {
 	}
 	w.Subscriber = s.Subscriber
 
-	if w.features.Unsubscribe && s.Unsubscriber == nil {
+	if w.features.Supports.Websocket.Unsubscribe && s.Unsubscriber == nil {
 		return fmt.Errorf("%s %w", w.exchangeName, errWebsocketUnsubscriberUnset)
 	}
 	w.Unsubscriber = s.Unsubscriber
@@ -153,13 +153,8 @@ func (w *Websocket) Setup(s *WebsocketSetup) error {
 		return err
 	}
 
-	w.Trade.Setup(w.exchangeName,
-		s.TradeFeed,
-		w.DataHandler)
-
-	w.Fills.Setup(s.FillsFeed,
-		w.DataHandler)
-
+	w.Trade.Setup(w.exchangeName, s.Features.Enabled.TradeFeed, w.DataHandler)
+	w.Fills.Setup(s.Features.Enabled.FillsFeed, w.DataHandler)
 	return nil
 }
 
@@ -466,14 +461,14 @@ func (w *Websocket) FlushChannels() error {
 		return fmt.Errorf("%s websocket: service not connected", w.exchangeName)
 	}
 
-	if w.features.Subscribe {
+	if w.features.Supports.Websocket.Subscribe {
 		newsubs, err := w.GenerateSubs()
 		if err != nil {
 			return err
 		}
 
 		subs, unsubs := w.GetChannelDifference(newsubs)
-		if w.features.Unsubscribe {
+		if w.features.Supports.Websocket.Unsubscribe {
 			if len(unsubs) != 0 {
 				err := w.UnsubscribeChannels(unsubs)
 				if err != nil {
@@ -486,7 +481,7 @@ func (w *Websocket) FlushChannels() error {
 			return nil
 		}
 		return w.SubscribeToChannels(subs)
-	} else if w.features.FullPayloadSubscribe {
+	} else if w.features.Supports.Websocket.FullPayloadSubscribe {
 		// FullPayloadSubscribe means that the endpoint requires all
 		// subscriptions to be sent via the websocket connection e.g. if you are
 		// subscribed to ticker and orderbook but require trades as well, you

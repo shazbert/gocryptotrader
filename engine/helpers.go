@@ -726,8 +726,8 @@ func (bot *Engine) GetAllExchangeCryptocurrencyDepositAddresses() map[string]map
 				log.Errorf(log.ExchangeSys, "%s failed to get cryptocurrency deposit addresses. Err: %s\n", exchName, err)
 				return
 			}
-			supportsMultiChain := exchanges[x].GetBase().Features.Supports.RESTCapabilities.MultiChainDeposits
-			requiresChainSet := exchanges[x].GetBase().Features.Supports.RESTCapabilities.MultiChainDepositRequiresChainSet
+			supportsMultiChain := exchanges[x].GetBase().Features.Supports.REST.MultiChainDeposits
+			requiresChainSet := exchanges[x].GetBase().Features.Supports.REST.MultiChainDepositRequiresChainSet
 			cryptoAddr := make(map[string][]deposit.Address)
 			for y := range cryptoCurrencies {
 				cryptocurrency := cryptoCurrencies[y]
