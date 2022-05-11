@@ -1062,3 +1062,20 @@ func TestUpdateOrderExecutionLimits(t *testing.T) {
 		t.Fatal("expected value return")
 	}
 }
+
+func TestWSHandleOrder(t *testing.T) {
+	t.Parallel()
+	// Order placed
+	incoming := []byte(`{"orderId":8225077478,"marketId":"USDC-AUD","type":"Limit","side":"Bid","openVolume":"3.11687424","status":"Placed","triggerStatus":"","timestamp":"2022-05-10T06:45:21.740Z","trades":[],"messageType":"orderChange"}`)
+	err := b.wsHandleData(incoming)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Order cancelled
+	incoming = []byte(`{"orderId":8229359080,"marketId":"USDC-AUD","type":"Limit","side":"Bid","openVolume":"3.11048856","status":"Cancelled","triggerStatus":"","timestamp":"2022-05-11T04:05:47.916Z","trades":[],"messageType":"orderChange"}`)
+	err = b.wsHandleData(incoming)
+	if err != nil {
+		t.Fatal(err)
+	}
+}

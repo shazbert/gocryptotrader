@@ -227,32 +227,29 @@ func (b *BTCMarkets) wsHandleData(respRaw []byte) error {
 		}
 		b.Websocket.DataHandler <- transferData
 	case orderChange:
-		var orderData WsOrderChange
-		err := json.Unmarshal(respRaw, &orderData)
+		var o WsOrderChange
+		err := json.Unmarshal(respRaw, &o)
 		if err != nil {
 			return err
 		}
-		originalAmount := orderData.OpenVolume
+		fullAmount := o.OpenVolume
 		var price float64
-		var trades []order.TradeHistory
-		var orderID = strconv.FormatInt(orderData.OrderID, 10)
-		for x := range orderData.Trades {
-			var isMaker bool
-			if orderData.Trades[x].LiquidityType == "Maker" {
-				isMaker = true
-			}
-			trades = append(trades, order.TradeHistory{
-				Price:    orderData.Trades[x].Price,
-				Amount:   orderData.Trades[x].Volume,
-				Fee:      orderData.Trades[x].Fee,
+		trades := make([]order.TradeHistory, len(o.Trades))
+		for x := range o.Trades {
+			trades[x] = order.TradeHistory{
+				Price:    o.Trades[x].Price,
+				Amount:   o.Trades[x].Volume,
+				Fee:      o.Trades[x].Fee,
 				Exchange: b.Name,
-				TID:      strconv.FormatInt(orderData.Trades[x].TradeID, 10),
-				IsMaker:  isMaker,
-			})
-			price = orderData.Trades[x].Price
-			originalAmount += orderData.Trades[x].Volume
+				TID:      strconv.FormatInt(o.Trades[x].TradeID, 10),
+				IsMaker:  o.Trades[x].LiquidityType == "Maker",
+			}
+			price = o.Trades[x].Price
+			fullAmount += o.Trades[x].Volume
 		}
-		oType, err := order.StringToOrderType(orderData.OrderType)
+
+		orderID := strconv.FormatInt(o.OrderID, 10)
+		oType, err := order.StringToOrderType(o.OrderType)
 		if err != nil {
 			b.Websocket.DataHandler <- order.ClassificationError{
 				Exchange: b.Name,
@@ -260,7 +257,7 @@ func (b *BTCMarkets) wsHandleData(respRaw []byte) error {
 				Err:      err,
 			}
 		}
-		oSide, err := order.StringToOrderSide(orderData.Side)
+		oSide, err := order.StringToOrderSide(o.Side)
 		if err != nil {
 			b.Websocket.DataHandler <- order.ClassificationError{
 				Exchange: b.Name,
@@ -268,7 +265,7 @@ func (b *BTCMarkets) wsHandleData(respRaw []byte) error {
 				Err:      err,
 			}
 		}
-		oStatus, err := order.StringToOrderStatus(orderData.Status)
+		oStatus, err := order.StringToOrderStatus(o.Status)
 		if err != nil {
 			b.Websocket.DataHandler <- order.ClassificationError{
 				Exchange: b.Name,
@@ -277,7 +274,7 @@ func (b *BTCMarkets) wsHandleData(respRaw []byte) error {
 			}
 		}
 
-		p, err := currency.NewPairFromString(orderData.MarketID)
+		p, err := currency.NewPairFromString(o.MarketID)
 		if err != nil {
 			b.Websocket.DataHandler <- order.ClassificationError{
 				Exchange: b.Name,
@@ -297,8 +294,8 @@ func (b *BTCMarkets) wsHandleData(respRaw []byte) error {
 
 		b.Websocket.DataHandler <- &order.Detail{
 			Price:           price,
-			Amount:          originalAmount,
-			RemainingAmount: orderData.OpenVolume,
+			Amount:          fullAmount,
+			RemainingAmount: o.OpenVolume,
 			Exchange:        b.Name,
 			ID:              orderID,
 			ClientID:        creds.ClientID,
@@ -306,7 +303,7 @@ func (b *BTCMarkets) wsHandleData(respRaw []byte) error {
 			Side:            oSide,
 			Status:          oStatus,
 			AssetType:       asset.Spot,
-			Date:            orderData.Timestamp,
+			Date:            o.Timestamp,
 			Trades:          trades,
 			Pair:            p,
 		}
