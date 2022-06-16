@@ -36,6 +36,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/orderbook"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/strategy/twap"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/ticker"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/trade"
 	"github.com/thrasher-corp/gocryptotrader/gctrpc"
@@ -4574,4 +4575,77 @@ func (s *RPCServer) Shutdown(_ context.Context, _ *gctrpc.ShutdownRequest) (*gct
 	s.Engine.GRPCShutdownSignal <- struct{}{}
 	s.Engine.GRPCShutdownSignal = nil
 	return &gctrpc.ShutdownResponse{}, nil
+}
+
+// TWAPStream manages an externalling called TWAP strategy.
+func (s *RPCServer) TWAPStream(r *gctrpc.TWAPRequest, stream gctrpc.GoCryptoTraderService_TWAPStreamServer) error {
+	exch, err := s.GetExchangeByName(r.Exchange)
+	if err != nil {
+		return err
+	}
+
+	pair, err := currency.NewPairFromStrings(r.Pair.Base, r.Pair.Quote)
+	if err != nil {
+		return err
+	}
+
+	as, err := asset.New(r.Asset)
+	if err != nil {
+		return err
+	}
+
+	if !exch.SupportsAsset(as) {
+		return fmt.Errorf("%v %w on exchange: %s", r.Asset, asset.ErrNotSupported, exch.GetName())
+	}
+
+	err = exch.GetBase().SupportsPair(pair, false, as)
+	if err != nil {
+		return err
+	}
+
+	strategy, err := twap.New(stream.Context(), &twap.Config{
+		Exchange:                exch,
+		Pair:                    pair,
+		Asset:                   as,
+		Start:                   r.Start.AsTime(),
+		End:                     r.End.AsTime(),
+		Interval:                kline.Interval(r.Interval),
+		Volume:                  r.Amount,
+		MaxSlippage:             r.MaxSlippage,
+		Accumulation:            r.Accumulate,
+		AllowTradingPastEndTime: r.AllowTradingPastEnd,
+	})
+	if err != nil {
+		return err
+	}
+
+	err = strategy.Run(stream.Context())
+	if err != nil {
+		return err
+	}
+
+	for report := range strategy.Reporter {
+		var twapError string
+		if report.Error != nil {
+			twapError = report.Error.Error()
+		}
+		balance := make(map[string]float64)
+		for k, v := range report.Balance {
+			balance[k.String()] = v
+		}
+		err := stream.Send(&gctrpc.TWAPResponse{
+			Order:    report.Order.OrderID,
+			Slippage: report.Slippage,
+			Error:    twapError,
+			Balance:  balance,
+			Finished: report.Finished,
+		})
+		if err != nil {
+			return err
+		}
+		if report.Finished {
+			break
+		}
+	}
+	return nil
 }

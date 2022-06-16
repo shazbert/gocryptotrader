@@ -1119,6 +1119,27 @@ message ShutdownRequest {}
 
 message ShutdownResponse {}
 
+message TWAPRequest {
+  string exchange = 1;
+  CurrencyPair pair = 2;
+  string asset = 3;
+  google.protobuf.Timestamp start = 4;
+  google.protobuf.Timestamp end = 5;
+  int64 interval = 6;
+  double amount = 7;
+  double max_slippage = 8;
+  bool accumulate = 9;
+  bool allow_trading_past_end = 10;
+}
+
+message TWAPResponse {
+  string order = 1; 
+  double slippage = 2;
+  string error = 3;
+  bool finished = 4;
+  map<string, double> balance = 5;
+}
+
 service GoCryptoTraderService {
   rpc GetInfo(GetInfoRequest) returns (GetInfoResponse) {
     option (google.api.http) = {
@@ -1720,6 +1741,11 @@ service GoCryptoTraderService {
   rpc Shutdown(ShutdownRequest) returns (ShutdownResponse) {
     option (google.api.http) = {
       get: "/v1/shutdown"
+    };
+  }
+  rpc TWAPStream(TWAPRequest) returns (stream TWAPResponse) {
+    option (google.api.http) = {
+      get: "/v1/twapstream",
     };
   }
 }

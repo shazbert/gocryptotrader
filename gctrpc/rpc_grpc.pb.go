@@ -119,6 +119,7 @@ type GoCryptoTraderServiceClient interface {
 	GetFuturesPositions(ctx context.Context, in *GetFuturesPositionsRequest, opts ...grpc.CallOption) (*GetFuturesPositionsResponse, error)
 	GetCollateral(ctx context.Context, in *GetCollateralRequest, opts ...grpc.CallOption) (*GetCollateralResponse, error)
 	Shutdown(ctx context.Context, in *ShutdownRequest, opts ...grpc.CallOption) (*ShutdownResponse, error)
+	TWAPStream(ctx context.Context, in *TWAPRequest, opts ...grpc.CallOption) (GoCryptoTraderService_TWAPStreamClient, error)
 }
 
 type goCryptoTraderServiceClient struct {
@@ -1140,6 +1141,38 @@ func (c *goCryptoTraderServiceClient) Shutdown(ctx context.Context, in *Shutdown
 	return out, nil
 }
 
+func (c *goCryptoTraderServiceClient) TWAPStream(ctx context.Context, in *TWAPRequest, opts ...grpc.CallOption) (GoCryptoTraderService_TWAPStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &GoCryptoTraderService_ServiceDesc.Streams[6], "/gctrpc.GoCryptoTraderService/TWAPStream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &goCryptoTraderServiceTWAPStreamClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type GoCryptoTraderService_TWAPStreamClient interface {
+	Recv() (*TWAPResponse, error)
+	grpc.ClientStream
+}
+
+type goCryptoTraderServiceTWAPStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *goCryptoTraderServiceTWAPStreamClient) Recv() (*TWAPResponse, error) {
+	m := new(TWAPResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // GoCryptoTraderServiceServer is the server API for GoCryptoTraderService service.
 // All implementations must embed UnimplementedGoCryptoTraderServiceServer
 // for forward compatibility
@@ -1241,6 +1274,7 @@ type GoCryptoTraderServiceServer interface {
 	GetFuturesPositions(context.Context, *GetFuturesPositionsRequest) (*GetFuturesPositionsResponse, error)
 	GetCollateral(context.Context, *GetCollateralRequest) (*GetCollateralResponse, error)
 	Shutdown(context.Context, *ShutdownRequest) (*ShutdownResponse, error)
+	TWAPStream(*TWAPRequest, GoCryptoTraderService_TWAPStreamServer) error
 	mustEmbedUnimplementedGoCryptoTraderServiceServer()
 }
 
@@ -1538,6 +1572,9 @@ func (UnimplementedGoCryptoTraderServiceServer) GetCollateral(context.Context, *
 }
 func (UnimplementedGoCryptoTraderServiceServer) Shutdown(context.Context, *ShutdownRequest) (*ShutdownResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Shutdown not implemented")
+}
+func (UnimplementedGoCryptoTraderServiceServer) TWAPStream(*TWAPRequest, GoCryptoTraderService_TWAPStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method TWAPStream not implemented")
 }
 func (UnimplementedGoCryptoTraderServiceServer) mustEmbedUnimplementedGoCryptoTraderServiceServer() {}
 
@@ -3316,6 +3353,27 @@ func _GoCryptoTraderService_Shutdown_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _GoCryptoTraderService_TWAPStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(TWAPRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(GoCryptoTraderServiceServer).TWAPStream(m, &goCryptoTraderServiceTWAPStreamServer{stream})
+}
+
+type GoCryptoTraderService_TWAPStreamServer interface {
+	Send(*TWAPResponse) error
+	grpc.ServerStream
+}
+
+type goCryptoTraderServiceTWAPStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *goCryptoTraderServiceTWAPStreamServer) Send(m *TWAPResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // GoCryptoTraderService_ServiceDesc is the grpc.ServiceDesc for GoCryptoTraderService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -3717,6 +3775,11 @@ var GoCryptoTraderService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "GetHistoricTrades",
 			Handler:       _GoCryptoTraderService_GetHistoricTrades_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "TWAPStream",
+			Handler:       _GoCryptoTraderService_TWAPStream_Handler,
 			ServerStreams: true,
 		},
 	},
