@@ -158,7 +158,7 @@ func GetBalance(exch, subAccount string, ai asset.Item, c currency.Code) (*Prote
 
 	assetBalances, ok := accounts.SubAccounts[subAccount]
 	if !ok {
-		return nil, fmt.Errorf("%s %s %w",
+		return nil, fmt.Errorf("%s [%s] %w",
 			exch, subAccount, errNoExchangeSubAccountBalances)
 	}
 

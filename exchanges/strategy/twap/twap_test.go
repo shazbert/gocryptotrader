@@ -54,7 +54,7 @@ func TestCheck(t *testing.T) {
 		t.Fatalf("received: '%v' but expected: '%v'", err, errInvalidVolume)
 	}
 
-	p.Volume = 100000
+	p.Amount = 100000
 	p.MaxSlippage = -1
 	err = p.Check(context.Background())
 	if !errors.Is(err, errInvalidMaxSlippageValue) {
@@ -97,7 +97,7 @@ func TestGetTWAP(t *testing.T) {
 		Start:                   time.Now(),
 		End:                     time.Now().AddDate(0, 0, 7),
 		Interval:                kline.OneDay,
-		Volume:                  100000,
+		Amount:                  100000,
 		Accumulation:            true,
 		AllowTradingPastEndTime: true,
 	})

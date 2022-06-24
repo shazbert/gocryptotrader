@@ -2264,7 +2264,7 @@ func TestCalculateTotalCollateral(t *testing.T) {
 func TestGetFuturesPositions(t *testing.T) {
 	t.Parallel()
 	var b Base
-	if _, err := b.GetFuturesPositions(context.Background(), asset.Spot, currency.Pair{}, time.Time{}, time.Time{}); !errors.Is(err, common.ErrNotYetImplemented) {
+	if _, err := b.GetFuturesPositions(context.Background(), asset.Spot, currency.EMPTYPAIR, time.Time{}, time.Time{}); !errors.Is(err, common.ErrNotYetImplemented) {
 		t.Errorf("received: %v, expected: %v", err, common.ErrNotYetImplemented)
 	}
 }
