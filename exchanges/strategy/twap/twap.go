@@ -113,8 +113,11 @@ type Config struct {
 	Start time.Time
 	End   time.Time
 
-	// Interval between market orders
-	Interval kline.Interval
+	// StrategyInterval defines the heartbeat of the strategy
+	StrategyInterval kline.Interval
+
+	// SignalInterval defines the interval period for singal generation
+	SignalInterval kline.Interval
 
 	// Amount if accumulating refers to quotation used to buy, if deaccum it
 	// will refer to the base amount to sell
@@ -152,13 +155,17 @@ func (cfg *Config) Check(ctx context.Context) error {
 		return err
 	}
 
-	if cfg.Interval == 0 {
-		return kline.ErrUnsetInterval
+	if cfg.StrategyInterval <= 0 {
+		return fmt.Errorf("strategy interval %w", kline.ErrUnsetInterval)
 	}
 
-	err = cfg.Exchange.GetBase().ValidateKline(cfg.Pair, cfg.Asset, cfg.Interval)
+	if cfg.SignalInterval <= 0 {
+		return fmt.Errorf("signal interval %w", kline.ErrUnsetInterval)
+	}
+
+	err = cfg.Exchange.GetBase().ValidateKline(cfg.Pair, cfg.Asset, cfg.SignalInterval)
 	if err != nil {
-		return err
+		return fmt.Errorf("strategy interval %w", err)
 	}
 
 	if cfg.Amount <= 0 {
@@ -181,22 +188,29 @@ func (t *Strategy) Run(ctx context.Context) error {
 		return errConfigurationIsNil
 	}
 
-	// candles, err := t.Exchange.GetHistoricCandlesExtended(ctx, t.Pair, t.Asset, time.Now(), time.Now(), kline.EightHour)
-	// if err != nil {
-	// 	return err
-	// }
+	wait := time.Until(t.Start)
 
-	// var count, cum float64
-	// for x := range candles.Candles {
-	// 	cum += candles.Candles[x].GetAveragePrice()
-	// 	count++
-	// }
+	timer := time.NewTimer(wait)
 
-	// twapPrice := cum / count
-	// fmt.Println(twapPrice)
+	for {
+		select {
+		case <-timer.C:
+			candles, err := t.Exchange.GetHistoricCandlesExtended(ctx,
+				t.Pair,
+				t.Asset,
+				t.Start,
+				time.Now(),
+				kline.EightHour)
+			if err != nil {
+				return err
+			}
 
-	// GET HISTORICAL CANDLES ON INTERVAL
-	// DERIVE TWAP ON CANDLES
+			fmt.Println(candles)
+
+		case <-t.Shutdown:
+			return nil
+		}
+	}
 
 	balance, err := t.fetchCurrentBalance(ctx)
 	if err != nil {
@@ -206,9 +220,34 @@ func (t *Strategy) Run(ctx context.Context) error {
 	fmt.Println("balance", balance)
 
 	tn := time.Now()
-	start := tn.Truncate(time.Duration(t.Interval))
+	start := tn.Truncate(time.Duration(t.StrategyInterval))
 	fmt.Println(kline.ThirtyMin, start)
 	return nil
+}
+
+func (t *Strategy) run(ctx context.Context) {
+	until := time.Until(t.Start)
+	timer := time.NewTimer(until)
+	for {
+		select {
+		case <-ctx.Done():
+			t.Reporter <- Report{Error: ctx.Err(), Finished: true}
+			return
+		case <-timer.C:
+			resp, err := t.Exchange.SubmitOrder(ctx, &order.Submit{
+				Exchange:  t.Exchange.GetName(),
+				Pair:      t.Pair,
+				AssetType: t.Asset,
+				Side:      order.Bid,
+				Type:      order.Market,
+				Amount:    10, // Base amount
+			})
+			if err != nil {
+				fmt.Println("LAME")
+			}
+			t.Reporter <- Report{Order: *resp}
+		}
+	}
 }
 
 // fetchCurrentBalance checks current available balance to undertake full
@@ -251,31 +290,6 @@ func (t *Strategy) fetchCurrentBalance(ctx context.Context) (float64, error) {
 		selling, t.Asset, errNoBalanceFound)
 }
 
-// func (t *Strategy) funky(ctx context.Context) {
-// 	until := time.Until(t.Start)
-// 	timer := time.NewTimer(until)
-// 	for {
-// 		select {
-// 		case <-ctx.Done():
-// 			t.Reporter <- Report{Error: ctx.Err(), Finished: true}
-// 			return
-// 		case <-timer.C:
-// 			resp, err := t.Exchange.SubmitOrder(ctx, &order.Submit{
-// 				Exchange:  t.Exchange.GetName(),
-// 				Pair:      t.Pair,
-// 				AssetType: t.Asset,
-// 				Side:      order.Bid,
-// 				Type:      order.Market,
-// 				Amount:    10, // Base amount
-// 			})
-// 			if err != nil {
-// 				fmt.Println("LAME")
-// 			}
-// 			t.Reporter <- Report{Order: *resp}
-// 		}
-// 	}
-// }
-
 // Report defines a TWAP action
 type Report struct {
 	Order    order.SubmitResponse
@@ -284,4 +298,5 @@ type Report struct {
 	Error    error
 	Finished bool
 	Balance  map[currency.Code]float64
+	Info     interface{}
 }

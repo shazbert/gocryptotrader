@@ -4602,13 +4602,14 @@ func (s *RPCServer) TWAPStream(r *gctrpc.TWAPRequest, stream gctrpc.GoCryptoTrad
 
 	fmt.Println("STREAM TWAPO:", r)
 
-	strategy, err := twap.New(stream.Context(), &twap.Config{
+	twapStrat, err := twap.New(stream.Context(), &twap.Config{
 		Exchange:                exch,
 		Pair:                    pair,
 		Asset:                   as,
 		Start:                   r.Start.AsTime(),
 		End:                     r.End.AsTime(),
-		Interval:                kline.Interval(r.Interval * int64(time.Second)),
+		StrategyInterval:        kline.Interval(r.Interval * int64(time.Second)),
+		SignalInterval:          kline.Interval(r.Interval * int64(time.Second)),
 		Amount:                  r.Amount,
 		MaxSlippage:             r.MaxSlippage,
 		Accumulation:            r.Accumulate,
@@ -4618,37 +4619,36 @@ func (s *RPCServer) TWAPStream(r *gctrpc.TWAPRequest, stream gctrpc.GoCryptoTrad
 		return err
 	}
 
-	fmt.Printf("strategy: %+v\n", strategy)
+	fmt.Printf("strategy: %+v\n", twapStrat)
+
+	err = twapStrat.Run(stream.Context())
+	if err != nil {
+		return err
+	}
+
+	for report := range twapStrat.Reporter {
+		var twapError string
+		if report.Error != nil {
+			twapError = report.Error.Error()
+		}
+		balance := make(map[string]float64)
+		for k, v := range report.Balance {
+			balance[k.String()] = v
+		}
+		err := stream.Send(&gctrpc.TWAPResponse{
+			Order:    report.Order.OrderID,
+			Slippage: report.Slippage,
+			Error:    twapError,
+			Balance:  balance,
+			Finished: report.Finished,
+		})
+		if err != nil {
+			return err
+		}
+		if report.Finished {
+			break
+		}
+	}
 
 	return nil
-
-	// err = strategy.Run(stream.Context())
-	// if err != nil {
-	// 	return err
-	// }
-
-	// for report := range strategy.Reporter {
-	// 	var twapError string
-	// 	if report.Error != nil {
-	// 		twapError = report.Error.Error()
-	// 	}
-	// 	balance := make(map[string]float64)
-	// 	for k, v := range report.Balance {
-	// 		balance[k.String()] = v
-	// 	}
-	// 	err := stream.Send(&gctrpc.TWAPResponse{
-	// 		Order:    report.Order.OrderID,
-	// 		Slippage: report.Slippage,
-	// 		Error:    twapError,
-	// 		Balance:  balance,
-	// 		Finished: report.Finished,
-	// 	})
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	if report.Finished {
-	// 		break
-	// 	}
-	// }
-	// return nil
 }

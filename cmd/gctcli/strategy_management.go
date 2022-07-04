@@ -8,14 +8,17 @@ import (
 
 	"github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/currency"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	"github.com/thrasher-corp/gocryptotrader/gctrpc"
 	"github.com/urfave/cli/v2"
 )
 
 var (
-	stratStartTime   string
-	stratEndTime     string
-	stratGranularity int64
+	stratStartTime    string
+	stratEndTime      string
+	stratGranularity  int64
+	stratLookback     int64
+	signalGranularity int64
 )
 
 var strategyManagementCommand = &cli.Command{
@@ -68,10 +71,10 @@ var (
 				Destination: &stratEndTime,
 			},
 			&cli.Int64Flag{
-				Name:        "granularity",
+				Name:        "stratgranularity",
 				Aliases:     []string{"g"},
 				Usage:       klineMessage,
-				Value:       86400,
+				Value:       int64(kline.OneDay.Duration().Seconds()),
 				Destination: &stratGranularity,
 			},
 			&cli.Float64Flag{
@@ -79,14 +82,14 @@ var (
 				Usage: "if buying is how much quote to use, if selling is how much base to liquidate",
 			},
 			&cli.Int64Flag{
-				Name:  "twapgranularity",
-				Usage: "twap signal granularity",
-				// Destination: &stratLookback,
-				Value: 30,
+				Name:        "signalranularity",
+				Usage:       "twap signal granularity to generate signal" + klineMessage,
+				Value:       int64(kline.OneDay.Duration().Seconds()),
+				Destination: &signalGranularity,
 			},
 			&cli.Int64Flag{
 				Name:        "lookback",
-				Usage:       "how many candles previous from strategy interval to create signal",
+				Usage:       "how many candles previous from signal granulairty interval to create signal",
 				Destination: &stratLookback,
 				Value:       30,
 			},

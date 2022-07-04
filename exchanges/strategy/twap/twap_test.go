@@ -48,7 +48,7 @@ func TestCheck(t *testing.T) {
 		t.Fatalf("received: '%v' but expected: '%v'", err, kline.ErrUnsetInterval)
 	}
 
-	p.Interval = kline.OneDay
+	p.StrategyInterval = kline.OneDay
 	err = p.Check(context.Background())
 	if !errors.Is(err, errInvalidVolume) {
 		t.Fatalf("received: '%v' but expected: '%v'", err, errInvalidVolume)
@@ -96,7 +96,7 @@ func TestGetTWAP(t *testing.T) {
 		Asset:                   asset.Spot,
 		Start:                   time.Now(),
 		End:                     time.Now().AddDate(0, 0, 7),
-		Interval:                kline.OneDay,
+		StrategyInterval:        kline.OneDay,
 		Amount:                  100000,
 		Accumulation:            true,
 		AllowTradingPastEndTime: true,
