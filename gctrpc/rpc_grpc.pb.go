@@ -119,6 +119,7 @@ type GoCryptoTraderServiceClient interface {
 	GetFuturesPositions(ctx context.Context, in *GetFuturesPositionsRequest, opts ...grpc.CallOption) (*GetFuturesPositionsResponse, error)
 	GetCollateral(ctx context.Context, in *GetCollateralRequest, opts ...grpc.CallOption) (*GetCollateralResponse, error)
 	Shutdown(ctx context.Context, in *ShutdownRequest, opts ...grpc.CallOption) (*ShutdownResponse, error)
+	GetTechnicalAnalysis(ctx context.Context, in *GetTechnicalAnalysisRequest, opts ...grpc.CallOption) (*GetTechnicalAnalysisResponse, error)
 	TWAPStream(ctx context.Context, in *TWAPRequest, opts ...grpc.CallOption) (GoCryptoTraderService_TWAPStreamClient, error)
 }
 
@@ -1141,6 +1142,15 @@ func (c *goCryptoTraderServiceClient) Shutdown(ctx context.Context, in *Shutdown
 	return out, nil
 }
 
+func (c *goCryptoTraderServiceClient) GetTechnicalAnalysis(ctx context.Context, in *GetTechnicalAnalysisRequest, opts ...grpc.CallOption) (*GetTechnicalAnalysisResponse, error) {
+	out := new(GetTechnicalAnalysisResponse)
+	err := c.cc.Invoke(ctx, "/gctrpc.GoCryptoTraderService/GetTechnicalAnalysis", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *goCryptoTraderServiceClient) TWAPStream(ctx context.Context, in *TWAPRequest, opts ...grpc.CallOption) (GoCryptoTraderService_TWAPStreamClient, error) {
 	stream, err := c.cc.NewStream(ctx, &GoCryptoTraderService_ServiceDesc.Streams[6], "/gctrpc.GoCryptoTraderService/TWAPStream", opts...)
 	if err != nil {
@@ -1274,6 +1284,7 @@ type GoCryptoTraderServiceServer interface {
 	GetFuturesPositions(context.Context, *GetFuturesPositionsRequest) (*GetFuturesPositionsResponse, error)
 	GetCollateral(context.Context, *GetCollateralRequest) (*GetCollateralResponse, error)
 	Shutdown(context.Context, *ShutdownRequest) (*ShutdownResponse, error)
+	GetTechnicalAnalysis(context.Context, *GetTechnicalAnalysisRequest) (*GetTechnicalAnalysisResponse, error)
 	TWAPStream(*TWAPRequest, GoCryptoTraderService_TWAPStreamServer) error
 	mustEmbedUnimplementedGoCryptoTraderServiceServer()
 }
@@ -1572,6 +1583,9 @@ func (UnimplementedGoCryptoTraderServiceServer) GetCollateral(context.Context, *
 }
 func (UnimplementedGoCryptoTraderServiceServer) Shutdown(context.Context, *ShutdownRequest) (*ShutdownResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Shutdown not implemented")
+}
+func (UnimplementedGoCryptoTraderServiceServer) GetTechnicalAnalysis(context.Context, *GetTechnicalAnalysisRequest) (*GetTechnicalAnalysisResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTechnicalAnalysis not implemented")
 }
 func (UnimplementedGoCryptoTraderServiceServer) TWAPStream(*TWAPRequest, GoCryptoTraderService_TWAPStreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method TWAPStream not implemented")
@@ -3353,6 +3367,24 @@ func _GoCryptoTraderService_Shutdown_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _GoCryptoTraderService_GetTechnicalAnalysis_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTechnicalAnalysisRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GoCryptoTraderServiceServer).GetTechnicalAnalysis(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gctrpc.GoCryptoTraderService/GetTechnicalAnalysis",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GoCryptoTraderServiceServer).GetTechnicalAnalysis(ctx, req.(*GetTechnicalAnalysisRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _GoCryptoTraderService_TWAPStream_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(TWAPRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -3744,6 +3776,10 @@ var GoCryptoTraderService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Shutdown",
 			Handler:    _GoCryptoTraderService_Shutdown_Handler,
+		},
+		{
+			MethodName: "GetTechnicalAnalysis",
+			Handler:    _GoCryptoTraderService_GetTechnicalAnalysis_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
