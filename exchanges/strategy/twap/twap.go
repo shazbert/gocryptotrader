@@ -6,15 +6,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/currency"
-	exchange "github.com/thrasher-corp/gocryptotrader/exchanges"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/account"
-	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/orderbook"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/strategy"
+	"github.com/thrasher-corp/gocryptotrader/log"
 )
 
 var (
@@ -35,18 +33,23 @@ var (
 type Strategy struct {
 	strategy.Base
 	*Config
-	holdings  map[currency.Code]*account.ProtectedBalance
-	Reporter  chan Report
-	Candles   kline.Item
-	orderbook *orderbook.Depth
+	holdings        map[currency.Code]*account.ProtectedBalance
+	Reporter        chan Report
+	Candles         kline.Item
+	orderbook       *orderbook.Depth
+	ExecutionLimits order.MinMaxLevel
+
+	AmountPerAction float64
 }
 
 // GetTWAP returns a TWAP struct to manage TWAP allocation or deallocation of
 // position.
 func New(ctx context.Context, p *Config) (*Strategy, error) {
-	if err := p.Check(ctx); err != nil {
+	if err := p.Check(); err != nil {
 		return nil, err
 	}
+
+	// Gets tranche levels for liquidity options
 	depth, err := orderbook.GetDepth(p.Exchange.GetName(), p.Pair, p.Asset)
 	if err != nil {
 		return nil, err
@@ -63,16 +66,25 @@ func New(ctx context.Context, p *Config) (*Strategy, error) {
 		return nil, err
 	}
 
+	minMaxLevel, err := p.Exchange.GetOrderExecutionLimits(p.Asset, p.Pair)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println("Base amount", baseAmount.GetAvailableWithoutBorrow(), p.Pair.Base)
+
 	quoteAmount, err := account.GetBalance(p.Exchange.GetName(),
 		creds.SubAccount, p.Asset, p.Pair.Quote)
 	if err != nil {
 		return nil, err
 	}
 
+	fmt.Println("Quote amount", quoteAmount.GetAvailableWithoutBorrow(), p.Pair.Quote)
+
 	if p.Accumulation {
-		freeQuote := quoteAmount.GetFree()
+		freeQuote := quoteAmount.GetAvailableWithoutBorrow()
 		if p.Amount > freeQuote {
-			return nil, fmt.Errorf("cannot sell quote %s amount %f to buy base %s %w of %f",
+			return nil, fmt.Errorf("cannot sell quote %s amount %v to buy base %s %w of %v",
 				p.Pair.Quote,
 				p.Amount,
 				p.Pair.Base,
@@ -80,9 +92,9 @@ func New(ctx context.Context, p *Config) (*Strategy, error) {
 				freeQuote)
 		}
 	} else {
-		freeBase := baseAmount.GetFree()
+		freeBase := baseAmount.GetAvailableWithoutBorrow()
 		if p.Amount > freeBase {
-			return nil, fmt.Errorf("cannot sell base %s amount %f to buy quote %s %w of %f",
+			return nil, fmt.Errorf("cannot sell base %s amount %v to buy quote %s %w of %v",
 				p.Pair.Base,
 				p.Amount,
 				p.Pair.Quote,
@@ -96,86 +108,51 @@ func New(ctx context.Context, p *Config) (*Strategy, error) {
 		p.Pair.Quote: quoteAmount,
 	}
 
+	fmt.Printf("start requested %s, aligning to strategy interval %s\n", p.Start, p.StrategyInterval)
+
+	fmt.Printf("end requested %s\n", p.End)
+
+	fmt.Printf("start requested local %s\n", p.Start)
+
+	fmt.Printf("Splitting amount %v across interval\n", p.Amount)
+
+	expectedDuration := p.End.Sub(p.Start)
+
+	fmt.Printf("expected strategy duration %s\n", expectedDuration)
+
+	expectedActions := expectedDuration / p.StrategyInterval.Duration()
+
+	// Drop mantissa as it is not needed after the last action we can use left
+	// over amounts up till the amounts per action if we surpass end date for
+	// whatever reason.
+	wholeActions := int(expectedActions)
+
+	fmt.Printf("expected strategy actions %d\n", wholeActions)
+
+	amountPerAction := p.Amount / float64(wholeActions)
+
+	fmt.Printf("amount per action %v\n", amountPerAction)
+
+	if p.Accumulation {
+		fmt.Println(minMaxLevel.MinNotional)
+		if minMaxLevel.MinNotional > amountPerAction {
+			return nil, fmt.Errorf("minimum quote %v exceeds amount per action %v",
+				minMaxLevel.MinNotional, amountPerAction)
+		}
+	} else {
+		if minMaxLevel.MinAmount > amountPerAction {
+			return nil, fmt.Errorf("minimum base %v exceeds amount per action %v",
+				minMaxLevel.MinAmount, amountPerAction)
+		}
+	}
+
 	return &Strategy{
-		Config:    p,
-		Reporter:  make(chan Report),
-		orderbook: depth,
-		holdings:  monAmounts,
+		Config:          p,
+		Reporter:        make(chan Report),
+		orderbook:       depth,
+		holdings:        monAmounts,
+		AmountPerAction: amountPerAction,
 	}, nil
-}
-
-// Config defines the base elements required to undertake the TWAP strategy.
-type Config struct {
-	Exchange exchange.IBotExchange
-	Pair     currency.Pair
-	Asset    asset.Item
-
-	Start time.Time
-	End   time.Time
-
-	// StrategyInterval defines the heartbeat of the strategy
-	StrategyInterval kline.Interval
-
-	// SignalInterval defines the interval period for singal generation
-	SignalInterval kline.Interval
-
-	// Amount if accumulating refers to quotation used to buy, if deaccum it
-	// will refer to the base amount to sell
-	Amount float64
-
-	// MaxSlippage needed for protection in low liqudity environments.
-	// WARNING: 0 value == 100% slippage
-	MaxSlippage float64
-	// Accumulation if you are buying or selling value
-	Accumulation bool
-	// AllowTradingPastEndTime if volume has not been met exceed end time.
-	AllowTradingPastEndTime bool
-}
-
-// Check validates all parameter fields before undertaking specfic strategy
-func (cfg *Config) Check(ctx context.Context) error {
-	if cfg == nil {
-		return errParamsAreNil
-	}
-
-	if cfg.Exchange == nil {
-		return errExchangeIsNil
-	}
-
-	if cfg.Pair.IsEmpty() {
-		return currency.ErrPairIsEmpty
-	}
-
-	if !cfg.Asset.IsValid() {
-		return fmt.Errorf("'%v' %w", cfg.Asset, asset.ErrNotSupported)
-	}
-
-	err := common.StartEndTimeCheck(cfg.Start, cfg.End)
-	if err != nil {
-		return err
-	}
-
-	if cfg.StrategyInterval <= 0 {
-		return fmt.Errorf("strategy interval %w", kline.ErrUnsetInterval)
-	}
-
-	if cfg.SignalInterval <= 0 {
-		return fmt.Errorf("signal interval %w", kline.ErrUnsetInterval)
-	}
-
-	err = cfg.Exchange.GetBase().ValidateKline(cfg.Pair, cfg.Asset, cfg.SignalInterval)
-	if err != nil {
-		return fmt.Errorf("strategy interval %w", err)
-	}
-
-	if cfg.Amount <= 0 {
-		return errInvalidVolume
-	}
-
-	if cfg.MaxSlippage < 0 || cfg.MaxSlippage > 100 {
-		return fmt.Errorf("'%v' %w", cfg.MaxSlippage, errInvalidMaxSlippageValue)
-	}
-	return nil
 }
 
 // Run inititates a TWAP allocation using the specified paramaters.
@@ -189,105 +166,43 @@ func (t *Strategy) Run(ctx context.Context) error {
 	}
 
 	wait := time.Until(t.Start)
-
 	timer := time.NewTimer(wait)
 
 	for {
 		select {
 		case <-timer.C:
+			// Reset timer here so we don't start drifting
+			timer.Reset(t.StrategyInterval.Duration())
+			signalEnd := time.Now().UTC().Truncate(t.SignalInterval.Duration())
+			fmt.Printf("signal end time truncated to singal interval %v %s\n", signalEnd, t.SignalInterval)
+			signalStart := signalEnd.Add(-t.SignalInterval.Duration() * time.Duration(t.SignalLookback))
+			fmt.Printf("signal start time from lookback period %s lookback:%v\n", signalStart, t.SignalLookback)
 			candles, err := t.Exchange.GetHistoricCandlesExtended(ctx,
 				t.Pair,
 				t.Asset,
-				t.Start,
-				time.Now(),
-				kline.EightHour)
+				signalStart,
+				signalEnd,
+				t.SignalInterval)
 			if err != nil {
 				return err
 			}
 
 			fmt.Println(candles)
 
+			fmt.Printf("sleeping for %s...", t.StrategyInterval.Duration())
 		case <-t.Shutdown:
+			if !timer.Stop() {
+				<-timer.C
+			}
 			return nil
-		}
-	}
-
-	balance, err := t.fetchCurrentBalance(ctx)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("balance", balance)
-
-	tn := time.Now()
-	start := tn.Truncate(time.Duration(t.StrategyInterval))
-	fmt.Println(kline.ThirtyMin, start)
-	return nil
-}
-
-func (t *Strategy) run(ctx context.Context) {
-	until := time.Until(t.Start)
-	timer := time.NewTimer(until)
-	for {
-		select {
 		case <-ctx.Done():
-			t.Reporter <- Report{Error: ctx.Err(), Finished: true}
-			return
-		case <-timer.C:
-			resp, err := t.Exchange.SubmitOrder(ctx, &order.Submit{
-				Exchange:  t.Exchange.GetName(),
-				Pair:      t.Pair,
-				AssetType: t.Asset,
-				Side:      order.Bid,
-				Type:      order.Market,
-				Amount:    10, // Base amount
-			})
-			if err != nil {
-				fmt.Println("LAME")
+			if !timer.Stop() {
+				<-timer.C
 			}
-			t.Reporter <- Report{Order: *resp}
+			log.Errorf(log.Global, "twap strategy error: %s", ctx.Err())
+			return ctx.Err()
 		}
 	}
-}
-
-// fetchCurrentBalance checks current available balance to undertake full
-// strategy.
-func (t *Strategy) fetchCurrentBalance(ctx context.Context) (float64, error) {
-	holdings, err := t.Exchange.UpdateAccountInfo(ctx, t.Asset)
-	if err != nil {
-		return 0, err
-	}
-
-	var selling currency.Code
-	if t.Accumulation {
-		selling = t.Pair.Quote
-	} else {
-		selling = t.Pair.Base
-	}
-
-	for x := range holdings.Accounts {
-		if holdings.Accounts[x].AssetType != t.Asset /*&& holdings.Accounts[x].ID != t.creds.SubAccount*/ {
-			continue
-		}
-
-		for y := range holdings.Accounts[x].Currencies {
-			if !holdings.Accounts[x].Currencies[y].CurrencyName.Equal(selling) {
-				continue
-			}
-
-			if t.Amount > holdings.Accounts[x].Currencies[y].Free {
-				return 0, fmt.Errorf("%s %w %v",
-					selling,
-					errVolumeToSellExceedsFreeBalance,
-					holdings.Accounts[x].Currencies[y].Free)
-			}
-
-			return holdings.Accounts[x].Currencies[y].Free, nil
-		}
-		break
-	}
-	return 0, fmt.Errorf("selling currency %s %s %w",
-		selling, t.Asset, errNoBalanceFound)
 }
 
 // Report defines a TWAP action

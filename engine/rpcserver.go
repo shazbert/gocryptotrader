@@ -4614,6 +4614,7 @@ func (s *RPCServer) TWAPStream(r *gctrpc.TWAPRequest, stream gctrpc.GoCryptoTrad
 		MaxSlippage:             r.MaxSlippage,
 		Accumulation:            r.Accumulate,
 		AllowTradingPastEndTime: r.AllowTradingPastEnd,
+		SignalLookback:          30,
 	})
 	if err != nil {
 		return err
@@ -4626,29 +4627,29 @@ func (s *RPCServer) TWAPStream(r *gctrpc.TWAPRequest, stream gctrpc.GoCryptoTrad
 		return err
 	}
 
-	for report := range twapStrat.Reporter {
-		var twapError string
-		if report.Error != nil {
-			twapError = report.Error.Error()
-		}
-		balance := make(map[string]float64)
-		for k, v := range report.Balance {
-			balance[k.String()] = v
-		}
-		err := stream.Send(&gctrpc.TWAPResponse{
-			Order:    report.Order.OrderID,
-			Slippage: report.Slippage,
-			Error:    twapError,
-			Balance:  balance,
-			Finished: report.Finished,
-		})
-		if err != nil {
-			return err
-		}
-		if report.Finished {
-			break
-		}
-	}
+	// for report := range twapStrat.Reporter {
+	// 	var twapError string
+	// 	if report.Error != nil {
+	// 		twapError = report.Error.Error()
+	// 	}
+	// 	balance := make(map[string]float64)
+	// 	for k, v := range report.Balance {
+	// 		balance[k.String()] = v
+	// 	}
+	// 	err := stream.Send(&gctrpc.TWAPResponse{
+	// 		Order:    report.Order.OrderID,
+	// 		Slippage: report.Slippage,
+	// 		Error:    twapError,
+	// 		Balance:  balance,
+	// 		Finished: report.Finished,
+	// 	})
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	if report.Finished {
+	// 		break
+	// 	}
+	// }
 
 	return nil
 }

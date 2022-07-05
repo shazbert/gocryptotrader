@@ -489,6 +489,9 @@ func (f *FTX) UpdateAccountInfo(ctx context.Context, a asset.Item) (account.Hold
 		// "main" defines the main account in the sub account list
 		var acc = account.SubAccount{ID: subName, AssetType: a}
 		for x := range balances {
+			if balances[x].Coin.Equal(currency.USD) && subName == "main" {
+				fmt.Printf("Account:%s Balance:%+v\n", subName, balances[x])
+			}
 			// the Free field includes borrow amount with available holdings
 			// Using AvailableWithoutBorrow allows for a more accurate picture of balance
 			hold := balances[x].Total - balances[x].AvailableWithoutBorrow
