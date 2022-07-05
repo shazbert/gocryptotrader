@@ -171,7 +171,7 @@ func (t *Strategy) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-timer.C:
-			// Reset timer here so we don't start drifting
+			// Reset timer here so we don't start drifting in time
 			timer.Reset(t.StrategyInterval.Duration())
 			signalEnd := time.Now().UTC().Truncate(t.SignalInterval.Duration())
 			fmt.Printf("signal end time truncated to singal interval %v %s\n", signalEnd, t.SignalInterval)
@@ -187,9 +187,16 @@ func (t *Strategy) Run(ctx context.Context) error {
 				return err
 			}
 
-			fmt.Println(candles)
+			fmt.Printf("%+v\n", candles)
 
-			fmt.Printf("sleeping for %s...", t.StrategyInterval.Duration())
+			currentTWAP, err := candles.GetTWAP()
+			if err != nil {
+				return err
+			}
+
+			fmt.Println("CURRENT TWAP:", currentTWAP)
+
+			fmt.Printf("sleeping for %s...\n", t.StrategyInterval.Duration())
 		case <-t.Shutdown:
 			if !timer.Stop() {
 				<-timer.C

@@ -4783,7 +4783,7 @@ func (s *RPCServer) TWAPStream(r *gctrpc.TWAPRequest, stream gctrpc.GoCryptoTrad
 		Start:                   r.Start.AsTime(),
 		End:                     r.End.AsTime(),
 		StrategyInterval:        kline.Interval(r.Interval * int64(time.Second)),
-		SignalInterval:          kline.Interval(r.Interval * int64(time.Second)),
+		SignalInterval:          kline.OneDay,
 		Amount:                  r.Amount,
 		MaxSlippage:             r.MaxSlippage,
 		Accumulation:            r.Accumulate,
