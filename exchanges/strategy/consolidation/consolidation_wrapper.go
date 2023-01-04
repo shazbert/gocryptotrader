@@ -96,6 +96,11 @@ func (s *Strategy) OnSignal(ctx context.Context, sig interface{}) (_continue boo
 		return false, err
 	}
 
+	err = s.CheckHistoricPositions()
+	if err != nil {
+		return false, err
+	}
+
 	// restrict to lookback?
 	bol, err := s.TimeSeries.GetBollingerBands(s.Config.Period,
 		s.Config.StandardDeviation,

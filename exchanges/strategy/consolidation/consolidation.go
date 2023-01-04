@@ -12,6 +12,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	strategy "github.com/thrasher-corp/gocryptotrader/exchanges/strategy/common"
+	"gonum.org/v1/gonum/stat"
 )
 
 var errSignalRequiresUTCAlignment = errors.New("strategy requires utc time alignment")
@@ -103,25 +104,28 @@ func positionSizeAllocator(capital, risk, reward, volatility float64) float64 {
 // - returns: a slice of floats representing the asset's historical returns
 // It returns the volatility as a float64.
 func volatility(returns []float64) float64 {
-	// Calculate the mean of the returns
-	mean := 0.0
-	for _, r := range returns {
-		mean += r
-	}
-	mean /= float64(len(returns))
+	// mean := stat.Mean(returns, nil)
+	mean := stat.Mean(returns, nil)
 
-	// Calculate the variance of the returns
-	variance := 0.0
-	for _, r := range returns {
-		variance += (r - mean) * (r - mean)
+	result := 0.0
+	for x := range returns {
+		deviation := returns[x] - mean
+		result += deviation * deviation
 	}
-	variance /= float64(len(returns) - 1)
 
-	// Calculate the standard deviation of the returns
-	stddev := math.Sqrt(variance)
+	fmt.Println(result)
+	// // Calculate the variance of the returns
+	// variance := 0.0
+	// for _, r := range returns {
+	// 	variance += (r - mean) * (r - mean)
+	// }
+	// variance /= float64(len(returns) - 1)
+
+	// // Calculate the standard deviation of the returns
+	// stddev := math.Sqrt(variance)
 
 	// Return the volatility as a percentage
-	return stddev * 100
+	return math.Sqrt(result / float64(len(returns)))
 }
 
 // GetReturnsFromKlineData gets the returns from the lookback period
@@ -260,6 +264,20 @@ func (s *Strategy) CheckOpenPosition(latestPrice float64) error {
 	s.Closed = append(s.Closed, *s.Open)
 	s.Open = nil
 
+	return nil
+}
+
+func (s *Strategy) CheckHistoricPositions() error {
+	if s == nil {
+		return strategy.ErrIsNil
+	}
+
+	pnl := 0.0
+	for x := range s.Closed {
+		pnl += s.Closed[x].PNL
+	}
+
+	fmt.Printf("CURRENT STRATEGY PNL [%v] ORDER COUNT [%v]\n", pnl, len(s.Closed))
 	return nil
 }
 

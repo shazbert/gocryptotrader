@@ -68,7 +68,7 @@ func TestOnsignal(t *testing.T) {
 		t.Fatalf("received: '%v' but expected '%v'", err, strategy.ErrConfigIsNil)
 	}
 
-	backtestStart := time.Date(2022, 11, 30, 0, 0, 0, 0, time.UTC)
+	backtestStart := time.Date(2022, 10, 0, 0, 0, 0, 0, time.UTC)
 	backtestEnd := backtestStart.Add(time.Hour * 400)
 
 	candles, err := b.GetHistoricCandles(context.Background(),
@@ -76,7 +76,7 @@ func TestOnsignal(t *testing.T) {
 		asset.Spot,
 		backtestStart,
 		backtestEnd,
-		kline.OneMin)
+		kline.OneHour)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,10 +91,10 @@ func TestOnsignal(t *testing.T) {
 		Simulate:          true,
 		Interval:          kline.OneHour,
 		Funds:             1000,
-		RequiredReturn:    1,
-		MaxLoss:           -.5,
+		RequiredReturn:    0.30,
+		MaxLoss:           -.1,
 		PortfolioAtRisk:   0.05,
-		Period:            10,
+		Period:            30,
 		StandardDeviation: 1.5,
 	}
 
@@ -138,4 +138,11 @@ func TestBro(t *testing.T) {
 	fmt.Println(bruh)
 
 	fmt.Println(bruh.UTC())
+}
+
+func TestVolatility(t *testing.T) {
+	t.Parallel()
+
+	vol := volatility([]float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
+	fmt.Println("VOL", vol)
 }
