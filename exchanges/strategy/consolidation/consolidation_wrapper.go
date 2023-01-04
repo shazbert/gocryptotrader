@@ -46,8 +46,10 @@ func (s *Strategy) OnSignal(ctx context.Context, sig interface{}) (_continue boo
 		return false, errIntervalMisalignment
 	}
 
+	s.SignalCounter++
+
 	if s.TimeSeries.Candles == nil {
-		fmt.Println("initial deployment")
+		fmt.Println("INITIAL SIGNAL:", tn)
 		start := end.Add(-s.Config.Interval.Duration() * time.Duration(s.Config.Lookback))
 		s.TimeSeries, err = s.Config.Exchange.GetHistoricCandles(ctx, s.Config.Pair, s.Config.Asset, start, end, s.Config.Interval)
 		if err != nil {
@@ -58,7 +60,7 @@ func (s *Strategy) OnSignal(ctx context.Context, sig interface{}) (_continue boo
 			s.TimeSeries.Candles = s.TimeSeries.Candles[len(s.TimeSeries.Candles)-s.Config.Lookback:]
 		}
 	} else {
-		fmt.Println("tick deployment")
+		fmt.Println("SIGNAL:", tn, "COUNT:", s.SignalCounter)
 		start := s.TimeSeries.Candles[len(s.TimeSeries.Candles)-1].Time.Add(s.Config.Interval.Duration()).UTC()
 		var newCandles kline.Item
 		newCandles, err = s.Config.Exchange.GetHistoricCandles(ctx, s.Config.Pair, s.Config.Asset, start, end, s.Config.Interval)
@@ -66,118 +68,68 @@ func (s *Strategy) OnSignal(ctx context.Context, sig interface{}) (_continue boo
 			return false, err
 		}
 
-		fmt.Println(newCandles.Candles)
 		if len(newCandles.Candles) > 1 {
 			s.TimeSeries.Candles = append(s.TimeSeries.Candles, newCandles.Candles[:1]...)
 		} else {
 			s.TimeSeries.Candles = append(s.TimeSeries.Candles, newCandles.Candles...)
 		}
-		// restrict to lookback?
 	}
 
-	bol, err := s.TimeSeries.GetBollingerBands(10, 1.5, 1.5, indicators.Sma)
+	latestClose := s.TimeSeries.Candles[len(s.TimeSeries.Candles)-1].Close
+	fmt.Println("LAST CLOSE:", latestClose)
+
+	if len(s.Returns) == 0 {
+		s.Returns = GetReturnsFromKlineData(s.TimeSeries, s.Config.Lookback)
+	} else {
+		previousClose := s.TimeSeries.Candles[len(s.TimeSeries.Candles)-2].Close
+		gain := gctmath.CalculatePercentageGainOrLoss(latestClose, previousClose)
+		s.Returns = append(s.Returns, gain)
+	}
+
+	fmt.Println("RETURN:", s.Returns[len(s.Returns)-1])
+
+	s.Volatility = append(s.Volatility, volatility(s.Returns))
+	fmt.Println("VOLATILITY:", s.Volatility[len(s.Volatility)-1])
+
+	err = s.CheckOpenPosition(latestClose)
 	if err != nil {
 		return false, err
 	}
 
-	lowerBand := bol.Lower[len(bol.Lower)-1]
-	upperBand := bol.Upper[len(bol.Upper)-1]
-
-	fmt.Println("upper", upperBand)
-	fmt.Println("lower", lowerBand)
-
-	latestClose := s.TimeSeries.Candles[len(s.TimeSeries.Candles)-1].Close
-
-	fmt.Println("last close", latestClose)
-
-	switch {
-	case s.Open != nil:
-		if s.Open.IsLong {
-			gain := gctmath.CalculatePercentageGainOrLoss(latestClose, s.Open.EntryPrice)
-			fmt.Println("POSITION LONG OPEN CURRENT PNL:", gain)
-			if gain >= 0 {
-				if gain >= s.Config.RequiredReturn {
-					fmt.Println("closing position in profit")
-					s.Open.ExitPrice = latestClose
-					s.Open.PNL = gain
-					s.Open.ExitTime = time.Now()
-					s.Closed = append(s.Closed, *s.Open)
-					s.Open = nil
-				}
-			} else {
-				if gain <= s.Config.MaxLoss {
-					fmt.Println("closing position at a loss")
-					s.Open.ExitPrice = latestClose
-					s.Open.PNL = gain
-					s.Open.ExitTime = time.Now()
-					s.Closed = append(s.Closed, *s.Open)
-					s.Open = nil
-				}
-			}
-		} else {
-			gain := gctmath.CalculatePercentageGainOrLoss(s.Open.EntryPrice, latestClose)
-			fmt.Println("POSITION SHORT OPEN CURRENT PNL:", gain)
-			if gain >= 0 {
-				if gain >= s.Config.RequiredReturn {
-					fmt.Println("closing position in profit")
-					s.Open.ExitPrice = latestClose
-					s.Open.PNL = gain
-					s.Open.ExitTime = time.Now()
-					s.Closed = append(s.Closed, *s.Open)
-					s.Open = nil
-				}
-			} else {
-				if gain <= s.Config.MaxLoss {
-					fmt.Println("closing position at a loss")
-					s.Open.ExitPrice = latestClose
-					s.Open.PNL = gain
-					s.Open.ExitTime = time.Now()
-					s.Closed = append(s.Closed, *s.Open)
-					s.Open = nil
-				}
-			}
-		}
-	case latestClose > lowerBand && latestClose < upperBand:
-		fmt.Println("Price is consolidating, no action taken")
-		s.ConsolidationPeriod++
-	case s.ConsolidationPeriod > 0:
-		s.ConsolidationTracking = append(s.ConsolidationTracking, s.ConsolidationPeriod)
-		s.ConsolidationPeriod = 0
-
-		returns := GetReturnsFromKlineData(s.TimeSeries, 20)
-		volatility := volatility(returns)
-
-		size := positionSizeAllocator(s.Config.Funds, portfolioRisk, s.Config.RequiredReturn, volatility)
-
-		var longShort string
-		var isLong bool
-		if latestClose <= lowerBand {
-			// Short this thang
-			longShort = "shorting that skirt"
-		} else {
-			// Long this thang
-			longShort = "longing that thong"
-			isLong = true
-		}
-
-		s.Open = &Position{
-			EntryPrice: latestClose,
-			Quantity:   size,
-			EntryTime:  time.Now(),
-			IsLong:     isLong,
-		}
-
-		fmt.Printf("%s with amount:%v %s total funds:%v current volatility:%v RISK: %v ExpectedReturn:%v\n",
-			longShort,
-			size,
-			s.Config.Pair,
-			s.Config.Funds,
-			volatility,
-			portfolioRisk,
-			s.Config.RequiredReturn)
-	default:
-		fmt.Println("Price is above or below bands, waiting for consolidation period")
+	// restrict to lookback?
+	bol, err := s.TimeSeries.GetBollingerBands(s.Config.Period,
+		s.Config.StandardDeviation,
+		s.Config.StandardDeviation,
+		indicators.Sma)
+	if err != nil {
+		return false, err
 	}
+
+	upperBand := bol.Upper[len(bol.Upper)-1]
+	lowerBand := bol.Lower[len(bol.Lower)-1]
+
+	fmt.Printf("BB SIGNAL - UPPERBAND: [%v] MA: [%v] LOWERBAND:[%v] PERIOD: [%v] STDDEV: [%v]\n",
+		upperBand,
+		bol.Middle[len(bol.Middle)-1],
+		lowerBand,
+		s.Config.Period,
+		s.Config.StandardDeviation)
+
+	err = s.CheckConsolidation(latestClose, upperBand, lowerBand)
+	if err != nil {
+		return false, err
+	}
+
+	err = s.CheckBreakoutUpper(latestClose, upperBand)
+	if err != nil {
+		return false, err
+	}
+
+	err = s.CheckBreakoutLower(latestClose, lowerBand)
+	if err != nil {
+		return false, err
+	}
+
 	fmt.Println()
 	return false, nil
 }

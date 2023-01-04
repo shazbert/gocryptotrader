@@ -69,7 +69,7 @@ func TestOnsignal(t *testing.T) {
 	}
 
 	backtestStart := time.Date(2022, 11, 30, 0, 0, 0, 0, time.UTC)
-	backtestEnd := backtestStart.Add(time.Minute * 400)
+	backtestEnd := backtestStart.Add(time.Hour * 400)
 
 	candles, err := b.GetHistoricCandles(context.Background(),
 		currency.NewPair(currency.BTC, currency.USDT),
@@ -84,12 +84,18 @@ func TestOnsignal(t *testing.T) {
 	backtester := Backtester{IBotExchange: &b, history: BacktestKline(candles)}
 
 	s.Config = &Configuration{
-		Exchange: &backtester,
-		Pair:     currency.NewPair(currency.BTC, currency.USDT),
-		Asset:    asset.Spot,
-		Lookback: 200,
-		Simulate: true,
-		Interval: kline.OneMin,
+		Exchange:          &backtester,
+		Pair:              currency.NewPair(currency.BTC, currency.USDT),
+		Asset:             asset.Spot,
+		Lookback:          200,
+		Simulate:          true,
+		Interval:          kline.OneHour,
+		Funds:             1000,
+		RequiredReturn:    1,
+		MaxLoss:           -.5,
+		PortfolioAtRisk:   0.05,
+		Period:            10,
+		StandardDeviation: 1.5,
 	}
 
 	_, err = s.OnSignal(context.Background(), .007)
@@ -107,7 +113,7 @@ func TestOnsignal(t *testing.T) {
 		t.Fatalf("received: '%v' but expected '%v'", err, errSignalRequiresUTCAlignment)
 	}
 
-	endDate := backtestStart.Add(time.Minute * 200) // 200 lookback for initial
+	endDate := backtestStart.Add(time.Hour * 200) // 200 lookback for initial
 	_, err = s.OnSignal(context.Background(), endDate.Add(time.Second))
 	if !errors.Is(err, errIntervalMisalignment) {
 		t.Fatalf("received: '%v' but expected '%v'", err, errIntervalMisalignment)
@@ -115,7 +121,7 @@ func TestOnsignal(t *testing.T) {
 
 	// Roll through signals
 	for x := 0; x < 200; x++ {
-		_, err = s.OnSignal(context.Background(), endDate.Add(time.Minute*time.Duration(x)))
+		_, err = s.OnSignal(context.Background(), endDate.Add(time.Hour*time.Duration(x)))
 		if !errors.Is(err, nil) {
 			t.Fatalf("received: '%v' but expected '%v'", err, nil)
 		}
