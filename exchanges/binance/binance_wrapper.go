@@ -465,7 +465,7 @@ func (b *Binance) UpdateTickers(ctx context.Context, a asset.Item) error {
 					continue
 				}
 
-				err = ticker.ProcessTicker(&ticker.Price{
+				_, err = ticker.ProcessTicker(&ticker.Price{
 					Last:         tick[y].LastPrice,
 					High:         tick[y].HighPrice,
 					Low:          tick[y].LowPrice,
@@ -495,7 +495,7 @@ func (b *Binance) UpdateTickers(ctx context.Context, a asset.Item) error {
 			if err != nil {
 				return err
 			}
-			err = ticker.ProcessTicker(&ticker.Price{
+			_, err = ticker.ProcessTicker(&ticker.Price{
 				Last:         tick[y].LastPrice,
 				High:         tick[y].HighPrice,
 				Low:          tick[y].LowPrice,
@@ -522,7 +522,7 @@ func (b *Binance) UpdateTickers(ctx context.Context, a asset.Item) error {
 			if err != nil {
 				return err
 			}
-			err = ticker.ProcessTicker(&ticker.Price{
+			_, err = ticker.ProcessTicker(&ticker.Price{
 				Last:         tick[y].LastPrice,
 				High:         tick[y].HighPrice,
 				Low:          tick[y].LowPrice,
@@ -552,7 +552,7 @@ func (b *Binance) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Ite
 		if err != nil {
 			return nil, err
 		}
-		err = ticker.ProcessTicker(&ticker.Price{
+		return ticker.ProcessTicker(&ticker.Price{
 			Last:         tick.LastPrice,
 			High:         tick.HighPrice,
 			Low:          tick.LowPrice,
@@ -566,15 +566,12 @@ func (b *Binance) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Ite
 			ExchangeName: b.Name,
 			AssetType:    a,
 		})
-		if err != nil {
-			return nil, err
-		}
 	case asset.USDTMarginedFutures:
 		tick, err := b.U24HTickerPriceChangeStats(ctx, p)
 		if err != nil {
 			return nil, err
 		}
-		err = ticker.ProcessTicker(&ticker.Price{
+		return ticker.ProcessTicker(&ticker.Price{
 			Last:         tick[0].LastPrice,
 			High:         tick[0].HighPrice,
 			Low:          tick[0].LowPrice,
@@ -586,15 +583,12 @@ func (b *Binance) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Ite
 			ExchangeName: b.Name,
 			AssetType:    a,
 		})
-		if err != nil {
-			return nil, err
-		}
 	case asset.CoinMarginedFutures:
 		tick, err := b.GetFuturesSwapTickerChangeStats(ctx, p, "")
 		if err != nil {
 			return nil, err
 		}
-		err = ticker.ProcessTicker(&ticker.Price{
+		return ticker.ProcessTicker(&ticker.Price{
 			Last:         tick[0].LastPrice,
 			High:         tick[0].HighPrice,
 			Low:          tick[0].LowPrice,
@@ -606,14 +600,9 @@ func (b *Binance) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Ite
 			ExchangeName: b.Name,
 			AssetType:    a,
 		})
-		if err != nil {
-			return nil, err
-		}
-
 	default:
 		return nil, fmt.Errorf("assetType not supported: %v", a)
 	}
-	return ticker.GetTicker(b.Name, p, a)
 }
 
 // FetchTicker returns the ticker for a currency pair
@@ -641,27 +630,25 @@ func (b *Binance) FetchOrderbook(ctx context.Context, p currency.Pair, assetType
 
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (b *Binance) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
-	book := &orderbook.Base{
-		Exchange:        b.Name,
-		Pair:            p,
-		Asset:           assetType,
-		VerifyOrderbook: b.CanVerifyOrderbook,
-	}
 	var orderbookNew *OrderBook
 	var err error
 	switch assetType {
 	case asset.Spot, asset.Margin:
-		orderbookNew, err = b.GetOrderBook(ctx,
-			OrderBookDataRequestParams{
-				Symbol: p,
-				Limit:  1000})
+		orderbookNew, err = b.GetOrderBook(ctx, OrderBookDataRequestParams{Symbol: p, Limit: 1000})
 	case asset.USDTMarginedFutures:
 		orderbookNew, err = b.UFuturesOrderbook(ctx, p, 1000)
 	case asset.CoinMarginedFutures:
 		orderbookNew, err = b.GetFuturesOrderbook(ctx, p, 1000)
 	}
 	if err != nil {
-		return book, err
+		return nil, err
+	}
+
+	book := &orderbook.Base{
+		Exchange:        b.Name,
+		Pair:            p,
+		Asset:           assetType,
+		VerifyOrderbook: b.CanVerifyOrderbook,
 	}
 
 	book.Bids = make(orderbook.Items, len(orderbookNew.Bids))
@@ -678,12 +665,7 @@ func (b *Binance) UpdateOrderbook(ctx context.Context, p currency.Pair, assetTyp
 			Price:  orderbookNew.Asks[x].Price,
 		}
 	}
-
-	err = book.Process()
-	if err != nil {
-		return book, err
-	}
-	return orderbook.Get(b.Name, p, assetType)
+	return book.Process()
 }
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the

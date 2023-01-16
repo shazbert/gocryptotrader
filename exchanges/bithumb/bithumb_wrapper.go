@@ -276,7 +276,7 @@ func (b *Bithumb) UpdateTickers(ctx context.Context, a asset.Item) error {
 			return fmt.Errorf("enabled pair %s [%s] not found in returned ticker map %v",
 				pairs[i], pairs, tickers)
 		}
-		err = ticker.ProcessTicker(&ticker.Price{
+		_, err = ticker.ProcessTicker(&ticker.Price{
 			High:         t.MaxPrice,
 			Low:          t.MinPrice,
 			Volume:       t.UnitsTraded24Hr,
@@ -321,17 +321,16 @@ func (b *Bithumb) FetchOrderbook(ctx context.Context, p currency.Pair, assetType
 
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (b *Bithumb) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
+	orderbookNew, err := b.GetOrderBook(ctx, p.Base.String())
+	if err != nil {
+		return nil, err
+	}
+
 	book := &orderbook.Base{
 		Exchange:        b.Name,
 		Pair:            p,
 		Asset:           assetType,
 		VerifyOrderbook: b.CanVerifyOrderbook,
-	}
-	curr := p.Base.String()
-
-	orderbookNew, err := b.GetOrderBook(ctx, curr)
-	if err != nil {
-		return book, err
 	}
 
 	book.Bids = make(orderbook.Items, len(orderbookNew.Data.Bids))
@@ -349,12 +348,7 @@ func (b *Bithumb) UpdateOrderbook(ctx context.Context, p currency.Pair, assetTyp
 			Price:  orderbookNew.Data.Asks[i].Price,
 		}
 	}
-
-	err = book.Process()
-	if err != nil {
-		return book, err
-	}
-	return orderbook.Get(b.Name, p, assetType)
+	return book.Process()
 }
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the

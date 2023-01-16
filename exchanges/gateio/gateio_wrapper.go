@@ -257,7 +257,7 @@ func (g *Gateio) UpdateTickers(ctx context.Context, a asset.Item) error {
 				continue
 			}
 
-			err = ticker.ProcessTicker(&ticker.Price{
+			_, err = ticker.ProcessTicker(&ticker.Price{
 				Last:         result[k].Last,
 				High:         result[k].High,
 				Low:          result[k].Low,
@@ -305,20 +305,21 @@ func (g *Gateio) FetchOrderbook(ctx context.Context, p currency.Pair, assetType 
 
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (g *Gateio) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
+	curr, err := g.FormatExchangeCurrency(p, assetType)
+	if err != nil {
+		return nil, err
+	}
+
+	orderbookNew, err := g.GetOrderbook(ctx, curr.String())
+	if err != nil {
+		return nil, err
+	}
+
 	book := &orderbook.Base{
 		Exchange:        g.Name,
 		Pair:            p,
 		Asset:           assetType,
 		VerifyOrderbook: g.CanVerifyOrderbook,
-	}
-	curr, err := g.FormatExchangeCurrency(p, assetType)
-	if err != nil {
-		return book, err
-	}
-
-	orderbookNew, err := g.GetOrderbook(ctx, curr.String())
-	if err != nil {
-		return book, err
 	}
 
 	book.Bids = make(orderbook.Items, len(orderbookNew.Bids))
@@ -336,11 +337,7 @@ func (g *Gateio) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType
 			Price:  orderbookNew.Asks[x].Price,
 		}
 	}
-	err = book.Process()
-	if err != nil {
-		return book, err
-	}
-	return orderbook.Get(g.Name, p, assetType)
+	return book.Process()
 }
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the

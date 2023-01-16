@@ -434,7 +434,7 @@ func (h *HUOBI) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Item)
 		if err != nil {
 			return nil, err
 		}
-		err = ticker.ProcessTicker(&ticker.Price{
+		return ticker.ProcessTicker(&ticker.Price{
 			High:         tickerData.Tick.High,
 			Low:          tickerData.Tick.Low,
 			Volume:       tickerData.Tick.Volume,
@@ -444,9 +444,6 @@ func (h *HUOBI) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Item)
 			ExchangeName: h.Name,
 			AssetType:    asset.Spot,
 		})
-		if err != nil {
-			return nil, err
-		}
 	case asset.CoinMarginedFutures:
 		marketData, err := h.GetSwapMarketOverview(ctx, p)
 		if err != nil {
@@ -459,8 +456,7 @@ func (h *HUOBI) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Item)
 		if len(marketData.Tick.Ask) == 0 {
 			return nil, fmt.Errorf("invalid data for Ask")
 		}
-
-		err = ticker.ProcessTicker(&ticker.Price{
+		return ticker.ProcessTicker(&ticker.Price{
 			High:         marketData.Tick.High,
 			Low:          marketData.Tick.Low,
 			Volume:       marketData.Tick.Vol,
@@ -472,16 +468,12 @@ func (h *HUOBI) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Item)
 			ExchangeName: h.Name,
 			AssetType:    a,
 		})
-		if err != nil {
-			return nil, err
-		}
 	case asset.Futures:
 		marketData, err := h.FGetMarketOverviewData(ctx, p)
 		if err != nil {
 			return nil, err
 		}
-
-		err = ticker.ProcessTicker(&ticker.Price{
+		return ticker.ProcessTicker(&ticker.Price{
 			High:         marketData.Tick.High,
 			Low:          marketData.Tick.Low,
 			Volume:       marketData.Tick.Vol,
@@ -493,11 +485,8 @@ func (h *HUOBI) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Item)
 			ExchangeName: h.Name,
 			AssetType:    a,
 		})
-		if err != nil {
-			return nil, err
-		}
 	}
-	return ticker.GetTicker(h.Name, p, a)
+	return nil, common.ErrNotYetImplemented
 }
 
 // FetchTicker returns the ticker for a currency pair
@@ -553,7 +542,6 @@ func (h *HUOBI) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType 
 				Price:  orderbookNew.Asks[x][0],
 			}
 		}
-
 	case asset.Futures:
 		var orderbookNew *OBData
 		orderbookNew, err = h.FGetMarketDepth(ctx, p, "step0")
@@ -575,7 +563,6 @@ func (h *HUOBI) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType 
 				Price:  orderbookNew.Bids[y].Price,
 			}
 		}
-
 	case asset.CoinMarginedFutures:
 		var orderbookNew SwapMarketDepthData
 		orderbookNew, err = h.GetSwapMarketDepth(ctx, p, "step0")
@@ -598,12 +585,10 @@ func (h *HUOBI) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType 
 				Price:  orderbookNew.Tick.Bids[y][0],
 			}
 		}
+	default:
+		return nil, common.ErrFunctionNotSupported
 	}
-	err = book.Process()
-	if err != nil {
-		return book, err
-	}
-	return orderbook.Get(h.Name, p, assetType)
+	return book.Process()
 }
 
 // GetAccountID returns the account ID for trades

@@ -337,7 +337,7 @@ func (h *HitBTC) UpdateTickers(ctx context.Context, a asset.Item) error {
 				}
 			}
 
-			err = ticker.ProcessTicker(&ticker.Price{
+			_, err = ticker.ProcessTicker(&ticker.Price{
 				Last:         tick[j].Last,
 				High:         tick[j].High,
 				Low:          tick[j].Low,
@@ -386,20 +386,21 @@ func (h *HitBTC) FetchOrderbook(ctx context.Context, p currency.Pair, assetType 
 
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (h *HitBTC) UpdateOrderbook(ctx context.Context, c currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
+	fPair, err := h.FormatExchangeCurrency(c, assetType)
+	if err != nil {
+		return nil, err
+	}
+
+	orderbookNew, err := h.GetOrderbook(ctx, fPair.String(), 1000)
+	if err != nil {
+		return nil, err
+	}
+
 	book := &orderbook.Base{
 		Exchange:        h.Name,
 		Pair:            c,
 		Asset:           assetType,
 		VerifyOrderbook: h.CanVerifyOrderbook,
-	}
-	fpair, err := h.FormatExchangeCurrency(c, assetType)
-	if err != nil {
-		return book, err
-	}
-
-	orderbookNew, err := h.GetOrderbook(ctx, fpair.String(), 1000)
-	if err != nil {
-		return book, err
 	}
 
 	book.Bids = make(orderbook.Items, len(orderbookNew.Bids))
@@ -416,11 +417,7 @@ func (h *HitBTC) UpdateOrderbook(ctx context.Context, c currency.Pair, assetType
 			Price:  orderbookNew.Asks[x].Price,
 		}
 	}
-	err = book.Process()
-	if err != nil {
-		return book, err
-	}
-	return orderbook.Get(h.Name, c, assetType)
+	return book.Process()
 }
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the

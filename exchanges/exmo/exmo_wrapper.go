@@ -217,7 +217,7 @@ func (e *EXMO) UpdateTickers(ctx context.Context, a asset.Item) error {
 				continue
 			}
 
-			err = ticker.ProcessTicker(&ticker.Price{
+			_, err = ticker.ProcessTicker(&ticker.Price{
 				Pair:         pairs[i],
 				Last:         result[j].Last,
 				Ask:          result[j].Sell,
@@ -263,38 +263,26 @@ func (e *EXMO) FetchOrderbook(ctx context.Context, p currency.Pair, assetType as
 
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (e *EXMO) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
-	callingBook := &orderbook.Base{
-		Exchange:        e.Name,
-		Pair:            p,
-		Asset:           assetType,
-		VerifyOrderbook: e.CanVerifyOrderbook,
-	}
+	// TODO: Implement batch update and handling via sync manager.
 	enabledPairs, err := e.GetEnabledPairs(assetType)
 	if err != nil {
-		return callingBook, err
+		return nil, err
 	}
 
 	pairsCollated, err := e.FormatExchangeCurrencies(enabledPairs, assetType)
 	if err != nil {
-		return callingBook, err
+		return nil, err
 	}
 
 	result, err := e.GetOrderbook(ctx, pairsCollated)
 	if err != nil {
-		return callingBook, err
+		return nil, err
 	}
 
 	for i := range enabledPairs {
-		book := &orderbook.Base{
-			Exchange:        e.Name,
-			Pair:            enabledPairs[i],
-			Asset:           assetType,
-			VerifyOrderbook: e.CanVerifyOrderbook,
-		}
-
 		curr, err := e.FormatExchangeCurrency(enabledPairs[i], assetType)
 		if err != nil {
-			return callingBook, err
+			return nil, err
 		}
 
 		data, ok := result[curr.String()]
@@ -302,23 +290,27 @@ func (e *EXMO) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType a
 			continue
 		}
 
+		book := &orderbook.Base{
+			Exchange:        e.Name,
+			Pair:            enabledPairs[i],
+			Asset:           assetType,
+			VerifyOrderbook: e.CanVerifyOrderbook,
+		}
+
 		book.Asks = make(orderbook.Items, len(data.Ask))
 		for y := range data.Ask {
 			var price, amount float64
 			price, err = strconv.ParseFloat(data.Ask[y][0], 64)
 			if err != nil {
-				return book, err
+				return nil, err
 			}
 
 			amount, err = strconv.ParseFloat(data.Ask[y][1], 64)
 			if err != nil {
-				return book, err
+				return nil, err
 			}
 
-			book.Asks[y] = orderbook.Item{
-				Price:  price,
-				Amount: amount,
-			}
+			book.Asks[y] = orderbook.Item{Price: price, Amount: amount}
 		}
 
 		book.Bids = make(orderbook.Items, len(data.Bid))
@@ -334,13 +326,10 @@ func (e *EXMO) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType a
 				return book, err
 			}
 
-			book.Bids[y] = orderbook.Item{
-				Price:  price,
-				Amount: amount,
-			}
+			book.Bids[y] = orderbook.Item{Price: price, Amount: amount}
 		}
 
-		err = book.Process()
+		_, err = book.Process()
 		if err != nil {
 			return book, err
 		}

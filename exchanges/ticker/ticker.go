@@ -116,31 +116,32 @@ func FindLast(p currency.Pair, a asset.Item) (float64, error) {
 
 // ProcessTicker processes incoming tickers, creating or updating the Tickers
 // list
-func ProcessTicker(p *Price) error {
+func ProcessTicker(p *Price) (*Price, error) {
 	if p == nil {
-		return errors.New(errTickerPriceIsNil)
+		return nil, errTickerPriceIsNil
 	}
 
 	if p.ExchangeName == "" {
-		return fmt.Errorf(ErrExchangeNameUnset)
+		return nil, ErrExchangeNameUnset
 	}
 
 	if p.Pair.IsEmpty() {
-		return fmt.Errorf("%s %s", p.ExchangeName, errPairNotSet)
+		return nil, fmt.Errorf("%s %w", p.ExchangeName, errPairNotSet)
 	}
 
 	if p.AssetType == asset.Empty {
-		return fmt.Errorf("%s %s %s",
-			p.ExchangeName,
-			p.Pair,
-			errAssetTypeNotSet)
+		return nil, fmt.Errorf("%s %s %w", p.ExchangeName, p.Pair, errAssetTypeNotSet)
 	}
 
 	if p.LastUpdated.IsZero() {
 		p.LastUpdated = time.Now()
 	}
 
-	return service.update(p)
+	err := service.update(p)
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 
 // update updates ticker price

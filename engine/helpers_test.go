@@ -807,7 +807,7 @@ func TestGetSpecificTicker(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = ticker.ProcessTicker(&ticker.Price{
+	_, err = ticker.ProcessTicker(&ticker.Price{
 		Pair:         p,
 		Last:         1000,
 		AssetType:    asset.Spot,

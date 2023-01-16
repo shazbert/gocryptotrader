@@ -295,7 +295,7 @@ func (bi *Binanceus) UpdateTicker(ctx context.Context, p currency.Pair, a asset.
 	if err != nil {
 		return nil, err
 	}
-	err = ticker.ProcessTicker(&ticker.Price{
+	return ticker.ProcessTicker(&ticker.Price{
 		Last:         tick.LastPrice,
 		High:         tick.HighPrice,
 		Low:          tick.LowPrice,
@@ -309,10 +309,6 @@ func (bi *Binanceus) UpdateTicker(ctx context.Context, p currency.Pair, a asset.
 		ExchangeName: bi.Name,
 		AssetType:    a,
 	})
-	if err != nil {
-		return nil, err
-	}
-	return ticker.GetTicker(bi.Name, p, a)
 }
 
 // UpdateTickers updates all currency pairs of a given asset type
@@ -338,7 +334,7 @@ func (bi *Binanceus) UpdateTickers(ctx context.Context, a asset.Item) error {
 			if tick[y].Symbol != pairFmt.String() {
 				continue
 			}
-			err = ticker.ProcessTicker(&ticker.Price{
+			_, err = ticker.ProcessTicker(&ticker.Price{
 				Last:         tick[y].LastPrice,
 				High:         tick[y].HighPrice,
 				Low:          tick[y].LowPrice,
@@ -416,11 +412,7 @@ func (bi *Binanceus) UpdateOrderbook(ctx context.Context, pair currency.Pair, as
 			Price:  orderbookNew.Asks[x].Price,
 		}
 	}
-	err = book.Process()
-	if err != nil {
-		return book, err
-	}
-	return orderbook.Get(bi.Name, pair, assetType)
+	return book.Process()
 }
 
 // UpdateAccountInfo retrieves balances for all enabled currencies

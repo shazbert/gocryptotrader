@@ -163,7 +163,7 @@ func (i *ItBit) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Item)
 		return nil, err
 	}
 
-	err = ticker.ProcessTicker(&ticker.Price{
+	return ticker.ProcessTicker(&ticker.Price{
 		Last:         tick.LastPrice,
 		High:         tick.High24h,
 		Low:          tick.Low24h,
@@ -175,11 +175,6 @@ func (i *ItBit) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Item)
 		LastUpdated:  tick.ServertimeUTC,
 		ExchangeName: i.Name,
 		AssetType:    a})
-	if err != nil {
-		return nil, err
-	}
-
-	return ticker.GetTicker(i.Name, p, a)
 }
 
 // FetchTicker returns the ticker for a currency pair
@@ -202,21 +197,22 @@ func (i *ItBit) FetchOrderbook(ctx context.Context, p currency.Pair, assetType a
 
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (i *ItBit) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
+	fPair, err := i.FormatExchangeCurrency(p, assetType)
+	if err != nil {
+		return nil, err
+	}
+
+	orderbookNew, err := i.GetOrderbook(ctx, fPair.String())
+	if err != nil {
+		return nil, err
+	}
+
 	book := &orderbook.Base{
 		Exchange:         i.Name,
 		Pair:             p,
 		Asset:            assetType,
 		PriceDuplication: true,
 		VerifyOrderbook:  i.CanVerifyOrderbook,
-	}
-	fpair, err := i.FormatExchangeCurrency(p, assetType)
-	if err != nil {
-		return book, err
-	}
-
-	orderbookNew, err := i.GetOrderbook(ctx, fpair.String())
-	if err != nil {
-		return book, err
 	}
 
 	book.Bids = make(orderbook.Items, len(orderbookNew.Bids))
@@ -230,10 +226,7 @@ func (i *ItBit) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType 
 		if err != nil {
 			return book, err
 		}
-		book.Bids[x] = orderbook.Item{
-			Amount: amount,
-			Price:  price,
-		}
+		book.Bids[x] = orderbook.Item{Amount: amount, Price: price}
 	}
 
 	book.Asks = make(orderbook.Items, len(orderbookNew.Asks))
@@ -247,16 +240,9 @@ func (i *ItBit) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType 
 		if err != nil {
 			return book, err
 		}
-		book.Asks[x] = orderbook.Item{
-			Amount: amount,
-			Price:  price,
-		}
+		book.Asks[x] = orderbook.Item{Amount: amount, Price: price}
 	}
-	err = book.Process()
-	if err != nil {
-		return book, err
-	}
-	return orderbook.Get(i.Name, p, assetType)
+	return book.Process()
 }
 
 // UpdateAccountInfo retrieves balances for all enabled currencies

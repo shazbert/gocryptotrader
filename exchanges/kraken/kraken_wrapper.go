@@ -452,7 +452,7 @@ func (k *Kraken) UpdateTickers(ctx context.Context, a asset.Item) error {
 					}
 				}
 
-				err = ticker.ProcessTicker(&ticker.Price{
+				_, err = ticker.ProcessTicker(&ticker.Price{
 					Last:         t.Last,
 					High:         t.High,
 					Low:          t.Low,
@@ -478,7 +478,7 @@ func (k *Kraken) UpdateTickers(ctx context.Context, a asset.Item) error {
 			if err != nil {
 				return err
 			}
-			err = ticker.ProcessTicker(&ticker.Price{
+			_, err = ticker.ProcessTicker(&ticker.Price{
 				Last:         t.Tickers[x].Last,
 				Bid:          t.Tickers[x].Bid,
 				Ask:          t.Tickers[x].Ask,
@@ -576,11 +576,7 @@ func (k *Kraken) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType
 	default:
 		return book, fmt.Errorf("invalid assetType: %v", assetType)
 	}
-	err = book.Process()
-	if err != nil {
-		return book, err
-	}
-	return orderbook.Get(k.Name, p, assetType)
+	return book.Process()
 }
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the

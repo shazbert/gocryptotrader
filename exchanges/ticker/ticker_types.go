@@ -1,6 +1,7 @@
 package ticker
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -10,12 +11,11 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 )
 
-// const values for the ticker package
-const (
-	ErrExchangeNameUnset = "ticker exchange name not set"
-	errPairNotSet        = "ticker currency pair not set"
-	errAssetTypeNotSet   = "ticker asset type not set"
-	errTickerPriceIsNil  = "ticker price is nil"
+var (
+	ErrExchangeNameUnset = errors.New("ticker exchange name not set")
+	errPairNotSet        = errors.New("ticker currency pair not set")
+	errAssetTypeNotSet   = errors.New("ticker asset type not set")
+	errTickerPriceIsNil  = errors.New("ticker price is nil")
 )
 
 // Vars for the ticker package

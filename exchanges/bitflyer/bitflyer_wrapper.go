@@ -218,7 +218,7 @@ func (b *Bitflyer) UpdateTicker(ctx context.Context, p currency.Pair, a asset.It
 		return nil, err
 	}
 
-	err = ticker.ProcessTicker(&ticker.Price{
+	return ticker.ProcessTicker(&ticker.Price{
 		Pair:         fPair,
 		Ask:          tickerNew.BestAsk,
 		Bid:          tickerNew.BestBid,
@@ -226,11 +226,6 @@ func (b *Bitflyer) UpdateTicker(ctx context.Context, p currency.Pair, a asset.It
 		Volume:       tickerNew.Volume,
 		ExchangeName: b.Name,
 		AssetType:    a})
-	if err != nil {
-		return nil, err
-	}
-
-	return ticker.GetTicker(b.Name, fPair, a)
 }
 
 // FetchTicker returns the ticker for a currency pair
@@ -305,12 +300,7 @@ func (b *Bitflyer) UpdateOrderbook(ctx context.Context, p currency.Pair, assetTy
 		}
 	}
 
-	err = book.Process()
-	if err != nil {
-		return book, err
-	}
-
-	return orderbook.Get(b.Name, fPair, assetType)
+	return book.Process()
 }
 
 // UpdateAccountInfo retrieves balances for all enabled currencies on the

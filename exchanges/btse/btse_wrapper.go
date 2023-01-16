@@ -297,7 +297,7 @@ func (b *BTSE) UpdateTickers(ctx context.Context, a asset.Item) error {
 			return err
 		}
 
-		err = ticker.ProcessTicker(&ticker.Price{
+		_, err = ticker.ProcessTicker(&ticker.Price{
 			Pair:         pair,
 			Ask:          tickers[x].LowestAsk,
 			Bid:          tickers[x].HighestBid,
@@ -343,19 +343,20 @@ func (b *BTSE) FetchOrderbook(ctx context.Context, p currency.Pair, assetType as
 
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (b *BTSE) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
+	fPair, err := b.FormatExchangeCurrency(p, assetType)
+	if err != nil {
+		return nil, err
+	}
+	a, err := b.FetchOrderBook(ctx, fPair.String(), 0, 0, 0, assetType == asset.Spot)
+	if err != nil {
+		return nil, err
+	}
+
 	book := &orderbook.Base{
 		Exchange:        b.Name,
 		Pair:            p,
 		Asset:           assetType,
 		VerifyOrderbook: b.CanVerifyOrderbook,
-	}
-	fPair, err := b.FormatExchangeCurrency(p, assetType)
-	if err != nil {
-		return book, err
-	}
-	a, err := b.FetchOrderBook(ctx, fPair.String(), 0, 0, 0, assetType == asset.Spot)
-	if err != nil {
-		return book, err
 	}
 
 	book.Bids = make(orderbook.Items, 0, len(a.BuyQuote))
@@ -379,14 +380,7 @@ func (b *BTSE) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType a
 		})
 	}
 	book.Asks.SortAsks()
-	book.Pair = p
-	book.Exchange = b.Name
-	book.Asset = assetType
-	err = book.Process()
-	if err != nil {
-		return book, err
-	}
-	return orderbook.Get(b.Name, p, assetType)
+	return book.Process()
 }
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the

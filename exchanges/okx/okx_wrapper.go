@@ -372,7 +372,7 @@ func (ok *Okx) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Item) 
 	default:
 		return nil, fmt.Errorf("%w, asset type %s is not supported", errInvalidInstrumentType, a.String())
 	}
-	err = ticker.ProcessTicker(&ticker.Price{
+	return ticker.ProcessTicker(&ticker.Price{
 		Last:         mdata.LastTradePrice.Float64(),
 		High:         mdata.High24H.Float64(),
 		Low:          mdata.Low24H.Float64(),
@@ -383,12 +383,7 @@ func (ok *Okx) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Item) 
 		Open:         mdata.Open24H.Float64(),
 		Pair:         p,
 		ExchangeName: ok.Name,
-		AssetType:    a,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return ticker.GetTicker(ok.Name, p, a)
+		AssetType:    a})
 }
 
 // UpdateTickers updates all currency pairs of a given asset type
@@ -415,7 +410,7 @@ func (ok *Okx) UpdateTickers(ctx context.Context, assetType asset.Item) error {
 			if !pair.Equal(pairFmt) {
 				continue
 			}
-			err = ticker.ProcessTicker(&ticker.Price{
+			_, err = ticker.ProcessTicker(&ticker.Price{
 				Last:         ticks[y].LastTradePrice.Float64(),
 				High:         ticks[y].High24H.Float64(),
 				Low:          ticks[y].Low24H.Float64(),

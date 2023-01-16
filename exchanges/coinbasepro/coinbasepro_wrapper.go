@@ -387,8 +387,7 @@ func (c *CoinbasePro) UpdateTicker(ctx context.Context, p currency.Pair, a asset
 	if err != nil {
 		return nil, err
 	}
-
-	tickerPrice := &ticker.Price{
+	return ticker.ProcessTicker(&ticker.Price{
 		Last:         stats.Last,
 		High:         stats.High,
 		Low:          stats.Low,
@@ -399,14 +398,7 @@ func (c *CoinbasePro) UpdateTicker(ctx context.Context, p currency.Pair, a asset
 		Pair:         p,
 		LastUpdated:  tick.Time,
 		ExchangeName: c.Name,
-		AssetType:    a}
-
-	err = ticker.ProcessTicker(tickerPrice)
-	if err != nil {
-		return tickerPrice, err
-	}
-
-	return ticker.GetTicker(c.Name, p, a)
+		AssetType:    a})
 }
 
 // FetchTicker returns the ticker for a currency pair
@@ -429,25 +421,26 @@ func (c *CoinbasePro) FetchOrderbook(ctx context.Context, p currency.Pair, asset
 
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (c *CoinbasePro) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
+	fpair, err := c.FormatExchangeCurrency(p, assetType)
+	if err != nil {
+		return nil, err
+	}
+
+	orderbookNew, err := c.GetOrderbook(ctx, fpair.String(), 2)
+	if err != nil {
+		return nil, err
+	}
+
+	obNew, ok := orderbookNew.(OrderbookL1L2)
+	if !ok {
+		return nil, errors.New("unable to type assert orderbook data")
+	}
+
 	book := &orderbook.Base{
 		Exchange:        c.Name,
 		Pair:            p,
 		Asset:           assetType,
 		VerifyOrderbook: c.CanVerifyOrderbook,
-	}
-	fpair, err := c.FormatExchangeCurrency(p, assetType)
-	if err != nil {
-		return book, err
-	}
-
-	orderbookNew, err := c.GetOrderbook(ctx, fpair.String(), 2)
-	if err != nil {
-		return book, err
-	}
-
-	obNew, ok := orderbookNew.(OrderbookL1L2)
-	if !ok {
-		return book, errors.New("unable to type assert orderbook data")
 	}
 
 	book.Bids = make(orderbook.Items, len(obNew.Bids))
@@ -465,11 +458,7 @@ func (c *CoinbasePro) UpdateOrderbook(ctx context.Context, p currency.Pair, asse
 			Price:  obNew.Asks[x].Price,
 		}
 	}
-	err = book.Process()
-	if err != nil {
-		return book, err
-	}
-	return orderbook.Get(c.Name, p, assetType)
+	return book.Process()
 }
 
 // GetFundingHistory returns funding history, deposits and

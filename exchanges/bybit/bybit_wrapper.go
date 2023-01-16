@@ -432,7 +432,7 @@ func (by *Bybit) UpdateTickers(ctx context.Context, assetType asset.Item) error 
 				if err != nil {
 					return err
 				}
-				err = ticker.ProcessTicker(&ticker.Price{
+				_, err = ticker.ProcessTicker(&ticker.Price{
 					Last:         tick[y].LastPrice,
 					High:         tick[y].HighPrice,
 					Low:          tick[y].LowPrice,
@@ -471,7 +471,7 @@ func (by *Bybit) UpdateTickers(ctx context.Context, assetType asset.Item) error 
 				if err != nil {
 					return err
 				}
-				err = ticker.ProcessTicker(&ticker.Price{
+				_, err = ticker.ProcessTicker(&ticker.Price{
 					Last:         tick[y].LastPrice,
 					High:         tick[y].HighPrice24h,
 					Low:          tick[y].LowPrice24h,
@@ -504,7 +504,7 @@ func (by *Bybit) UpdateTickers(ctx context.Context, assetType asset.Item) error 
 			if err != nil {
 				return err
 			}
-			err = ticker.ProcessTicker(&ticker.Price{
+			_, err = ticker.ProcessTicker(&ticker.Price{
 				Last:         tick.LastPrice,
 				High:         tick.High24h,
 				Low:          tick.Low24h,
@@ -545,7 +545,7 @@ func (by *Bybit) UpdateTicker(ctx context.Context, p currency.Pair, assetType as
 			if err != nil {
 				return nil, err
 			}
-			err = ticker.ProcessTicker(&ticker.Price{
+			_, err = ticker.ProcessTicker(&ticker.Price{
 				Last:         tick[y].LastPrice,
 				High:         tick[y].HighPrice,
 				Low:          tick[y].LowPrice,
@@ -562,7 +562,6 @@ func (by *Bybit) UpdateTicker(ctx context.Context, p currency.Pair, assetType as
 				return nil, err
 			}
 		}
-
 	case asset.CoinMarginedFutures, asset.USDTMarginedFutures, asset.Futures:
 		tick, err := by.GetFuturesSymbolPriceTicker(ctx, formattedPair)
 		if err != nil {
@@ -574,7 +573,7 @@ func (by *Bybit) UpdateTicker(ctx context.Context, p currency.Pair, assetType as
 			if err != nil {
 				return nil, err
 			}
-			err = ticker.ProcessTicker(&ticker.Price{
+			_, err = ticker.ProcessTicker(&ticker.Price{
 				Last:         tick[y].LastPrice,
 				High:         tick[y].HighPrice24h,
 				Low:          tick[y].LowPrice24h,
@@ -589,7 +588,6 @@ func (by *Bybit) UpdateTicker(ctx context.Context, p currency.Pair, assetType as
 				return nil, err
 			}
 		}
-
 	case asset.USDCMarginedFutures:
 		tick, err := by.GetUSDCSymbols(ctx, formattedPair)
 		if err != nil {
@@ -600,7 +598,7 @@ func (by *Bybit) UpdateTicker(ctx context.Context, p currency.Pair, assetType as
 		if err != nil {
 			return nil, err
 		}
-		err = ticker.ProcessTicker(&ticker.Price{
+		_, err = ticker.ProcessTicker(&ticker.Price{
 			Last:         tick.LastPrice,
 			High:         tick.High24h,
 			Low:          tick.Low24h,
@@ -613,11 +611,9 @@ func (by *Bybit) UpdateTicker(ctx context.Context, p currency.Pair, assetType as
 		if err != nil {
 			return nil, err
 		}
-
 	default:
 		return nil, fmt.Errorf("%s %w", assetType, asset.ErrNotSupported)
 	}
-
 	return ticker.GetTicker(by.Name, p, assetType)
 }
 
@@ -646,14 +642,12 @@ func (by *Bybit) FetchOrderbook(ctx context.Context, currency currency.Pair, ass
 
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (by *Bybit) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
-	var orderbookNew *Orderbook
-	var err error
-
 	formattedPair, err := by.FormatExchangeCurrency(p, assetType)
 	if err != nil {
 		return nil, err
 	}
 
+	var orderbookNew *Orderbook
 	switch assetType {
 	case asset.Spot:
 		orderbookNew, err = by.GetOrderBook(ctx, formattedPair.String(), 0)
@@ -690,11 +684,7 @@ func (by *Bybit) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType
 			Price:  orderbookNew.Asks[x].Price,
 		}
 	}
-	err = book.Process()
-	if err != nil {
-		return book, err
-	}
-	return orderbook.Get(by.Name, formattedPair, assetType)
+	return book.Process()
 }
 
 // UpdateAccountInfo retrieves balances for all enabled currencies

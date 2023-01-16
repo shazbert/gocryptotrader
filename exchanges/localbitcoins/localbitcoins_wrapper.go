@@ -202,7 +202,7 @@ func (l *LocalBitcoins) UpdateTickers(ctx context.Context, a asset.Item) error {
 		tp.ExchangeName = l.Name
 		tp.AssetType = a
 
-		err = ticker.ProcessTicker(&tp)
+		_, err = ticker.ProcessTicker(&tp)
 		if err != nil {
 			return err
 		}
@@ -238,16 +238,17 @@ func (l *LocalBitcoins) FetchOrderbook(ctx context.Context, p currency.Pair, ass
 
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (l *LocalBitcoins) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
-	book := &orderbook.Base{
-		Exchange:        l.Name,
-		Pair:            p,
-		Asset:           assetType,
-		VerifyOrderbook: l.CanVerifyOrderbook,
-	}
-
 	orderbookNew, err := l.GetOrderbook(ctx, p.Quote.String())
 	if err != nil {
-		return book, err
+		return nil, err
+	}
+
+	book := &orderbook.Base{
+		Exchange:         l.Name,
+		Pair:             p,
+		Asset:            assetType,
+		VerifyOrderbook:  l.CanVerifyOrderbook,
+		PriceDuplication: true,
 	}
 
 	book.Bids = make(orderbook.Items, len(orderbookNew.Bids))
@@ -272,13 +273,7 @@ func (l *LocalBitcoins) UpdateOrderbook(ctx context.Context, p currency.Pair, as
 		}
 	}
 
-	book.PriceDuplication = true
-	err = book.Process()
-	if err != nil {
-		return book, err
-	}
-
-	return orderbook.Get(l.Name, p, assetType)
+	return book.Process()
 }
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the

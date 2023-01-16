@@ -337,7 +337,7 @@ func (b *BTCMarkets) UpdateTickers(ctx context.Context, a asset.Item) error {
 			return err
 		}
 
-		err = ticker.ProcessTicker(&ticker.Price{
+		_, err = ticker.ProcessTicker(&ticker.Price{
 			Pair:         newP,
 			Last:         tickers[x].LastPrice,
 			High:         tickers[x].High24h,
@@ -394,27 +394,28 @@ func (b *BTCMarkets) FetchOrderbook(ctx context.Context, p currency.Pair, assetT
 
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (b *BTCMarkets) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
-	book := &orderbook.Base{
-		Exchange:         b.Name,
-		Pair:             p,
-		Asset:            assetType,
-		PriceDuplication: true,
-		VerifyOrderbook:  b.CanVerifyOrderbook,
-	}
-
 	fpair, err := b.FormatExchangeCurrency(p, assetType)
 	if err != nil {
-		return book, err
+		return nil, err
 	}
 
 	// Retrieve level one book which is the top 50 ask and bids, this is not
 	// cached.
 	tempResp, err := b.GetOrderbook(ctx, fpair.String(), 1)
 	if err != nil {
-		return book, err
+		return nil, err
 	}
 
-	book.Bids = make(orderbook.Items, len(tempResp.Bids))
+	book := &orderbook.Base{
+		Exchange:         b.Name,
+		Pair:             p,
+		Asset:            assetType,
+		PriceDuplication: true,
+		VerifyOrderbook:  b.CanVerifyOrderbook,
+		Bids:             make(orderbook.Items, len(tempResp.Bids)),
+		Asks:             make(orderbook.Items, len(tempResp.Asks)),
+	}
+
 	for x := range tempResp.Bids {
 		book.Bids[x] = orderbook.Item{
 			Amount: tempResp.Bids[x].Volume,
@@ -422,18 +423,13 @@ func (b *BTCMarkets) UpdateOrderbook(ctx context.Context, p currency.Pair, asset
 		}
 	}
 
-	book.Asks = make(orderbook.Items, len(tempResp.Asks))
 	for y := range tempResp.Asks {
 		book.Asks[y] = orderbook.Item{
 			Amount: tempResp.Asks[y].Volume,
 			Price:  tempResp.Asks[y].Price,
 		}
 	}
-	err = book.Process()
-	if err != nil {
-		return book, err
-	}
-	return orderbook.Get(b.Name, p, assetType)
+	return book.Process()
 }
 
 // UpdateAccountInfo retrieves balances for all enabled currencies

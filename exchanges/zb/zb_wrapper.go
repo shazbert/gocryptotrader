@@ -270,7 +270,7 @@ func (z *ZB) UpdateTickers(ctx context.Context, a asset.Item) error {
 			continue
 		}
 
-		err = ticker.ProcessTicker(&ticker.Price{
+		_, err = ticker.ProcessTicker(&ticker.Price{
 			Pair:         enabledPairs[x],
 			High:         result[curr].High,
 			Last:         result[curr].Last,
@@ -347,11 +347,7 @@ func (z *ZB) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType ass
 			Price:  orderbookNew.Asks[x][0],
 		}
 	}
-	err = book.Process()
-	if err != nil {
-		return book, err
-	}
-	return orderbook.Get(z.Name, p, assetType)
+	return book.Process()
 }
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the

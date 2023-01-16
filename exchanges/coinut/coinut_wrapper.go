@@ -438,7 +438,7 @@ func (c *COINUT) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Item
 		return nil, err
 	}
 
-	err = ticker.ProcessTicker(&ticker.Price{
+	return ticker.ProcessTicker(&ticker.Price{
 		Last:         tick.Last,
 		High:         tick.High24,
 		Low:          tick.Low24,
@@ -449,11 +449,6 @@ func (c *COINUT) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Item
 		LastUpdated:  time.Unix(0, tick.Timestamp),
 		ExchangeName: c.Name,
 		AssetType:    a})
-	if err != nil {
-		return nil, err
-	}
-
-	return ticker.GetTicker(c.Name, p, a)
 }
 
 // FetchTicker returns the ticker for a currency pair
@@ -476,30 +471,31 @@ func (c *COINUT) FetchOrderbook(ctx context.Context, p currency.Pair, assetType 
 
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (c *COINUT) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
+	err := c.loadInstrumentsIfNotLoaded()
+	if err != nil {
+		return nil, err
+	}
+
+	fpair, err := c.FormatExchangeCurrency(p, assetType)
+	if err != nil {
+		return nil, err
+	}
+
+	instID := c.instrumentMap.LookupID(fpair.String())
+	if instID == 0 {
+		return nil, errLookupInstrumentID
+	}
+
+	orderbookNew, err := c.GetInstrumentOrderbook(ctx, instID, 200)
+	if err != nil {
+		return nil, err
+	}
+
 	book := &orderbook.Base{
 		Exchange:        c.Name,
 		Pair:            p,
 		Asset:           assetType,
 		VerifyOrderbook: c.CanVerifyOrderbook,
-	}
-	err := c.loadInstrumentsIfNotLoaded()
-	if err != nil {
-		return book, err
-	}
-
-	fpair, err := c.FormatExchangeCurrency(p, assetType)
-	if err != nil {
-		return book, err
-	}
-
-	instID := c.instrumentMap.LookupID(fpair.String())
-	if instID == 0 {
-		return book, errLookupInstrumentID
-	}
-
-	orderbookNew, err := c.GetInstrumentOrderbook(ctx, instID, 200)
-	if err != nil {
-		return book, err
 	}
 
 	book.Bids = make(orderbook.Items, len(orderbookNew.Buy))
@@ -517,11 +513,7 @@ func (c *COINUT) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType
 			Price:  orderbookNew.Sell[x].Price,
 		}
 	}
-	err = book.Process()
-	if err != nil {
-		return book, err
-	}
-	return orderbook.Get(c.Name, p, assetType)
+	return book.Process()
 }
 
 // GetFundingHistory returns funding history, deposits and

@@ -215,7 +215,7 @@ func (y *Yobit) UpdateTickers(ctx context.Context, a asset.Item) error {
 		}
 
 		resultCurr := result[curr]
-		err = ticker.ProcessTicker(&ticker.Price{
+		_, err = ticker.ProcessTicker(&ticker.Price{
 			Pair:         enabledPairs[i],
 			Last:         resultCurr.Last,
 			Ask:          resultCurr.Sell,
@@ -291,11 +291,7 @@ func (y *Yobit) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType 
 				Amount: orderbookNew.Asks[i][1],
 			})
 	}
-	err = book.Process()
-	if err != nil {
-		return book, err
-	}
-	return orderbook.Get(y.Name, p, assetType)
+	return book.Process()
 }
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the

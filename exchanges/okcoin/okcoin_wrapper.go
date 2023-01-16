@@ -339,7 +339,7 @@ func (o *OKCoin) UpdateTickers(ctx context.Context, a asset.Item) error {
 					continue
 				}
 
-				err = ticker.ProcessTicker(&ticker.Price{
+				_, err = ticker.ProcessTicker(&ticker.Price{
 					Last:         resp[j].Last,
 					High:         resp[j].High24h,
 					Low:          resp[j].Low24h,
@@ -445,36 +445,33 @@ func (o *OKCoin) FetchOrderbook(ctx context.Context, p currency.Pair, assetType 
 
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (o *OKCoin) UpdateOrderbook(ctx context.Context, p currency.Pair, a asset.Item) (*orderbook.Base, error) {
+	fPair, err := o.FormatExchangeCurrency(p, a)
+	if err != nil {
+		return nil, err
+	}
+
+	orderbookNew, err := o.GetOrderBook(ctx, &GetOrderBookRequest{
+		InstrumentID: fPair.String(), Size: 200,
+	}, a)
+	if err != nil {
+		return nil, err
+	}
+
 	book := &orderbook.Base{
 		Exchange:        o.Name,
 		Pair:            p,
 		Asset:           a,
 		VerifyOrderbook: o.CanVerifyOrderbook,
 	}
-
-	fPair, err := o.FormatExchangeCurrency(p, a)
-	if err != nil {
-		return book, err
-	}
-
-	orderbookNew, err := o.GetOrderBook(ctx,
-		&GetOrderBookRequest{
-			InstrumentID: fPair.String(),
-			Size:         200,
-		}, a)
-	if err != nil {
-		return book, err
-	}
-
 	book.Bids = make(orderbook.Items, len(orderbookNew.Bids))
 	for x := range orderbookNew.Bids {
 		amount, convErr := strconv.ParseFloat(orderbookNew.Bids[x][1], 64)
 		if convErr != nil {
-			return book, err
+			return nil, err
 		}
 		price, convErr := strconv.ParseFloat(orderbookNew.Bids[x][0], 64)
 		if convErr != nil {
-			return book, err
+			return nil, err
 		}
 
 		var liquidationOrders, orderCount int64
@@ -482,12 +479,12 @@ func (o *OKCoin) UpdateOrderbook(ctx context.Context, p currency.Pair, a asset.I
 		if len(orderbookNew.Bids[x]) == 4 {
 			liquidationOrders, convErr = strconv.ParseInt(orderbookNew.Bids[x][2], 10, 64)
 			if convErr != nil {
-				return book, err
+				return nil, err
 			}
 
 			orderCount, convErr = strconv.ParseInt(orderbookNew.Bids[x][3], 10, 64)
 			if convErr != nil {
-				return book, err
+				return nil, err
 			}
 		}
 
@@ -503,11 +500,11 @@ func (o *OKCoin) UpdateOrderbook(ctx context.Context, p currency.Pair, a asset.I
 	for x := range orderbookNew.Asks {
 		amount, convErr := strconv.ParseFloat(orderbookNew.Asks[x][1], 64)
 		if convErr != nil {
-			return book, err
+			return nil, err
 		}
 		price, convErr := strconv.ParseFloat(orderbookNew.Asks[x][0], 64)
 		if convErr != nil {
-			return book, err
+			return nil, err
 		}
 
 		var liquidationOrders, orderCount int64
@@ -515,12 +512,12 @@ func (o *OKCoin) UpdateOrderbook(ctx context.Context, p currency.Pair, a asset.I
 		if len(orderbookNew.Asks[x]) == 4 {
 			liquidationOrders, convErr = strconv.ParseInt(orderbookNew.Asks[x][2], 10, 64)
 			if convErr != nil {
-				return book, err
+				return nil, err
 			}
 
 			orderCount, convErr = strconv.ParseInt(orderbookNew.Asks[x][3], 10, 64)
 			if convErr != nil {
-				return book, err
+				return nil, err
 			}
 		}
 
@@ -532,12 +529,7 @@ func (o *OKCoin) UpdateOrderbook(ctx context.Context, p currency.Pair, a asset.I
 		}
 	}
 
-	err = book.Process()
-	if err != nil {
-		return book, err
-	}
-
-	return orderbook.Get(o.Name, fPair, a)
+	return book.Process()
 }
 
 // UpdateAccountInfo retrieves balances for all enabled currencies

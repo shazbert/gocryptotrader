@@ -378,7 +378,7 @@ func (g *Gemini) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Item
 		return nil, err
 	}
 
-	err = ticker.ProcessTicker(&ticker.Price{
+	return ticker.ProcessTicker(&ticker.Price{
 		High:         tick.High,
 		Low:          tick.Low,
 		Bid:          tick.Bid,
@@ -388,11 +388,6 @@ func (g *Gemini) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Item
 		Pair:         fPair,
 		ExchangeName: g.Name,
 		AssetType:    a})
-	if err != nil {
-		return nil, err
-	}
-
-	return ticker.GetTicker(g.Name, fPair, a)
 }
 
 // FetchTicker returns the ticker for a currency pair
@@ -425,20 +420,21 @@ func (g *Gemini) FetchOrderbook(ctx context.Context, p currency.Pair, assetType 
 
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (g *Gemini) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
+	fPair, err := g.FormatExchangeCurrency(p, assetType)
+	if err != nil {
+		return nil, err
+	}
+
+	orderbookNew, err := g.GetOrderbook(ctx, fPair.String(), url.Values{})
+	if err != nil {
+		return nil, err
+	}
+
 	book := &orderbook.Base{
 		Exchange:        g.Name,
 		Pair:            p,
 		Asset:           assetType,
 		VerifyOrderbook: g.CanVerifyOrderbook,
-	}
-	fPair, err := g.FormatExchangeCurrency(p, assetType)
-	if err != nil {
-		return book, err
-	}
-
-	orderbookNew, err := g.GetOrderbook(ctx, fPair.String(), url.Values{})
-	if err != nil {
-		return book, err
 	}
 
 	book.Bids = make(orderbook.Items, len(orderbookNew.Bids))
@@ -456,11 +452,7 @@ func (g *Gemini) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType
 			Price:  orderbookNew.Asks[x].Price,
 		}
 	}
-	err = book.Process()
-	if err != nil {
-		return book, err
-	}
-	return orderbook.Get(g.Name, fPair, assetType)
+	return book.Process()
 }
 
 // GetFundingHistory returns funding history, deposits and

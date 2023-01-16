@@ -365,7 +365,7 @@ func (b *Bitfinex) UpdateTickers(ctx context.Context, a asset.Item) error {
 			continue
 		}
 
-		err = ticker.ProcessTicker(&ticker.Price{
+		_, err = ticker.ProcessTicker(&ticker.Price{
 			Last:         v.Last,
 			High:         v.High,
 			Low:          v.Low,
@@ -485,11 +485,7 @@ func (b *Bitfinex) UpdateOrderbook(ctx context.Context, p currency.Pair, assetTy
 			}
 		}
 	}
-	err = o.Process()
-	if err != nil {
-		return nil, err
-	}
-	return orderbook.Get(b.Name, fPair, assetType)
+	return o.Process()
 }
 
 // UpdateAccountInfo retrieves balances for all enabled currencies on the

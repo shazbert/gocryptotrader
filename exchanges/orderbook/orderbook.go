@@ -303,17 +303,17 @@ func checkAlignment(depth Items, fundingRate, priceDuplication, isIDAligned bool
 
 // Process processes incoming orderbooks, creating or updating the orderbook
 // list
-func (b *Base) Process() error {
+func (b *Base) Process() (*Base, error) {
 	if b.Exchange == "" {
-		return errExchangeNameUnset
+		return nil, errExchangeNameUnset
 	}
 
 	if b.Pair.IsEmpty() {
-		return errPairNotSet
+		return nil, errPairNotSet
 	}
 
 	if b.Asset.String() == "" {
-		return errAssetTypeNotSet
+		return nil, errAssetTypeNotSet
 	}
 
 	if b.LastUpdated.IsZero() {
@@ -321,9 +321,9 @@ func (b *Base) Process() error {
 	}
 
 	if err := b.Verify(); err != nil {
-		return err
+		return nil, err
 	}
-	return service.Update(b)
+	return b, service.Update(b)
 }
 
 // Reverse reverses the order of orderbook items; some bid/asks are

@@ -308,14 +308,7 @@ func (b *Bittrex) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Ite
 		return nil, err
 	}
 
-	tickerPrice := b.constructTicker(t, &s, pair, a)
-
-	err = ticker.ProcessTicker(tickerPrice)
-	if err != nil {
-		return nil, err
-	}
-
-	return ticker.GetTicker(b.Name, p, a)
+	return ticker.ProcessTicker(b.constructTicker(t, &s, pair, a))
 }
 
 // constructTicker constructs a ticker price from the underlying data
@@ -355,28 +348,28 @@ func (b *Bittrex) FetchOrderbook(ctx context.Context, c currency.Pair, assetType
 
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (b *Bittrex) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
+	formattedPair, err := b.FormatExchangeCurrency(p, assetType)
+	if err != nil {
+		return nil, err
+	}
+
+	// Valid order book depths are 1, 25 and 500
+	orderbookData, sequence, err := b.GetOrderbook(ctx,
+		formattedPair.String(),
+		orderbookDepth)
+	if err != nil {
+		return nil, err
+	}
+
 	book := &orderbook.Base{
 		Exchange:        b.Name,
 		Pair:            p,
 		Asset:           assetType,
 		VerifyOrderbook: b.CanVerifyOrderbook,
+		LastUpdateID:    sequence,
+		Bids:            make(orderbook.Items, len(orderbookData.Bid)),
+		Asks:            make(orderbook.Items, len(orderbookData.Ask)),
 	}
-
-	formattedPair, err := b.FormatExchangeCurrency(p, assetType)
-	if err != nil {
-		return book, err
-	}
-
-	// Valid order book depths are 1, 25 and 500
-	orderbookData, sequence, err := b.GetOrderbook(ctx,
-		formattedPair.String(), orderbookDepth)
-	if err != nil {
-		return book, err
-	}
-
-	book.LastUpdateID = sequence
-	book.Bids = make(orderbook.Items, len(orderbookData.Bid))
-	book.Asks = make(orderbook.Items, len(orderbookData.Ask))
 
 	for x := range orderbookData.Bid {
 		book.Bids[x] = orderbook.Item{
@@ -391,12 +384,7 @@ func (b *Bittrex) UpdateOrderbook(ctx context.Context, p currency.Pair, assetTyp
 			Price:  orderbookData.Ask[x].Rate,
 		}
 	}
-	err = book.Process()
-	if err != nil {
-		return book, err
-	}
-
-	return orderbook.Get(b.Name, p, assetType)
+	return book.Process()
 }
 
 // UpdateAccountInfo retrieves balances for all enabled currencies

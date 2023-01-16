@@ -305,7 +305,7 @@ func (p *Poloniex) UpdateTickers(ctx context.Context, a asset.Item) error {
 			continue
 		}
 
-		err = ticker.ProcessTicker(&ticker.Price{
+		_, err = ticker.ProcessTicker(&ticker.Price{
 			Pair:         enabledPairs[i],
 			Ask:          tick[curr].LowestAsk,
 			Bid:          tick[curr].HighestBid,
@@ -351,36 +351,36 @@ func (p *Poloniex) FetchOrderbook(ctx context.Context, currencyPair currency.Pai
 
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (p *Poloniex) UpdateOrderbook(ctx context.Context, c currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
-	callingBook := &orderbook.Base{
-		Exchange:        p.Name,
-		Pair:            c,
-		Asset:           assetType,
-		VerifyOrderbook: p.CanVerifyOrderbook,
-	}
+	// callingBook := &orderbook.Base{
+	// 	Exchange:        p.Name,
+	// 	Pair:            c,
+	// 	Asset:           assetType,
+	// 	VerifyOrderbook: p.CanVerifyOrderbook,
+	// }
 	orderbookNew, err := p.GetOrderbook(ctx, "", poloniexMaxOrderbookDepth)
 	if err != nil {
-		return callingBook, err
+		return nil, err
 	}
 
 	enabledPairs, err := p.GetEnabledPairs(assetType)
 	if err != nil {
-		return callingBook, err
+		return nil, err
 	}
 	for i := range enabledPairs {
+		fpair, err := p.FormatExchangeCurrency(enabledPairs[i], assetType)
+		if err != nil {
+			return nil, err
+		}
+		data, ok := orderbookNew.Data[fpair.String()]
+		if !ok {
+			continue
+		}
+
 		book := &orderbook.Base{
 			Exchange:        p.Name,
 			Pair:            enabledPairs[i],
 			Asset:           assetType,
 			VerifyOrderbook: p.CanVerifyOrderbook,
-		}
-
-		fpair, err := p.FormatExchangeCurrency(enabledPairs[i], assetType)
-		if err != nil {
-			return book, err
-		}
-		data, ok := orderbookNew.Data[fpair.String()]
-		if !ok {
-			continue
 		}
 
 		book.Bids = make(orderbook.Items, len(data.Bids))
@@ -398,7 +398,7 @@ func (p *Poloniex) UpdateOrderbook(ctx context.Context, c currency.Pair, assetTy
 				Price:  data.Asks[y].Price,
 			}
 		}
-		err = book.Process()
+		_, err = book.Process()
 		if err != nil {
 			return book, err
 		}

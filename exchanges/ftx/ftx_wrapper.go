@@ -351,7 +351,7 @@ func (f *FTX) UpdateTickers(ctx context.Context, a asset.Item) error {
 			resp.LastUpdated = time.Now()
 			resp.AssetType = a
 			resp.ExchangeName = f.Name
-			err = ticker.ProcessTicker(&resp)
+			_, err = ticker.ProcessTicker(&resp)
 			if err != nil {
 				return err
 			}
@@ -383,12 +383,7 @@ func (f *FTX) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Item) (
 	resp.LastUpdated = time.Now()
 	resp.AssetType = a
 	resp.ExchangeName = f.Name
-	err = ticker.ProcessTicker(&resp)
-	if err != nil {
-		return nil, err
-	}
-
-	return ticker.GetTicker(f.Name, p, a)
+	return ticker.ProcessTicker(&resp)
 }
 
 // FetchTicker returns the ticker for a currency pair
@@ -448,11 +443,7 @@ func (f *FTX) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType as
 			Price:  tempResp.Asks[y].Price,
 		})
 	}
-	err = book.Process()
-	if err != nil {
-		return book, err
-	}
-	return orderbook.Get(f.Name, p, assetType)
+	return book.Process()
 }
 
 // UpdateAccountInfo retrieves balances for all enabled currencies

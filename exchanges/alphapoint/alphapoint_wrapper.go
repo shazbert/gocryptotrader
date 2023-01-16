@@ -156,7 +156,7 @@ func (a *Alphapoint) UpdateTicker(ctx context.Context, p currency.Pair, assetTyp
 		return nil, err
 	}
 
-	err = ticker.ProcessTicker(&ticker.Price{
+	return ticker.ProcessTicker(&ticker.Price{
 		Pair:         p,
 		Ask:          tick.Ask,
 		Bid:          tick.Bid,
@@ -167,11 +167,6 @@ func (a *Alphapoint) UpdateTicker(ctx context.Context, p currency.Pair, assetTyp
 		ExchangeName: a.Name,
 		AssetType:    assetType,
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	return ticker.GetTicker(a.Name, p, assetType)
 }
 
 // FetchTicker returns the ticker for a currency pair
@@ -211,12 +206,7 @@ func (a *Alphapoint) UpdateOrderbook(ctx context.Context, p currency.Pair, asset
 	orderBook.Exchange = a.Name
 	orderBook.Asset = assetType
 
-	err = orderBook.Process()
-	if err != nil {
-		return orderBook, err
-	}
-
-	return orderbook.Get(a.Name, p, assetType)
+	return orderBook.Process()
 }
 
 // FetchOrderbook returns the orderbook for a currency pair

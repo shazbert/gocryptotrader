@@ -2016,7 +2016,7 @@ func TestRPCServer_GetTicker_LastUpdatedNanos(t *testing.T) {
 
 	// Push a mock-up ticker.
 	now := time.Now()
-	err = ticker.ProcessTicker(&ticker.Price{
+	_, err = ticker.ProcessTicker(&ticker.Price{
 		ExchangeName: testExchange,
 		Pair:         pair,
 		AssetType:    asset.Spot,

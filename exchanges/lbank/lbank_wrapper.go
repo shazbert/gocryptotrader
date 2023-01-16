@@ -211,7 +211,7 @@ func (l *Lbank) UpdateTickers(ctx context.Context, a asset.Item) error {
 				continue
 			}
 
-			err = ticker.ProcessTicker(&ticker.Price{
+			_, err = ticker.ProcessTicker(&ticker.Price{
 				Last:         tickerInfo[j].Ticker.Latest,
 				High:         tickerInfo[j].Ticker.High,
 				Low:          tickerInfo[j].Ticker.Low,
@@ -261,36 +261,34 @@ func (l *Lbank) FetchOrderbook(ctx context.Context, c currency.Pair, assetType a
 
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (l *Lbank) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
+	fpair, err := l.FormatExchangeCurrency(p, assetType)
+	if err != nil {
+		return nil, err
+	}
+
+	a, err := l.GetMarketDepths(ctx, fpair.String(), "60", "1")
+	if err != nil {
+		return nil, err
+	}
+
 	book := &orderbook.Base{
 		Exchange:        l.Name,
 		Pair:            p,
 		Asset:           assetType,
 		VerifyOrderbook: l.CanVerifyOrderbook,
 	}
-	fpair, err := l.FormatExchangeCurrency(p, assetType)
-	if err != nil {
-		return book, err
-	}
-
-	a, err := l.GetMarketDepths(ctx, fpair.String(), "60", "1")
-	if err != nil {
-		return book, err
-	}
 
 	book.Asks = make(orderbook.Items, len(a.Data.Asks))
 	for i := range a.Data.Asks {
 		price, convErr := strconv.ParseFloat(a.Data.Asks[i][0], 64)
 		if convErr != nil {
-			return book, convErr
+			return nil, convErr
 		}
 		amount, convErr := strconv.ParseFloat(a.Data.Asks[i][1], 64)
 		if convErr != nil {
-			return book, convErr
+			return nil, convErr
 		}
-		book.Asks[i] = orderbook.Item{
-			Price:  price,
-			Amount: amount,
-		}
+		book.Asks[i] = orderbook.Item{Price: price, Amount: amount}
 	}
 	book.Bids = make(orderbook.Items, len(a.Data.Bids))
 	for i := range a.Data.Bids {
@@ -302,16 +300,9 @@ func (l *Lbank) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType 
 		if convErr != nil {
 			return book, convErr
 		}
-		book.Bids[i] = orderbook.Item{
-			Price:  price,
-			Amount: amount,
-		}
+		book.Bids[i] = orderbook.Item{Price: price, Amount: amount}
 	}
-	err = book.Process()
-	if err != nil {
-		return book, err
-	}
-	return orderbook.Get(l.Name, p, assetType)
+	return book.Process()
 }
 
 // UpdateAccountInfo retrieves balances for all enabled currencies for the

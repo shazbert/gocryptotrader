@@ -212,7 +212,7 @@ func (m *websocketRoutineManager) websocketDataHandler(exchName string, data int
 				return err
 			}
 		}
-		err := ticker.ProcessTicker(d)
+		_, err := ticker.ProcessTicker(d)
 		if err != nil {
 			return err
 		}
