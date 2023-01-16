@@ -41,7 +41,7 @@ func TestSubscribeToExchangeOrderbooks(t *testing.T) {
 		Bids:     []Item{{Price: 100, Amount: 1}, {Price: 99, Amount: 1}},
 	}
 
-	err = b.Process()
+	_, err = b.Process()
 	if err != nil {
 		t.Error(err)
 	}
@@ -189,7 +189,7 @@ func TestGetOrderbook(t *testing.T) {
 		Asset:    asset.Spot,
 	}
 
-	err = base.Process()
+	_, err = base.Process()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,7 +224,7 @@ func TestGetOrderbook(t *testing.T) {
 	}
 
 	base.Pair = newCurrency
-	err = base.Process()
+	_, err = base.Process()
 	if err != nil {
 		t.Error(err)
 	}
@@ -248,7 +248,7 @@ func TestGetDepth(t *testing.T) {
 		Asset:    asset.Spot,
 	}
 
-	err = base.Process()
+	_, err = base.Process()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -283,7 +283,7 @@ func TestGetDepth(t *testing.T) {
 	}
 
 	base.Pair = newCurrency
-	err = base.Process()
+	_, err = base.Process()
 	if err != nil {
 		t.Error(err)
 	}
@@ -333,7 +333,7 @@ func TestCreateNewOrderbook(t *testing.T) {
 		Asset:    asset.Spot,
 	}
 
-	err = base.Process()
+	_, err = base.Process()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -371,21 +371,21 @@ func TestProcessOrderbook(t *testing.T) {
 
 	// test for empty pair
 	base.Pair = currency.EMPTYPAIR
-	err = base.Process()
+	_, err = base.Process()
 	if err == nil {
 		t.Error("empty pair should throw an err")
 	}
 
 	// test for empty asset type
 	base.Pair = c
-	err = base.Process()
+	_, err = base.Process()
 	if err == nil {
 		t.Error("empty asset type should throw an err")
 	}
 
 	// now process a valid orderbook
 	base.Asset = asset.Spot
-	err = base.Process()
+	_, err = base.Process()
 	if err != nil {
 		t.Error("unexpcted result: ", err)
 	}
@@ -403,7 +403,7 @@ func TestProcessOrderbook(t *testing.T) {
 		t.Fatal(err)
 	}
 	base.Pair = c
-	err = base.Process()
+	_, err = base.Process()
 	if err != nil {
 		t.Error("Process() error", err)
 	}
@@ -421,7 +421,7 @@ func TestProcessOrderbook(t *testing.T) {
 		t.Fatal(err)
 	}
 	base.Pair = c
-	err = base.Process()
+	_, err = base.Process()
 	if err != nil {
 		t.Error("Process() error", err)
 	}
@@ -435,7 +435,7 @@ func TestProcessOrderbook(t *testing.T) {
 
 	base.Asks = []Item{{Price: 200, Amount: 200}}
 	base.Asset = asset.Spot
-	err = base.Process()
+	_, err = base.Process()
 	if err != nil {
 		t.Error("Process() error", err)
 	}
@@ -453,7 +453,7 @@ func TestProcessOrderbook(t *testing.T) {
 	base.Bids = []Item{{Price: 420, Amount: 200}}
 	base.Exchange = "Blah"
 	base.Asset = asset.CoinMarginedFutures
-	err = base.Process()
+	_, err = base.Process()
 	if err != nil {
 		t.Error("Process() error", err)
 	}
@@ -507,7 +507,7 @@ func TestProcessOrderbook(t *testing.T) {
 			}
 
 			m.Lock()
-			err = base.Process()
+			_, err = base.Process()
 			if err != nil {
 				t.Error(err)
 				catastrophicFailure = true
