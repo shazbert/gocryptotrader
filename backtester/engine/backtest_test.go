@@ -104,7 +104,7 @@ func TestSetupFromConfig(t *testing.T) {
 	if !errors.Is(err, errIntervalUnset) {
 		t.Errorf("received: %v, expected: %v", err, errIntervalUnset)
 	}
-	cfg.DataSettings.Interval = gctkline.OneMin
+	cfg.DataSettings.Intervals = []gctkline.Interval{gctkline.OneMin}
 	cfg.CurrencySettings[0].MakerFee = &decimal.Zero
 	cfg.CurrencySettings[0].TakerFee = &decimal.Zero
 	err = bt.SetupFromConfig(cfg, "", "", false)
@@ -161,8 +161,8 @@ func TestLoadDataAPI(t *testing.T) {
 			},
 		},
 		DataSettings: config.DataSettings{
-			DataType: common.CandleStr,
-			Interval: gctkline.OneMin,
+			DataType:  common.CandleStr,
+			Intervals: []gctkline.Interval{gctkline.OneMin},
 			APIData: &config.APIData{
 				StartDate: time.Now().Add(-time.Minute * 5),
 				EndDate:   time.Now(),
@@ -216,8 +216,8 @@ func TestLoadDataCSV(t *testing.T) {
 			},
 		},
 		DataSettings: config.DataSettings{
-			DataType: common.CandleStr,
-			Interval: gctkline.OneMin,
+			DataType:  common.CandleStr,
+			Intervals: []gctkline.Interval{gctkline.OneMin},
 			CSVData: &config.CSVData{
 				FullPath: "test",
 			}},
@@ -272,8 +272,8 @@ func TestLoadDataDatabase(t *testing.T) {
 			},
 		},
 		DataSettings: config.DataSettings{
-			DataType: common.CandleStr,
-			Interval: gctkline.OneMin,
+			DataType:  common.CandleStr,
+			Intervals: []gctkline.Interval{gctkline.OneMin},
 			DatabaseData: &config.DatabaseData{
 				Config: database.Config{
 					Enabled: true,
@@ -344,8 +344,8 @@ func TestLoadDataLive(t *testing.T) {
 			},
 		},
 		DataSettings: config.DataSettings{
-			DataType: common.CandleStr,
-			Interval: gctkline.OneMin,
+			DataType:  common.CandleStr,
+			Intervals: []gctkline.Interval{gctkline.OneMin},
 			LiveData: &config.LiveData{
 				ExchangeCredentials: []config.Credentials{
 					{
@@ -1554,7 +1554,7 @@ func TestSetExchangeCredentials(t *testing.T) {
 		t.Errorf("received '%v' expected '%v'", err, errIntervalUnset)
 	}
 
-	cfg.DataSettings.Interval = gctkline.OneMin
+	cfg.DataSettings.Intervals = []gctkline.Interval{gctkline.OneMin}
 	err = setExchangeCredentials(cfg, b)
 	if !errors.Is(err, errNoCredsNoLive) {
 		t.Errorf("received '%v' expected '%v'", err, errNoCredsNoLive)

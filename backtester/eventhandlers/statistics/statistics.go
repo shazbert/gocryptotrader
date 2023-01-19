@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/shopspring/decimal"
 	"github.com/thrasher-corp/gocryptotrader/backtester/common"
 	"github.com/thrasher-corp/gocryptotrader/backtester/eventhandlers/portfolio"
 	"github.com/thrasher-corp/gocryptotrader/backtester/eventhandlers/portfolio/compliance"
@@ -25,28 +24,7 @@ func (s *Statistic) Reset() error {
 	if s == nil {
 		return gctcommon.ErrNilPointer
 	}
-	s.StrategyName = ""
-	s.StrategyDescription = ""
-	s.StrategyNickname = ""
-	s.StrategyGoal = ""
-	s.StartDate = time.Time{}
-	s.EndDate = time.Time{}
-	s.CandleInterval = 0
-	s.RiskFreeRate = decimal.Zero
-	s.ExchangeAssetPairStatistics = make(map[string]map[asset.Item]map[*currency.Item]map[*currency.Item]*CurrencyPairStatistic)
-	s.CurrencyStatistics = nil
-	s.TotalBuyOrders = 0
-	s.TotalLongOrders = 0
-	s.TotalShortOrders = 0
-	s.TotalSellOrders = 0
-	s.TotalOrders = 0
-	s.BiggestDrawdown = nil
-	s.BestStrategyResults = nil
-	s.BestMarketMovement = nil
-	s.WasAnyDataMissing = false
-	s.FundingStatistics = nil
-	s.FundManager = nil
-	s.HasCollateral = false
+	*s = Statistic{}
 	return nil
 }
 
@@ -263,7 +241,7 @@ func (s *Statistic) CalculateAllResults() error {
 			}
 		}
 	}
-	s.FundingStatistics, err = CalculateFundingStatistics(s.FundManager, s.ExchangeAssetPairStatistics, s.RiskFreeRate, s.CandleInterval)
+	s.FundingStatistics, err = CalculateFundingStatistics(s.FundManager, s.ExchangeAssetPairStatistics, s.RiskFreeRate, s.CandleIntervals)
 	if err != nil {
 		return err
 	}

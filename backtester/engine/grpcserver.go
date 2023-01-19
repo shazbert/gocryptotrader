@@ -25,7 +25,6 @@ import (
 	gctengine "github.com/thrasher-corp/gocryptotrader/engine"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/account"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
-	gctkline "github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	"github.com/thrasher-corp/gocryptotrader/gctrpc/auth"
 	"github.com/thrasher-corp/gocryptotrader/log"
 	"github.com/thrasher-corp/gocryptotrader/utils"
@@ -571,7 +570,7 @@ func (s *GRPCServer) ExecuteStrategyFromConfig(_ context.Context, request *btrpc
 		},
 		CurrencySettings: configSettings,
 		DataSettings: config.DataSettings{
-			Interval:     gctkline.Interval(request.Config.DataSettings.Interval),
+			// Interval:     gctkline.Interval(request.Config.DataSettings.Interval), TODO: Integrate
 			DataType:     request.Config.DataSettings.Datatype,
 			APIData:      apiData,
 			DatabaseData: dbData,

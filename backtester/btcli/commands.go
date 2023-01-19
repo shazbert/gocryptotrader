@@ -437,7 +437,7 @@ func executeStrategyFromConfig(c *cli.Context) error {
 	}
 
 	dataSettings := &btrpc.DataSettings{
-		Interval: uint64(defaultConfig.DataSettings.Interval.Duration().Nanoseconds()),
+		// Interval: uint64(defaultConfig.DataSettings.Interval.Duration().Nanoseconds()), TODO: integrate
 		Datatype: defaultConfig.DataSettings.DataType,
 	}
 	if defaultConfig.DataSettings.APIData != nil {

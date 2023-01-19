@@ -16,7 +16,7 @@ import (
 
 // CalculateFundingStatistics calculates funding statistics for total USD strategy results
 // along with individual funding item statistics
-func CalculateFundingStatistics(funds funding.IFundingManager, currStats map[string]map[asset.Item]map[*currency.Item]map[*currency.Item]*CurrencyPairStatistic, riskFreeRate decimal.Decimal, interval gctkline.Interval) (*FundingStatistics, error) {
+func CalculateFundingStatistics(funds funding.IFundingManager, currStats map[string]map[asset.Item]map[*currency.Item]map[*currency.Item]*CurrencyPairStatistic, riskFreeRate decimal.Decimal, intervals []gctkline.Interval) (*FundingStatistics, error) {
 	if currStats == nil {
 		return nil, gctcommon.ErrNilPointer
 	}
@@ -30,6 +30,10 @@ func CalculateFundingStatistics(funds funding.IFundingManager, currStats map[str
 	response := &FundingStatistics{
 		Report: report,
 	}
+
+	fmt.Printf("lol %+v\n", report)               // NOTE This has an extra item with nothing in it for some reason bro
+	fmt.Printf("currency stats %+v\n", currStats) // There's nothing here?
+
 	for i := range report.Items {
 		exchangeAssetStats, ok := currStats[report.Items[i].Exchange][report.Items[i].Asset]
 		if !ok {
@@ -96,7 +100,12 @@ func CalculateFundingStatistics(funds funding.IFundingManager, currStats map[str
 
 	usdStats.HoldingValueDifference = report.FinalFunds.Sub(report.InitialFunds).Div(report.InitialFunds).Mul(decimal.NewFromInt(100))
 
-	riskFreeRatePerCandle := usdStats.RiskFreeRate.Div(decimal.NewFromFloat(interval.IntervalsPerYear()))
+	ins, err := getSmallestInterval(intervals)
+	if err != nil {
+		return nil, err
+	}
+
+	riskFreeRatePerCandle := usdStats.RiskFreeRate.Div(decimal.NewFromFloat(ins.IntervalsPerYear()))
 	returnsPerCandle := make([]decimal.Decimal, len(usdStats.HoldingValues))
 	benchmarkRates := make([]decimal.Decimal, len(usdStats.HoldingValues))
 	benchmarkMovement := usdStats.HoldingValues[0].Value
@@ -113,7 +122,7 @@ func CalculateFundingStatistics(funds funding.IFundingManager, currStats map[str
 	if !usdStats.HoldingValues[0].Value.IsZero() {
 		usdStats.BenchmarkMarketMovement = benchmarkMovement.Sub(usdStats.HoldingValues[0].Value).Div(usdStats.HoldingValues[0].Value).Mul(decimal.NewFromInt(100))
 	}
-	usdStats.MaxDrawdown, err = CalculateBiggestValueAtTimeDrawdown(usdStats.HoldingValues, interval)
+	usdStats.MaxDrawdown, err = CalculateBiggestValueAtTimeDrawdown(usdStats.HoldingValues, ins)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +141,7 @@ func CalculateFundingStatistics(funds funding.IFundingManager, currStats map[str
 		cagr, err = gctmath.DecimalCompoundAnnualGrowthRate(
 			response.Items[i].ReportItem.InitialFunds,
 			response.Items[i].ReportItem.FinalFunds,
-			decimal.NewFromFloat(interval.IntervalsPerYear()),
+			decimal.NewFromFloat(ins.IntervalsPerYear()),
 			decimal.NewFromInt(int64(len(usdStats.HoldingValues))),
 		)
 		if err != nil && !errors.Is(err, gctmath.ErrPowerDifferenceTooSmall) {
@@ -144,7 +153,7 @@ func CalculateFundingStatistics(funds funding.IFundingManager, currStats map[str
 		cagr, err = gctmath.DecimalCompoundAnnualGrowthRate(
 			usdStats.HoldingValues[0].Value,
 			usdStats.HoldingValues[len(usdStats.HoldingValues)-1].Value,
-			decimal.NewFromFloat(interval.IntervalsPerYear()),
+			decimal.NewFromFloat(ins.IntervalsPerYear()),
 			decimal.NewFromInt(int64(len(usdStats.HoldingValues))),
 		)
 		if err != nil && !errors.Is(err, gctmath.ErrPowerDifferenceTooSmall) {
@@ -157,6 +166,19 @@ func CalculateFundingStatistics(funds funding.IFundingManager, currStats map[str
 	response.TotalUSDStatistics = usdStats
 
 	return response, nil
+}
+
+func getSmallestInterval(ins []gctkline.Interval) (gctkline.Interval, error) {
+	if len(ins) == 0 {
+		return 0, errors.New("unset intervals :(") // TODO: Shift to gct kline package.
+	}
+	var small gctkline.Interval
+	for x := range ins {
+		if small == 0 || ins[x] < small {
+			small = ins[x]
+		}
+	}
+	return small, nil
 }
 
 // CalculateIndividualFundingStatistics calculates statistics for an individual report item

@@ -170,8 +170,8 @@ func parseDataSettings(cfg *config.Config, reader *bufio.Reader) error {
 	if cfg.DataSettings.DataType == common.TradeStr {
 		fmt.Println("Trade data will be converted into candles")
 	}
-	fmt.Println("What candle time interval will you use?")
-	cfg.DataSettings.Interval, err = parseKlineInterval(reader)
+	fmt.Println("What candle time intervals will you use? comma seperated")
+	cfg.DataSettings.Intervals, err = parseKlineIntervals(reader)
 	if err != nil {
 		return err
 	}
@@ -515,26 +515,33 @@ func parseDataChoice(reader *bufio.Reader, multiCurrency bool) (string, error) {
 	return "", errors.New("unrecognised data option")
 }
 
-func parseKlineInterval(reader *bufio.Reader) (gctkline.Interval, error) {
+func parseKlineIntervals(reader *bufio.Reader) ([]gctkline.Interval, error) {
 	allCandles := gctkline.SupportedIntervals
 	for i := range allCandles {
 		fmt.Printf("%v. %s\n", i+1, allCandles[i].Word())
 	}
 	response := quickParse(reader)
-	num, err := strconv.ParseFloat(response, 64)
-	if err == nil {
-		intNum := int(num)
-		if intNum > len(allCandles) || intNum <= 0 {
-			return 0, errors.New("unknown option")
+	potentialIntervals := strings.Split(response, ",")
+
+	intervals := make([]gctkline.Interval, len(potentialIntervals))
+	for x := range potentialIntervals {
+		num, err := strconv.ParseFloat(potentialIntervals[x], 64)
+		if err == nil {
+			intNum := int(num)
+			if intNum > len(allCandles) || intNum <= 0 {
+				return nil, fmt.Errorf("%v unknown option", intNum)
+			}
+			intervals[x] = allCandles[intNum-1]
+			continue
 		}
-		return allCandles[intNum-1], nil
-	}
-	for i := range allCandles {
-		if strings.EqualFold(response, allCandles[i].Word()) {
-			return allCandles[i], nil
+		for i := range allCandles {
+			if !strings.EqualFold(potentialIntervals[x], allCandles[i].Word()) {
+				intervals[x] = allCandles[i]
+			}
 		}
+		return nil, fmt.Errorf("%v unrecognised interval", potentialIntervals[x])
 	}
-	return 0, errors.New("unrecognised interval")
+	return intervals, nil
 }
 
 func parseStratName(name string, strategiesToUse []string) (string, error) {

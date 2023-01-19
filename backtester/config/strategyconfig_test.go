@@ -19,7 +19,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/database/drivers"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/account"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
-	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
+	gctkline "github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 )
 
 const (
@@ -386,8 +386,8 @@ func TestPrintSettings(t *testing.T) {
 			},
 		},
 		DataSettings: DataSettings{
-			Interval: kline.OneMin,
-			DataType: common.CandleStr,
+			Intervals: []gctkline.Interval{gctkline.OneMin},
+			DataType:  common.CandleStr,
 			APIData: &APIData{
 				StartDate:        startDate,
 				EndDate:          endDate,
@@ -503,8 +503,8 @@ func TestGenerateConfigForDCAAPICandles(t *testing.T) {
 			},
 		},
 		DataSettings: DataSettings{
-			Interval: kline.OneDay,
-			DataType: common.CandleStr,
+			Intervals: []gctkline.Interval{gctkline.OneDay},
+			DataType:  common.CandleStr,
 			APIData: &APIData{
 				StartDate:        startDate,
 				EndDate:          endDate,
@@ -561,8 +561,8 @@ func TestGenerateConfigForPluginStrategy(t *testing.T) {
 			},
 		},
 		DataSettings: DataSettings{
-			Interval: kline.OneDay,
-			DataType: common.CandleStr,
+			Intervals: []gctkline.Interval{gctkline.OneDay},
+			DataType:  common.CandleStr,
 			APIData: &APIData{
 				StartDate:        startDate,
 				EndDate:          endDate,
@@ -642,8 +642,8 @@ func TestGenerateConfigForDCAAPICandlesExchangeLevelFunding(t *testing.T) {
 			},
 		},
 		DataSettings: DataSettings{
-			Interval: kline.OneDay,
-			DataType: common.CandleStr,
+			Intervals: []gctkline.Interval{gctkline.OneDay},
+			DataType:  common.CandleStr,
 			APIData: &APIData{
 				StartDate:        startDate,
 				EndDate:          endDate,
@@ -701,8 +701,8 @@ func TestGenerateConfigForDCAAPITrades(t *testing.T) {
 			},
 		},
 		DataSettings: DataSettings{
-			Interval: kline.OneHour,
-			DataType: common.TradeStr,
+			Intervals: []gctkline.Interval{gctkline.OneHour},
+			DataType:  common.TradeStr,
 			APIData: &APIData{
 				StartDate:        startDate,
 				EndDate:          tradeEndDate,
@@ -780,8 +780,8 @@ func TestGenerateConfigForDCAAPICandlesMultipleCurrencies(t *testing.T) {
 			},
 		},
 		DataSettings: DataSettings{
-			Interval: kline.OneDay,
-			DataType: common.CandleStr,
+			Intervals: []gctkline.Interval{gctkline.OneDay},
+			DataType:  common.CandleStr,
 			APIData: &APIData{
 				StartDate:        startDate,
 				EndDate:          endDate,
@@ -852,8 +852,8 @@ func TestGenerateConfigForDCAAPICandlesSimultaneousProcessing(t *testing.T) {
 			},
 		},
 		DataSettings: DataSettings{
-			Interval: kline.OneDay,
-			DataType: common.CandleStr,
+			Intervals: []gctkline.Interval{gctkline.OneDay},
+			DataType:  common.CandleStr,
 			APIData: &APIData{
 				StartDate:        startDate,
 				EndDate:          endDate,
@@ -911,8 +911,8 @@ func TestGenerateConfigForDCALiveCandles(t *testing.T) {
 			},
 		},
 		DataSettings: DataSettings{
-			Interval: kline.OneMin,
-			DataType: common.CandleStr,
+			Intervals: []gctkline.Interval{gctkline.OneMin},
+			DataType:  common.CandleStr,
 			LiveData: &LiveData{
 				NewEventTimeout:           time.Minute * 2,
 				DataCheckTimer:            time.Second,
@@ -985,8 +985,8 @@ func TestGenerateConfigForRSIAPICustomSettings(t *testing.T) {
 			},
 		},
 		DataSettings: DataSettings{
-			Interval: kline.OneDay,
-			DataType: common.CandleStr,
+			Intervals: []gctkline.Interval{gctkline.OneDay},
+			DataType:  common.CandleStr,
 			APIData: &APIData{
 				StartDate:        time.Date(2021, 5, 1, 0, 0, 0, 0, time.Local),
 				EndDate:          endDate,
@@ -1045,8 +1045,8 @@ func TestGenerateConfigForDCACSVCandles(t *testing.T) {
 			},
 		},
 		DataSettings: DataSettings{
-			Interval: kline.OneDay,
-			DataType: common.CandleStr,
+			Intervals: []gctkline.Interval{gctkline.OneDay},
+			DataType:  common.CandleStr,
 			CSVData: &CSVData{
 				FullPath: fp,
 			},
@@ -1101,8 +1101,8 @@ func TestGenerateConfigForDCACSVTrades(t *testing.T) {
 			},
 		},
 		DataSettings: DataSettings{
-			Interval: kline.OneMin,
-			DataType: common.TradeStr,
+			Intervals: []gctkline.Interval{gctkline.OneMin},
+			DataType:  common.TradeStr,
 			CSVData: &CSVData{
 				FullPath: fp,
 			},
@@ -1154,8 +1154,8 @@ func TestGenerateConfigForDCADatabaseCandles(t *testing.T) {
 			},
 		},
 		DataSettings: DataSettings{
-			Interval: kline.OneDay,
-			DataType: common.CandleStr,
+			Intervals: []gctkline.Interval{gctkline.OneDay},
+			DataType:  common.CandleStr,
 			DatabaseData: &DatabaseData{
 				StartDate: startDate,
 				EndDate:   endDate,
@@ -1292,8 +1292,8 @@ func TestGenerateConfigForTop2Bottom2(t *testing.T) {
 			},
 		},
 		DataSettings: DataSettings{
-			Interval: kline.OneDay,
-			DataType: common.CandleStr,
+			Intervals: []gctkline.Interval{gctkline.OneDay},
+			DataType:  common.CandleStr,
 			APIData: &APIData{
 				StartDate: startDate,
 				EndDate:   endDate,
@@ -1368,8 +1368,8 @@ func TestGenerateBinanceCashAndCarryStrategy(t *testing.T) {
 			},
 		},
 		DataSettings: DataSettings{
-			Interval: kline.OneDay,
-			DataType: common.CandleStr,
+			Intervals: []gctkline.Interval{gctkline.OneDay},
+			DataType:  common.CandleStr,
 			APIData: &APIData{
 				StartDate:        time.Date(2021, 1, 14, 0, 0, 0, 0, time.UTC),
 				EndDate:          time.Date(2021, 9, 24, 0, 0, 0, 0, time.UTC),
@@ -1443,8 +1443,8 @@ func TestGenerateConfigForLiveCashAndCarry(t *testing.T) {
 			},
 		},
 		DataSettings: DataSettings{
-			Interval: kline.FifteenSecond,
-			DataType: common.CandleStr,
+			Intervals: []gctkline.Interval{gctkline.FifteenSecond},
+			DataType:  common.CandleStr,
 			LiveData: &LiveData{
 				NewEventTimeout:           time.Minute,
 				DataCheckTimer:            time.Second,

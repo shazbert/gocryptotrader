@@ -21,6 +21,7 @@ var (
 	errNilConfig           = errors.New("unable to setup backtester with nil config")
 	errAmbiguousDataSource = errors.New("ambiguous settings received. Only one data type can be set")
 	errNoDataSource        = errors.New("no data settings set in config")
+	errIntervalsUnset      = errors.New("candle intervals unset")
 	errIntervalUnset       = errors.New("candle interval unset")
 	errUnhandledDatatype   = errors.New("unhandled datatype")
 	errNilData             = errors.New("nil data received")

@@ -157,9 +157,8 @@ func (b *Base) SetStream(s []Event) error {
 	b.m.Lock()
 	defer b.m.Unlock()
 
-	sort.Slice(s, func(i, j int) bool {
-		return s[i].GetTime().Before(s[j].GetTime())
-	})
+	sort.Slice(s, func(i, j int) bool { return s[i].GetTime().Before(s[j].GetTime()) })
+	fmt.Println("STREAMY")
 	for x := range s {
 		if s[x] == nil {
 			return fmt.Errorf("%w Event", gctcommon.ErrNilPointer)

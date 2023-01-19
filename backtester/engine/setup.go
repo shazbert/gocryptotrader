@@ -392,7 +392,7 @@ func (bt *BackTest) SetupFromConfig(cfg *config.Config, templatePath, output str
 		StrategyGoal:                cfg.Goal,
 		ExchangeAssetPairStatistics: make(map[string]map[asset.Item]map[*currency.Item]map[*currency.Item]*statistics.CurrencyPairStatistic),
 		RiskFreeRate:                cfg.StatisticSettings.RiskFreeRate,
-		CandleInterval:              cfg.DataSettings.Interval,
+		CandleIntervals:             cfg.DataSettings.Intervals,
 		FundManager:                 bt.Funding,
 	}
 	bt.Statistic = stats
@@ -488,27 +488,30 @@ func (bt *BackTest) setupExchangeSettings(cfg *config.Config) (*exchange.Exchang
 			return nil, err
 		}
 
-		exchangeName := strings.ToLower(exch.GetName())
-		klineData, err := bt.loadData(cfg, exch, pair, a, cfg.CurrencySettings[i].USDTrackingPair)
+		_, err = bt.loadData(cfg, exch, pair, a, cfg.CurrencySettings[i].USDTrackingPair)
 		if err != nil {
 			return nil, err
 		}
+
 		if bt.LiveDataHandler == nil {
-			err = bt.Funding.AddUSDTrackingData(klineData)
-			if err != nil &&
-				!errors.Is(err, trackingcurrencies.ErrCurrencyDoesNotContainsUSD) &&
-				!errors.Is(err, funding.ErrUSDTrackingDisabled) {
-				return nil, err
-			}
+			// exchangeName := strings.ToLower(exch.GetName())
 
-			if cfg.CurrencySettings[i].USDTrackingPair {
-				continue
-			}
+			// TODO: Integrate funding tracking
+			// err = bt.Funding.AddUSDTrackingData(klineData)
+			// if err != nil &&
+			// 	!errors.Is(err, trackingcurrencies.ErrCurrencyDoesNotContainsUSD) &&
+			// 	!errors.Is(err, funding.ErrUSDTrackingDisabled) {
+			// 	return nil, err
+			// }
 
-			err = bt.DataHolder.SetDataForCurrency(exchangeName, a, pair, klineData)
-			if err != nil {
-				return nil, err
-			}
+			// if cfg.CurrencySettings[i].USDTrackingPair {
+			// 	continue
+			// }
+
+			// err = bt.DataHolder.SetDataForCurrency(exchangeName, a, pair, klineData)
+			// if err != nil {
+			// 	return nil, err
+			// }
 		}
 		var makerFee, takerFee decimal.Decimal
 		if cfg.CurrencySettings[i].MakerFee != nil && cfg.CurrencySettings[i].MakerFee.GreaterThan(decimal.Zero) {
@@ -679,13 +682,13 @@ func getFees(ctx context.Context, exch gctexchange.IBotExchange, fPair currency.
 	return decimal.NewFromFloat(fMakerFee), decimal.NewFromFloat(fTakerFee), nil
 }
 
-// loadData will create kline data from the sources defined in start config files. It can exist from databases, csv or API endpoints
-// it can also be generated from trade data which will be converted into kline data
-func (bt *BackTest) loadData(cfg *config.Config, exch gctexchange.IBotExchange, fPair currency.Pair, a asset.Item, isUSDTrackingPair bool) (*kline.DataFromKline, error) {
+// loadData will create kline data from the sources defined in start config files.
+// It can exist from databases, csv or API endpoints, it can also be generated
+// from trade data which will be converted into kline data.
+func (bt *BackTest) loadData(cfg *config.Config, exch gctexchange.IBotExchange, fPair currency.Pair, a asset.Item, isUSDTrackingPair bool) ([]kline.DataFromKline, error) {
 	if exch == nil {
 		return nil, engine.ErrExchangeNotFound
 	}
-	b := exch.GetBase()
 	if cfg.DataSettings.DatabaseData == nil &&
 		cfg.DataSettings.LiveData == nil &&
 		cfg.DataSettings.APIData == nil &&
@@ -707,7 +710,6 @@ func (bt *BackTest) loadData(cfg *config.Config, exch gctexchange.IBotExchange, 
 	}
 
 	log.Infof(common.Setup, "Loading data for %v %v %v...\n", exch.GetName(), a, fPair)
-	resp := kline.NewDataFromKline()
 	underlyingPair := currency.EMPTYPAIR
 	if a.IsFutures() {
 		// returning the collateral currency along with using the
@@ -719,47 +721,50 @@ func (bt *BackTest) loadData(cfg *config.Config, exch gctexchange.IBotExchange, 
 		var curr currency.Code
 		curr, _, err = exch.GetCollateralCurrencyForContract(a, fPair)
 		if err != nil {
-			return resp, err
+			return nil, err
 		}
 		underlyingPair = currency.NewPair(fPair.Base, curr)
 	}
 
+	if len(cfg.DataSettings.Intervals) == 0 {
+		return nil, errIntervalsUnset
+	}
+
+	b := exch.GetBase()
+	data := make([]kline.DataFromKline, 0, len(cfg.DataSettings.Intervals))
 	switch {
 	case cfg.DataSettings.CSVData != nil:
-		if cfg.DataSettings.Interval <= 0 {
-			return nil, errIntervalUnset
-		}
-		resp, err = csv.LoadData(
-			dataType,
-			cfg.DataSettings.CSVData.FullPath,
-			strings.ToLower(exch.GetName()),
-			cfg.DataSettings.Interval.Duration(),
-			fPair,
-			a,
-			isUSDTrackingPair)
-		if err != nil {
-			return nil, fmt.Errorf("%v. Please check your GoCryptoTrader configuration", err)
-		}
-		resp.Item.RemoveDuplicates()
-		resp.Item.SortCandlesByTimestamp(false)
-		resp.RangeHolder, err = gctkline.CalculateCandleDateRanges(
-			resp.Item.Candles[0].Time,
-			resp.Item.Candles[len(resp.Item.Candles)-1].Time.Add(cfg.DataSettings.Interval.Duration()),
-			cfg.DataSettings.Interval,
-			0,
-		)
-		if err != nil {
-			return nil, err
-		}
-		resp.RangeHolder.SetHasDataFromCandles(resp.Item.Candles)
-		summary := resp.RangeHolder.DataSummary(false)
-		if len(summary) > 0 {
-			log.Warnf(common.Setup, "%v", summary)
+		for x := range cfg.DataSettings.Intervals {
+			var resp *kline.DataFromKline
+			resp, err = bt.fetchIntervalDataFromCSV(exch,
+				cfg.DataSettings.CSVData.FullPath,
+				cfg.DataSettings.Intervals[x],
+				fPair,
+				a,
+				dataType,
+				isUSDTrackingPair)
+			if err != nil {
+				return nil, err
+			}
+			resp.Item.UnderlyingPair = underlyingPair
+			err = b.ValidateKline(fPair, a, resp.Item.Interval)
+			if err != nil {
+				// TODO: In future allow custom candles.
+				if dataType != common.DataTrade || !strings.EqualFold(err.Error(), "interval not supported") {
+					return nil, err
+				}
+			}
+			err = resp.Load() // TODO: Integrate for multiple signals
+			if err != nil {
+				return nil, err
+			}
+			err = bt.Reports.SetKlineData(resp.Item) // TODO: Integrate for multiple signals
+			if err != nil {
+				return nil, err
+			}
+			data = append(data, *resp)
 		}
 	case cfg.DataSettings.DatabaseData != nil:
-		if cfg.DataSettings.DatabaseData.InclusiveEndDate {
-			cfg.DataSettings.DatabaseData.EndDate = cfg.DataSettings.DatabaseData.EndDate.Add(cfg.DataSettings.Interval.Duration())
-		}
 		if cfg.DataSettings.DatabaseData.Path == "" {
 			cfg.DataSettings.DatabaseData.Path = filepath.Join(gctcommon.GetDefaultDataDir(runtime.GOOS), "database")
 		}
@@ -778,92 +783,175 @@ func (bt *BackTest) loadData(cfg *config.Config, exch gctexchange.IBotExchange, 
 				log.Error(common.Setup, stopErr)
 			}
 		}()
-		resp, err = loadDatabaseData(cfg, exch.GetName(), fPair, a, dataType, isUSDTrackingPair)
-		if err != nil {
-			return nil, fmt.Errorf("unable to retrieve data from GoCryptoTrader database. Error: %v. Please ensure the database is setup correctly and has data before use", err)
-		}
 
-		resp.Item.RemoveDuplicates()
-		resp.Item.SortCandlesByTimestamp(false)
-		resp.RangeHolder, err = gctkline.CalculateCandleDateRanges(
-			cfg.DataSettings.DatabaseData.StartDate,
-			cfg.DataSettings.DatabaseData.EndDate,
-			cfg.DataSettings.Interval,
-			0,
-		)
-		if err != nil {
-			return nil, err
-		}
-		resp.RangeHolder.SetHasDataFromCandles(resp.Item.Candles)
-		summary := resp.RangeHolder.DataSummary(false)
-		if len(summary) > 0 {
-			log.Warnf(common.Setup, "%v", summary)
+		for x := range cfg.DataSettings.Intervals {
+			var resp *kline.DataFromKline
+			resp, err = bt.fetchIntervalDataFromDatabase(cfg,
+				exch.GetName(),
+				fPair,
+				a,
+				cfg.DataSettings.Intervals[x],
+				dataType,
+				isUSDTrackingPair)
+			if err != nil {
+				return nil, err
+			}
+			resp.Item.UnderlyingPair = underlyingPair
+			err = b.ValidateKline(fPair, a, resp.Item.Interval)
+			if err != nil {
+				// TODO: In future allow custom candles.
+				if dataType != common.DataTrade || !strings.EqualFold(err.Error(), "interval not supported") {
+					return nil, err
+				}
+			}
+			err = resp.Load() // TODO: Integrate for multiple signals
+			if err != nil {
+				return nil, err
+			}
+			err = bt.Reports.SetKlineData(resp.Item) // TODO: Integrate for multiple signals
+			if err != nil {
+				return nil, err
+			}
+			data = append(data, *resp)
 		}
 	case cfg.DataSettings.APIData != nil:
-		if cfg.DataSettings.APIData.InclusiveEndDate {
-			cfg.DataSettings.APIData.EndDate = cfg.DataSettings.APIData.EndDate.Add(cfg.DataSettings.Interval.Duration())
-		}
-		resp, err = loadAPIData(
-			cfg,
-			exch,
-			fPair,
-			a,
-			b.Features.Enabled.Kline.ResultLimit,
-			dataType)
-		if err != nil {
-			return resp, err
+		for x := range cfg.DataSettings.Intervals {
+			var resp *kline.DataFromKline
+			resp, err = bt.fetchIntervalDataFromAPI(cfg,
+				exch,
+				fPair,
+				a,
+				cfg.DataSettings.Intervals[x],
+				dataType,
+				b.Features.Enabled.Kline.ResultLimit)
+			if err != nil {
+				return nil, err
+			}
+			resp.Item.UnderlyingPair = underlyingPair
+			err = b.ValidateKline(fPair, a, resp.Item.Interval)
+			if err != nil {
+				// TODO: In future allow custom candles.
+				if dataType != common.DataTrade || !strings.EqualFold(err.Error(), "interval not supported") {
+					return nil, err
+				}
+			}
+			fmt.Println(resp.Item)
+			err = resp.Load() // TODO: Integrate for multiple signals
+			if err != nil {
+				return nil, err
+			}
+			err = bt.Reports.SetKlineData(resp.Item) // TODO: Integrate for multiple signals
+			if err != nil {
+				return nil, err
+			}
+			data = append(data, *resp)
 		}
 	case cfg.DataSettings.LiveData != nil:
 		bt.exchangeManager.Add(exch)
-		err = bt.LiveDataHandler.AppendDataSource(&liveDataSourceSetup{
-			exchange:                  exch,
-			interval:                  cfg.DataSettings.Interval,
-			asset:                     a,
-			pair:                      fPair,
-			underlyingPair:            underlyingPair,
-			dataType:                  dataType,
-			dataRequestRetryTolerance: cfg.DataSettings.LiveData.DataRequestRetryTolerance,
-			dataRequestRetryWaitTime:  cfg.DataSettings.LiveData.DataRequestRetryWaitTime,
-			verboseExchangeRequest:    cfg.DataSettings.VerboseExchangeRequests,
-		})
-		return nil, err
-	}
-	if resp == nil {
-		return nil, fmt.Errorf("processing error, response returned nil")
-	}
-
-	resp.Item.UnderlyingPair = underlyingPair
-	err = b.ValidateKline(fPair, a, resp.Item.Interval)
-	if err != nil {
-		// TODO: In future allow custom candles.
-		if dataType != common.DataTrade || !strings.EqualFold(err.Error(), "interval not supported") {
-			return nil, err
+		for x := range cfg.DataSettings.Intervals {
+			err = bt.LiveDataHandler.AppendDataSource(&liveDataSourceSetup{
+				exchange:                  exch,
+				interval:                  cfg.DataSettings.Intervals[x],
+				asset:                     a,
+				pair:                      fPair,
+				underlyingPair:            underlyingPair,
+				dataType:                  dataType,
+				dataRequestRetryTolerance: cfg.DataSettings.LiveData.DataRequestRetryTolerance,
+				dataRequestRetryWaitTime:  cfg.DataSettings.LiveData.DataRequestRetryWaitTime,
+				verboseExchangeRequest:    cfg.DataSettings.VerboseExchangeRequests,
+			})
+			if err != nil {
+				return nil, err
+			}
 		}
+		return nil, nil
 	}
 
-	err = resp.Load()
+	if len(data) != len(cfg.DataSettings.Intervals) {
+		return nil, fmt.Errorf("processing error, response incomplete")
+	}
+
+	return data, nil // TODO: Integrate for multiple signals
+}
+
+// fetchIntervalDataFromCSV fetches data from csv for a specific interval.
+func (bt *BackTest) fetchIntervalDataFromCSV(exch gctexchange.IBotExchange, filePath string, in gctkline.Interval, pair currency.Pair, a asset.Item, dataType int64, USDTTracking bool) (*kline.DataFromKline, error) {
+	resp, err := csv.LoadData(dataType,
+		filePath,
+		strings.ToLower(exch.GetName()),
+		in.Duration(),
+		pair,
+		a,
+		USDTTracking)
+	if err != nil {
+		return nil, fmt.Errorf("%w. Please check your GoCryptoTrader configuration", err)
+	}
+	resp.Item.RemoveDuplicates()
+	resp.Item.SortCandlesByTimestamp(false)
+
+	start := resp.Item.Candles[0].Time
+	end := resp.Item.Candles[len(resp.Item.Candles)-1].Time.Add(in.Duration())
+	resp.RangeHolder, err = gctkline.CalculateCandleDateRanges(start, end, in, 0)
 	if err != nil {
 		return nil, err
 	}
-	err = bt.Reports.SetKlineData(resp.Item)
-	if err != nil {
-		return nil, err
+	resp.RangeHolder.SetHasDataFromCandles(resp.Item.Candles)
+	summary := resp.RangeHolder.DataSummary(false)
+	if len(summary) > 0 {
+		log.Warnf(common.Setup, "%v", summary)
 	}
 	return resp, nil
 }
 
-func loadDatabaseData(cfg *config.Config, name string, fPair currency.Pair, a asset.Item, dataType int64, isUSDTrackingPair bool) (*kline.DataFromKline, error) {
+// fetchIntervalDataFromDatabase fetches data from a configured database for a
+// specific interval.
+func (bt *BackTest) fetchIntervalDataFromDatabase(cfg *config.Config, exchName string, pair currency.Pair, a asset.Item, in gctkline.Interval, dataType int64, USDTTracking bool) (*kline.DataFromKline, error) {
+	end := cfg.DataSettings.DatabaseData.EndDate
+	if cfg.DataSettings.DatabaseData.InclusiveEndDate {
+		end = end.Add(in.Duration())
+	}
+	resp, err := loadDatabaseData(cfg, exchName, pair, a, in, dataType, USDTTracking)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve data from GoCryptoTrader database. Error: %w. Please ensure the database is setup correctly and has data before use", err)
+	}
+
+	resp.Item.RemoveDuplicates()
+	resp.Item.SortCandlesByTimestamp(false)
+	start := cfg.DataSettings.DatabaseData.StartDate
+	resp.RangeHolder, err = gctkline.CalculateCandleDateRanges(start, end, in, 0)
+	if err != nil {
+		return nil, err
+	}
+	resp.RangeHolder.SetHasDataFromCandles(resp.Item.Candles)
+	summary := resp.RangeHolder.DataSummary(false)
+	if len(summary) > 0 {
+		log.Warnf(common.Setup, "%v", summary)
+	}
+	return resp, nil
+}
+
+// fetchIntervalDataFromAPI fetches data from an exhange api linke for a
+// specific interval.
+func (bt *BackTest) fetchIntervalDataFromAPI(cfg *config.Config, exch gctexchange.IBotExchange, pair currency.Pair, a asset.Item, in gctkline.Interval, dataType int64, limit uint32) (*kline.DataFromKline, error) {
+	end := cfg.DataSettings.APIData.EndDate
+	if cfg.DataSettings.APIData.InclusiveEndDate {
+		end = end.Add(in.Duration())
+	}
+	return loadAPIData(cfg, exch, pair, a, in, limit, dataType)
+}
+
+func loadDatabaseData(cfg *config.Config, name string, fPair currency.Pair, a asset.Item, in gctkline.Interval, dataType int64, isUSDTrackingPair bool) (*kline.DataFromKline, error) {
 	if cfg == nil || cfg.DataSettings.DatabaseData == nil {
 		return nil, errors.New("nil config data received")
 	}
-	if cfg.DataSettings.Interval <= 0 {
+	if in <= 0 { // TODO: Shift check to down stream functions
 		return nil, errIntervalUnset
 	}
 
 	return database.LoadData(
 		cfg.DataSettings.DatabaseData.StartDate,
 		cfg.DataSettings.DatabaseData.EndDate,
-		cfg.DataSettings.Interval.Duration(),
+		in.Duration(),
 		strings.ToLower(name),
 		dataType,
 		fPair,
@@ -871,14 +959,14 @@ func loadDatabaseData(cfg *config.Config, name string, fPair currency.Pair, a as
 		isUSDTrackingPair)
 }
 
-func loadAPIData(cfg *config.Config, exch gctexchange.IBotExchange, fPair currency.Pair, a asset.Item, resultLimit uint32, dataType int64) (*kline.DataFromKline, error) {
-	if cfg.DataSettings.Interval <= 0 {
+func loadAPIData(cfg *config.Config, exch gctexchange.IBotExchange, fPair currency.Pair, a asset.Item, in gctkline.Interval, resultLimit uint32, dataType int64) (*kline.DataFromKline, error) {
+	if in <= 0 { // TODO: Shift check to down stream functions
 		return nil, errIntervalUnset
 	}
 	dates, err := gctkline.CalculateCandleDateRanges(
 		cfg.DataSettings.APIData.StartDate,
 		cfg.DataSettings.APIData.EndDate,
-		cfg.DataSettings.Interval,
+		in,
 		resultLimit)
 	if err != nil {
 		return nil, err
@@ -887,7 +975,7 @@ func loadAPIData(cfg *config.Config, exch gctexchange.IBotExchange, fPair curren
 		dataType,
 		cfg.DataSettings.APIData.StartDate,
 		cfg.DataSettings.APIData.EndDate,
-		cfg.DataSettings.Interval.Duration(),
+		in.Duration(),
 		exch,
 		fPair,
 		a)
@@ -915,8 +1003,8 @@ func setExchangeCredentials(cfg *config.Config, base *gctexchange.Base) error {
 	if !cfg.DataSettings.LiveData.RealOrders {
 		return nil
 	}
-	if cfg.DataSettings.Interval <= 0 {
-		return errIntervalUnset
+	if len(cfg.DataSettings.Intervals) == 0 {
+		return errIntervalsUnset
 	}
 	if len(cfg.DataSettings.LiveData.ExchangeCredentials) == 0 {
 		return errNoCredsNoLive

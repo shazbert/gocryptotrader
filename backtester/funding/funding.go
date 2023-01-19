@@ -294,6 +294,7 @@ func (f *FundManager) GenerateReport() (*Report, error) {
 		UsingExchangeLevelFunding: f.usingExchangeLevelFunding,
 		DisableUSDTracking:        f.disableUSDTracking,
 	}
+	fmt.Printf("WHAT IS GOING ON FUNDING %+v\n", f)
 	items := make([]ReportItem, len(f.items))
 	for x := range f.items {
 		item := ReportItem{

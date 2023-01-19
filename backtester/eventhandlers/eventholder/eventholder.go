@@ -1,6 +1,8 @@
 package eventholder
 
 import (
+	"fmt"
+
 	"github.com/thrasher-corp/gocryptotrader/backtester/common"
 	gctcommon "github.com/thrasher-corp/gocryptotrader/common"
 )
@@ -16,6 +18,7 @@ func (h *Holder) Reset() error {
 
 // AppendEvent adds and event to the queue
 func (h *Holder) AppendEvent(i common.Event) {
+	fmt.Println("bruh?")
 	h.Queue = append(h.Queue, i)
 }
 

@@ -304,7 +304,7 @@ func (c *Config) PrintSetting() {
 	if c.DataSettings.LiveData != nil {
 		log.Info(common.Config, common.CMDColours.H2+"------------------Live Settings------------------------------"+common.CMDColours.Default)
 		log.Infof(common.Config, "Data type: %v", c.DataSettings.DataType)
-		log.Infof(common.Config, "Interval: %v", c.DataSettings.Interval)
+		log.Infof(common.Config, "Intervals: %v", c.DataSettings.Intervals)
 		log.Infof(common.Config, "Using real orders: %v", c.DataSettings.LiveData.RealOrders)
 		log.Infof(common.Config, "Data check timer: %v", c.DataSettings.LiveData.DataCheckTimer)
 		log.Infof(common.Config, "New event timeout: %v", c.DataSettings.LiveData.NewEventTimeout)
@@ -315,20 +315,20 @@ func (c *Config) PrintSetting() {
 	if c.DataSettings.APIData != nil {
 		log.Info(common.Config, common.CMDColours.H2+"------------------API Settings-------------------------------"+common.CMDColours.Default)
 		log.Infof(common.Config, "Data type: %v", c.DataSettings.DataType)
-		log.Infof(common.Config, "Interval: %v", c.DataSettings.Interval)
+		log.Infof(common.Config, "Intervals: %v", c.DataSettings.Intervals)
 		log.Infof(common.Config, "Start date: %v", c.DataSettings.APIData.StartDate.Format(gctcommon.SimpleTimeFormat))
 		log.Infof(common.Config, "End date: %v", c.DataSettings.APIData.EndDate.Format(gctcommon.SimpleTimeFormat))
 	}
 	if c.DataSettings.CSVData != nil {
 		log.Info(common.Config, common.CMDColours.H2+"------------------CSV Settings-------------------------------"+common.CMDColours.Default)
 		log.Infof(common.Config, "Data type: %v", c.DataSettings.DataType)
-		log.Infof(common.Config, "Interval: %v", c.DataSettings.Interval)
+		log.Infof(common.Config, "Intervals: %v", c.DataSettings.Intervals)
 		log.Infof(common.Config, "CSV file: %v", c.DataSettings.CSVData.FullPath)
 	}
 	if c.DataSettings.DatabaseData != nil {
 		log.Info(common.Config, common.CMDColours.H2+"------------------Database Settings--------------------------"+common.CMDColours.Default)
 		log.Infof(common.Config, "Data type: %v", c.DataSettings.DataType)
-		log.Infof(common.Config, "Interval: %v", c.DataSettings.Interval)
+		log.Infof(common.Config, "Intervals: %v", c.DataSettings.Intervals)
 		log.Infof(common.Config, "Start date: %v", c.DataSettings.DatabaseData.StartDate.Format(gctcommon.SimpleTimeFormat))
 		log.Infof(common.Config, "End date: %v", c.DataSettings.DatabaseData.EndDate.Format(gctcommon.SimpleTimeFormat))
 	}

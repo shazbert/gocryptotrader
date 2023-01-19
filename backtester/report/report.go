@@ -116,6 +116,7 @@ func (d *Data) SetKlineData(k *kline.Item) error {
 	for i := range d.OriginalCandles {
 		err := d.OriginalCandles[i].EqualSource(k)
 		if err != nil {
+			fmt.Println("what", err)
 			continue
 		}
 		d.OriginalCandles[i].Candles = append(d.OriginalCandles[i].Candles, k.Candles...)
@@ -147,8 +148,9 @@ func (d *Data) enhanceCandles() error {
 			Watermark: fmt.Sprintf("%s - %s - %s", strings.Title(lookup.Exchange), lookup.Asset.String(), lookup.Pair.Upper()), //nolint:staticcheck // Ignore Title usage warning
 		}
 
-		statsForCandles :=
-			d.Statistics.ExchangeAssetPairStatistics[lookup.Exchange][lookup.Asset][lookup.Pair.Base.Item][lookup.Pair.Quote.Item]
+		statsForCandles := d.
+			Statistics.
+			ExchangeAssetPairStatistics[lookup.Exchange][lookup.Asset][lookup.Pair.Base.Item][lookup.Pair.Quote.Item]
 		if statsForCandles == nil {
 			continue
 		}

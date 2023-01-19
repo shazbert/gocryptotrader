@@ -43,13 +43,13 @@ type Config struct {
 // DataSettings is a container for each type of data retrieval setting.
 // Only ONE can be populated per config
 type DataSettings struct {
-	Interval                kline.Interval `json:"interval"`
-	DataType                string         `json:"data-type"`
-	VerboseExchangeRequests bool           `json:"verbose-exchange-requests"`
-	APIData                 *APIData       `json:"api-data,omitempty"`
-	DatabaseData            *DatabaseData  `json:"database-data,omitempty"`
-	LiveData                *LiveData      `json:"live-data,omitempty"`
-	CSVData                 *CSVData       `json:"csv-data,omitempty"`
+	Intervals               []kline.Interval `json:"intervals"`
+	DataType                string           `json:"data-type"`
+	VerboseExchangeRequests bool             `json:"verbose-exchange-requests"`
+	APIData                 *APIData         `json:"api-data,omitempty"`
+	DatabaseData            *DatabaseData    `json:"database-data,omitempty"`
+	LiveData                *LiveData        `json:"live-data,omitempty"`
+	CSVData                 *CSVData         `json:"csv-data,omitempty"`
 }
 
 // FundingSettings contains funding details for individual currencies

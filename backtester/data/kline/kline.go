@@ -91,7 +91,7 @@ func (d *DataFromKline) AppendResults(ki *gctkline.Item) error {
 		return err
 	}
 candleLoop:
-	for x := range ki.Candles {
+	for x := range ki.Candles { // TODO: Should go backwards through history for faster match then insert block. This should also be a method of gctkline.Item
 		for y := range stream {
 			if stream[y].GetTime().Equal(ki.Candles[x].Time) {
 				continue candleLoop
