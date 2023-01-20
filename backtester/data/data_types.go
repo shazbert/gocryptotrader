@@ -9,6 +9,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/backtester/common"
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
+	gctkline "github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 )
 
 var (
@@ -27,13 +28,15 @@ var (
 
 // HandlerHolder stores an event handler per exchange asset pair
 type HandlerHolder struct {
-	m    sync.Mutex
-	data map[string]map[asset.Item]map[*currency.Item]map[*currency.Item]Handler
+	m sync.Mutex
+	// TODO: Merge all intervals into one data handler
+	data map[string]map[asset.Item]map[*currency.Item]map[*currency.Item]map[gctkline.Interval]Handler
+	// TODO: Hold slice as well as map
 }
 
 // Holder interface dictates what a Data holder is expected to do
 type Holder interface {
-	SetDataForCurrency(string, asset.Item, currency.Pair, Handler) error
+	SetDataForCurrency(string, asset.Item, currency.Pair, gctkline.Interval, Handler) error
 	GetAllData() ([]Handler, error)
 	GetDataForCurrency(ev common.Event) (Handler, error)
 	Reset() error

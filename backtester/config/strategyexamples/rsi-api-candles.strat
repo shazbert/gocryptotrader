@@ -46,7 +46,8 @@
  "data-settings": {
   "interval": 86400000000000,
   "intervals": [
-    86400000000000
+    86400000000000,
+    604800000000000
   ],
   "data-type": "candle",
   "verbose-exchange-requests": false,

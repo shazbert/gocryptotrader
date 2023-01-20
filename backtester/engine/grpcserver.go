@@ -223,12 +223,15 @@ func (s *GRPCServer) ExecuteStrategyFromFile(_ context.Context, request *btrpc.E
 		s.config.Report.TemplatePath = ""
 	}
 
+	fmt.Println("BRO?????????")
 	bt, err := NewBacktesterFromConfigs(cfg, s.config)
+	fmt.Println("Finished?????????")
 	if err != nil {
 		return nil, err
 	}
 
 	if !request.DoNotStore {
+		fmt.Println("Store task")
 		err = s.manager.AddTask(bt)
 		if err != nil {
 			return nil, err
@@ -236,11 +239,15 @@ func (s *GRPCServer) ExecuteStrategyFromFile(_ context.Context, request *btrpc.E
 	}
 
 	if !request.DoNotRunImmediately {
+		fmt.Println("run immediately")
 		err = bt.ExecuteStrategy(false)
+		fmt.Println("run finished running immediatly")
 		if err != nil {
 			return nil, err
 		}
 	}
+
+	fmt.Println("generaating summary")
 	btSum, err := bt.GenerateSummary()
 	if err != nil {
 		return nil, err

@@ -51,6 +51,7 @@ func (s *Strategy) OnSignal(d data.Handler, _ funding.IFundingTransferer, _ port
 	if d == nil {
 		return nil, common.ErrNilEvent
 	}
+
 	es, err := s.GetBaseData(d)
 	if err != nil {
 		return nil, err
@@ -60,6 +61,8 @@ func (s *Strategy) OnSignal(d data.Handler, _ funding.IFundingTransferer, _ port
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println("EVENT AT TIME BRO:", latest.GetTime(), latest.GetInterval())
 
 	es.SetPrice(latest.GetClosePrice())
 

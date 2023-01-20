@@ -90,24 +90,48 @@ func (s *Statistic) SetEventForOffset(ev common.Event) error {
 func applyEventAtOffset(ev common.Event, data *DataAtOffset) error {
 	switch t := ev.(type) {
 	case kline.Event:
-		// using kline.Event as signal.Event also matches data.Event
+		// using kline.Event as signal.Event also matches data.Event <-- That's confusing.
 		if data.DataEvent != nil && data.DataEvent != ev {
-			return fmt.Errorf("kline event %w %v %v %v %v", ErrAlreadyProcessed, ev.GetExchange(), ev.GetAssetType(), ev.Pair(), ev.GetOffset())
+			return fmt.Errorf("kline event %w %v %v %v %v %v",
+				ErrAlreadyProcessed,
+				ev.GetExchange(),
+				ev.GetAssetType(),
+				ev.Pair(),
+				ev.GetInterval(),
+				ev.GetOffset())
 		}
 		data.DataEvent = t
 	case signal.Event:
 		if data.SignalEvent != nil {
-			return fmt.Errorf("signal event %w %v %v %v %v", ErrAlreadyProcessed, ev.GetExchange(), ev.GetAssetType(), ev.Pair(), ev.GetOffset())
+			return fmt.Errorf("signal event %w %v %v %v %v %v",
+				ErrAlreadyProcessed,
+				ev.GetExchange(),
+				ev.GetAssetType(),
+				ev.Pair(),
+				ev.GetInterval(),
+				ev.GetOffset())
 		}
 		data.SignalEvent = t
 	case order.Event:
 		if data.OrderEvent != nil {
-			return fmt.Errorf("order event %w %v %v %v %v", ErrAlreadyProcessed, ev.GetExchange(), ev.GetAssetType(), ev.Pair(), ev.GetOffset())
+			return fmt.Errorf("order event %w %v %v %v %v %v",
+				ErrAlreadyProcessed,
+				ev.GetExchange(),
+				ev.GetAssetType(),
+				ev.Pair(),
+				ev.GetInterval(),
+				ev.GetOffset())
 		}
 		data.OrderEvent = t
 	case fill.Event:
 		if data.FillEvent != nil {
-			return fmt.Errorf("fill event %w %v %v %v %v", ErrAlreadyProcessed, ev.GetExchange(), ev.GetAssetType(), ev.Pair(), ev.GetOffset())
+			return fmt.Errorf("fill event %w %v %v %v %v %v",
+				ErrAlreadyProcessed,
+				ev.GetExchange(),
+				ev.GetAssetType(),
+				ev.Pair(),
+				ev.GetInterval(),
+				ev.GetOffset())
 		}
 		data.FillEvent = t
 	default:
@@ -241,7 +265,7 @@ func (s *Statistic) CalculateAllResults() error {
 			}
 		}
 	}
-	s.FundingStatistics, err = CalculateFundingStatistics(s.FundManager, s.ExchangeAssetPairStatistics, s.RiskFreeRate, s.CandleIntervals)
+	s.FundingStatistics, err = CalculateFundingStatistics(s.FundManager, s.ExchangeAssetPairStatistics, s.RiskFreeRate, s.CandleInterval)
 	if err != nil {
 		return err
 	}

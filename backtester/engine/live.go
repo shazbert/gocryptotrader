@@ -41,11 +41,15 @@ func (bt *BackTest) SetupLiveDataHandler(eventTimeout, dataCheckInterval time.Du
 		return fmt.Errorf("%w funding manager", gctcommon.ErrNilPointer)
 	}
 	if eventTimeout <= 0 {
-		log.Warnf(common.LiveStrategy, "Invalid event timeout '%v', defaulting to '%v'", eventTimeout, defaultEventTimeout)
+		log.Warnf(common.LiveStrategy, "Invalid event timeout '%v', defaulting to '%v'",
+			eventTimeout,
+			defaultEventTimeout)
 		eventTimeout = defaultEventTimeout
 	}
 	if dataCheckInterval <= 0 {
-		log.Warnf(common.LiveStrategy, "Invalid data check interval '%v', defaulting to '%v'", dataCheckInterval, defaultDataCheckInterval)
+		log.Warnf(common.LiveStrategy, "Invalid data check interval '%v', defaulting to '%v'",
+			dataCheckInterval,
+			defaultDataCheckInterval)
 		dataCheckInterval = defaultDataCheckInterval
 	}
 	bt.LiveDataHandler = &dataChecker{
@@ -317,11 +321,15 @@ func (d *dataChecker) AppendDataSource(dataSource *liveDataSourceSetup) error {
 		return err
 	}
 	if dataSource.dataRequestRetryTolerance <= 0 {
-		log.Warnf(common.LiveStrategy, "Invalid data retry tolerance, setting %v to %v", dataSource.dataRequestRetryTolerance, defaultDataRetryAttempts)
+		log.Warnf(common.LiveStrategy, "Invalid data retry tolerance, setting %v to %v",
+			dataSource.dataRequestRetryTolerance,
+			defaultDataRetryAttempts)
 		dataSource.dataRequestRetryTolerance = defaultDataRetryAttempts
 	}
 	if dataSource.dataRequestRetryWaitTime <= 0 {
-		log.Warnf(common.LiveStrategy, "Invalid data request wait time, setting %v to %v", dataSource.dataRequestRetryWaitTime, defaultDataRequestWaitTime)
+		log.Warnf(common.LiveStrategy, "Invalid data request wait time, setting %v to %v",
+			dataSource.dataRequestRetryWaitTime,
+			defaultDataRequestWaitTime)
 		dataSource.dataRequestRetryWaitTime = defaultDataRequestWaitTime
 	}
 	d.sourcesToCheck = append(d.sourcesToCheck, &liveDataSourceDataHandler{
@@ -359,7 +367,10 @@ func (d *dataChecker) FetchLatestData() (bool, error) {
 	timeToRetrieve := time.Now()
 	for i := range d.sourcesToCheck {
 		if d.verboseDataCheck {
-			log.Infof(common.LiveStrategy, "%v %v %v checking for new data", d.sourcesToCheck[i].exchangeName, d.sourcesToCheck[i].asset, d.sourcesToCheck[i].pair)
+			log.Infof(common.LiveStrategy, "%v %v %v checking for new data",
+				d.sourcesToCheck[i].exchangeName,
+				d.sourcesToCheck[i].asset,
+				d.sourcesToCheck[i].pair)
 		}
 		var updated bool
 		updated, err = d.sourcesToCheck[i].loadCandleData(timeToRetrieve)
@@ -375,14 +386,21 @@ func (d *dataChecker) FetchLatestData() (bool, error) {
 	}
 	for i := range d.sourcesToCheck {
 		if d.verboseDataCheck {
-			log.Infof(common.LiveStrategy, "%v %v %v found new data", d.sourcesToCheck[i].exchangeName, d.sourcesToCheck[i].asset, d.sourcesToCheck[i].pair)
+			log.Infof(common.LiveStrategy, "%v %v %v found new data",
+				d.sourcesToCheck[i].exchangeName,
+				d.sourcesToCheck[i].asset,
+				d.sourcesToCheck[i].pair)
 		}
 		err = d.sourcesToCheck[i].pairCandles.AppendResults(d.sourcesToCheck[i].candlesToAppend)
 		if err != nil {
 			return false, err
 		}
 		d.sourcesToCheck[i].candlesToAppend.Candles = nil
-		err = d.dataHolder.SetDataForCurrency(d.sourcesToCheck[i].exchangeName, d.sourcesToCheck[i].asset, d.sourcesToCheck[i].pair, d.sourcesToCheck[i].pairCandles)
+		err = d.dataHolder.SetDataForCurrency(d.sourcesToCheck[i].exchangeName,
+			d.sourcesToCheck[i].asset,
+			d.sourcesToCheck[i].pair,
+			d.sourcesToCheck[i].pairCandles.Item.Interval,
+			d.sourcesToCheck[i].pairCandles)
 		if err != nil {
 			return false, err
 		}
@@ -442,17 +460,29 @@ func (d *dataChecker) SetDataForClosingAllPositions(s ...signal.Event) error {
 			})
 			err = d.sourcesToCheck[y].pairCandles.AppendResults(d.sourcesToCheck[y].pairCandles.Item)
 			if err != nil {
-				log.Errorf(common.LiveStrategy, "%v %v %v issue appending kline data: %v", d.sourcesToCheck[y].exchangeName, d.sourcesToCheck[y].asset, d.sourcesToCheck[y].pair, err)
+				log.Errorf(common.LiveStrategy, "%v %v %v issue appending kline data: %v",
+					d.sourcesToCheck[y].exchangeName,
+					d.sourcesToCheck[y].asset,
+					d.sourcesToCheck[y].pair,
+					err)
 				continue
 			}
 			err = d.report.SetKlineData(d.sourcesToCheck[y].pairCandles.Item)
 			if err != nil {
-				log.Errorf(common.LiveStrategy, "%v %v %v issue processing kline data: %v", d.sourcesToCheck[y].exchangeName, d.sourcesToCheck[y].asset, d.sourcesToCheck[y].pair, err)
+				log.Errorf(common.LiveStrategy, "%v %v %v issue processing kline data: %v",
+					d.sourcesToCheck[y].exchangeName,
+					d.sourcesToCheck[y].asset,
+					d.sourcesToCheck[y].pair,
+					err)
 				continue
 			}
 			err = d.funding.AddUSDTrackingData(d.sourcesToCheck[y].pairCandles)
 			if err != nil && !errors.Is(err, funding.ErrUSDTrackingDisabled) {
-				log.Errorf(common.LiveStrategy, "%v %v %v issue processing USD tracking data: %v", d.sourcesToCheck[y].exchangeName, d.sourcesToCheck[y].asset, d.sourcesToCheck[y].pair, err)
+				log.Errorf(common.LiveStrategy, "%v %v %v issue processing USD tracking data: %v",
+					d.sourcesToCheck[y].exchangeName,
+					d.sourcesToCheck[y].asset,
+					d.sourcesToCheck[y].pair,
+					err)
 				continue
 			}
 			setData = true
@@ -493,7 +523,13 @@ func (c *liveDataSourceDataHandler) loadCandleData(timeToRetrieve time.Time) (bo
 			c.verboseExchangeRequest)
 		if err != nil {
 			if i < c.dataRequestRetryTolerance {
-				log.Errorf(common.Data, "%v %v %v failed to retrieve data %v of %v attempts: %v", c.exchangeName, c.asset, c.pair, i, c.dataRequestRetryTolerance, err)
+				log.Errorf(common.Data, "%v %v %v failed to retrieve data %v of %v attempts: %v",
+					c.exchangeName,
+					c.asset,
+					c.pair,
+					i,
+					c.dataRequestRetryTolerance,
+					err)
 				continue
 			} else {
 				return false, err

@@ -385,6 +385,13 @@ func (bt *BackTest) SetupFromConfig(cfg *config.Config, templatePath, output str
 			return err
 		}
 	}
+
+	// Everything will build off this charting wise.
+	in, err := getSmallestInterval(cfg.DataSettings.Intervals)
+	if err != nil {
+		return err
+	}
+
 	stats := &statistics.Statistic{
 		StrategyName:                bt.Strategy.Name(),
 		StrategyNickname:            cfg.Nickname,
@@ -392,7 +399,7 @@ func (bt *BackTest) SetupFromConfig(cfg *config.Config, templatePath, output str
 		StrategyGoal:                cfg.Goal,
 		ExchangeAssetPairStatistics: make(map[string]map[asset.Item]map[*currency.Item]map[*currency.Item]*statistics.CurrencyPairStatistic),
 		RiskFreeRate:                cfg.StatisticSettings.RiskFreeRate,
-		CandleIntervals:             cfg.DataSettings.Intervals,
+		CandleInterval:              in,
 		FundManager:                 bt.Funding,
 	}
 	bt.Statistic = stats
@@ -441,6 +448,7 @@ func (bt *BackTest) SetupFromConfig(cfg *config.Config, templatePath, output str
 		}
 	}
 
+	// SetStream Duplication?
 	e, err := bt.setupExchangeSettings(cfg)
 	if err != nil {
 		return err
@@ -478,6 +486,7 @@ func (bt *BackTest) setupExchangeSettings(cfg *config.Config) (*exchange.Exchang
 	log.Infoln(common.Setup, "Setting exchange settings...")
 
 	resp := &exchange.Exchange{}
+settings:
 	for i := range cfg.CurrencySettings {
 		exch, pair, a, err := bt.loadExchangePairAssetBase(
 			cfg.CurrencySettings[i].ExchangeName,
@@ -488,30 +497,36 @@ func (bt *BackTest) setupExchangeSettings(cfg *config.Config) (*exchange.Exchang
 			return nil, err
 		}
 
-		_, err = bt.loadData(cfg, exch, pair, a, cfg.CurrencySettings[i].USDTrackingPair)
-		if err != nil {
-			return nil, err
-		}
-
 		if bt.LiveDataHandler == nil {
-			// exchangeName := strings.ToLower(exch.GetName())
+			klineData, err := bt.loadData(cfg, exch, pair, a, cfg.CurrencySettings[i].USDTrackingPair)
+			if err != nil {
+				return nil, err
+			}
 
-			// TODO: Integrate funding tracking
-			// err = bt.Funding.AddUSDTrackingData(klineData)
-			// if err != nil &&
-			// 	!errors.Is(err, trackingcurrencies.ErrCurrencyDoesNotContainsUSD) &&
-			// 	!errors.Is(err, funding.ErrUSDTrackingDisabled) {
-			// 	return nil, err
-			// }
+			for x := range klineData {
+				// TODO: Integrate funding tracking
+				err = bt.Funding.AddUSDTrackingData(&klineData[x])
+				if err != nil &&
+					!errors.Is(err, trackingcurrencies.ErrCurrencyDoesNotContainsUSD) &&
+					!errors.Is(err, funding.ErrUSDTrackingDisabled) {
+					return nil, err
+				}
 
-			// if cfg.CurrencySettings[i].USDTrackingPair {
-			// 	continue
-			// }
+				if cfg.CurrencySettings[i].USDTrackingPair {
+					fmt.Println("hmmmmmmmm")
+					continue settings // TODO: Rethink this
+				}
 
-			// err = bt.DataHolder.SetDataForCurrency(exchangeName, a, pair, klineData)
-			// if err != nil {
-			// 	return nil, err
-			// }
+				fmt.Println("setting lovely data")
+				err = bt.DataHolder.SetDataForCurrency(strings.ToLower(exch.GetName()),
+					a,
+					pair,
+					klineData[x].Item.Interval,
+					&klineData[x])
+				if err != nil {
+					return nil, err
+				}
+			}
 		}
 		var makerFee, takerFee decimal.Decimal
 		if cfg.CurrencySettings[i].MakerFee != nil && cfg.CurrencySettings[i].MakerFee.GreaterThan(decimal.Zero) {
@@ -835,7 +850,9 @@ func (bt *BackTest) loadData(cfg *config.Config, exch gctexchange.IBotExchange, 
 					return nil, err
 				}
 			}
-			fmt.Println(resp.Item)
+			// fmt.Println(resp.Item)
+			// NOTE: Setstream is being loaded here which is good guns but its getting set elsware at a different
+			// memory address which makes me sad.
 			err = resp.Load() // TODO: Integrate for multiple signals
 			if err != nil {
 				return nil, err
@@ -933,10 +950,6 @@ func (bt *BackTest) fetchIntervalDataFromDatabase(cfg *config.Config, exchName s
 // fetchIntervalDataFromAPI fetches data from an exhange api linke for a
 // specific interval.
 func (bt *BackTest) fetchIntervalDataFromAPI(cfg *config.Config, exch gctexchange.IBotExchange, pair currency.Pair, a asset.Item, in gctkline.Interval, dataType int64, limit uint32) (*kline.DataFromKline, error) {
-	end := cfg.DataSettings.APIData.EndDate
-	if cfg.DataSettings.APIData.InclusiveEndDate {
-		end = end.Add(in.Duration())
-	}
 	return loadAPIData(cfg, exch, pair, a, in, limit, dataType)
 }
 
@@ -963,18 +976,22 @@ func loadAPIData(cfg *config.Config, exch gctexchange.IBotExchange, fPair curren
 	if in <= 0 { // TODO: Shift check to down stream functions
 		return nil, errIntervalUnset
 	}
-	dates, err := gctkline.CalculateCandleDateRanges(
-		cfg.DataSettings.APIData.StartDate,
-		cfg.DataSettings.APIData.EndDate,
-		in,
-		resultLimit)
+
+	start := cfg.DataSettings.APIData.StartDate
+	end := cfg.DataSettings.APIData.EndDate
+	if cfg.DataSettings.APIData.InclusiveEndDate {
+		end = end.Add(in.Duration())
+	}
+
+	dates, err := gctkline.CalculateCandleDateRanges(start, end, in, resultLimit)
 	if err != nil {
 		return nil, err
 	}
+
 	candles, err := api.LoadData(context.TODO(),
 		dataType,
-		cfg.DataSettings.APIData.StartDate,
-		cfg.DataSettings.APIData.EndDate,
+		start,
+		end,
 		in.Duration(),
 		exch,
 		fPair,
@@ -982,6 +999,7 @@ func loadAPIData(cfg *config.Config, exch gctexchange.IBotExchange, fPair curren
 	if err != nil {
 		return nil, fmt.Errorf("%v. Please check your GoCryptoTrader configuration", err)
 	}
+
 	dates.SetHasDataFromCandles(candles.Candles)
 	summary := dates.DataSummary(false)
 	if len(summary) > 0 {
@@ -1049,13 +1067,29 @@ func NewBacktesterFromConfigs(strategyCfg *config.Config, backtesterCfg *config.
 	if err != nil {
 		return nil, err
 	}
+	// TODO: For some reason this is duplicating kline items in memory
 	err = bt.SetupFromConfig(strategyCfg, backtesterCfg.Report.TemplatePath, backtesterCfg.Report.OutputPath, backtesterCfg.Verbose)
 	if err != nil {
 		return nil, err
 	}
+
 	err = bt.SetupMetaData()
 	if err != nil {
 		return nil, err
 	}
+
 	return bt, nil
+}
+
+func getSmallestInterval(ins []gctkline.Interval) (gctkline.Interval, error) {
+	if len(ins) == 0 {
+		return 0, errors.New("unset intervals :(") // TODO: Shift to gct kline package.
+	}
+	var small gctkline.Interval
+	for x := range ins {
+		if small == 0 || ins[x] < small {
+			small = ins[x]
+		}
+	}
+	return small, nil
 }

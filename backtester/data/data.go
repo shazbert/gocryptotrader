@@ -1,6 +1,7 @@
 package data
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -9,45 +10,60 @@ import (
 	gctcommon "github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
+	gctkline "github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 )
 
 // NewHandlerHolder returns a new HandlerHolder
 func NewHandlerHolder() *HandlerHolder {
 	return &HandlerHolder{
-		data: make(map[string]map[asset.Item]map[*currency.Item]map[*currency.Item]Handler),
+		data: make(map[string]map[asset.Item]map[*currency.Item]map[*currency.Item]map[gctkline.Interval]Handler),
 	}
 }
 
 // SetDataForCurrency assigns a Data Handler to the Data map by exchange, asset and currency
-func (h *HandlerHolder) SetDataForCurrency(e string, a asset.Item, p currency.Pair, k Handler) error {
+func (h *HandlerHolder) SetDataForCurrency(e string, a asset.Item, p currency.Pair, in gctkline.Interval, k Handler) error {
 	if h == nil {
 		return fmt.Errorf("%w handler holder", gctcommon.ErrNilPointer)
 	}
+
+	// TODO: Add checks for empty params
+
 	h.m.Lock()
 	defer h.m.Unlock()
 	if h.data == nil {
-		h.data = make(map[string]map[asset.Item]map[*currency.Item]map[*currency.Item]Handler)
+		h.data = make(map[string]map[asset.Item]map[*currency.Item]map[*currency.Item]map[gctkline.Interval]Handler)
 	}
 	e = strings.ToLower(e)
 	m1, ok := h.data[e]
 	if !ok {
-		m1 = make(map[asset.Item]map[*currency.Item]map[*currency.Item]Handler)
+		m1 = make(map[asset.Item]map[*currency.Item]map[*currency.Item]map[gctkline.Interval]Handler)
 		h.data[e] = m1
 	}
 
 	m2, ok := m1[a]
 	if !ok {
-		m2 = make(map[*currency.Item]map[*currency.Item]Handler)
+		m2 = make(map[*currency.Item]map[*currency.Item]map[gctkline.Interval]Handler)
 		m1[a] = m2
 	}
 
 	m3, ok := m2[p.Base.Item]
 	if !ok {
-		m3 = make(map[*currency.Item]Handler)
+		m3 = make(map[*currency.Item]map[gctkline.Interval]Handler)
 		m2[p.Base.Item] = m3
 	}
 
-	m3[p.Quote.Item] = k
+	m4, ok := m3[p.Quote.Item]
+	if !ok {
+		m4 = make(map[gctkline.Interval]Handler)
+		m3[p.Quote.Item] = m4
+	}
+
+	_, ok = m4[in]
+	if ok {
+		return errors.New("data handler should only be set once")
+	}
+
+	m4[in] = k
 	return nil
 }
 
@@ -56,18 +72,22 @@ func (h *HandlerHolder) GetAllData() ([]Handler, error) {
 	if h == nil {
 		return nil, fmt.Errorf("%w handler holder", gctcommon.ErrNilPointer)
 	}
+
 	h.m.Lock()
 	defer h.m.Unlock()
 	var resp []Handler
 	for _, exchMap := range h.data {
 		for _, assetMap := range exchMap {
 			for _, baseMap := range assetMap {
-				for _, handler := range baseMap {
-					resp = append(resp, handler)
+				for _, quoteMap := range baseMap {
+					for _, handler := range quoteMap {
+						resp = append(resp, handler)
+					}
 				}
 			}
 		}
 	}
+	fmt.Println("getting all datas and returning data handlers", len(resp))
 	return resp, nil
 }
 
@@ -84,10 +104,12 @@ func (h *HandlerHolder) GetDataForCurrency(ev common.Event) (Handler, error) {
 	exch := ev.GetExchange()
 	a := ev.GetAssetType()
 	p := ev.Pair()
-	handler, ok := h.data[exch][a][p.Base.Item][p.Quote.Item]
+	in := ev.GetInterval()
+	handler, ok := h.data[exch][a][p.Base.Item][p.Quote.Item][in]
 	if !ok {
 		return nil, fmt.Errorf("%s %s %s %w", exch, a, p, ErrHandlerNotFound)
 	}
+	fmt.Println("getting data for curreny:", in)
 	return handler, nil
 }
 
@@ -98,7 +120,7 @@ func (h *HandlerHolder) Reset() error {
 	}
 	h.m.Lock()
 	defer h.m.Unlock()
-	h.data = make(map[string]map[asset.Item]map[*currency.Item]map[*currency.Item]Handler)
+	h.data = make(map[string]map[asset.Item]map[*currency.Item]map[*currency.Item]map[gctkline.Interval]Handler)
 	return nil
 }
 
@@ -154,28 +176,50 @@ func (b *Base) SetStream(s []Event) error {
 	if b == nil {
 		return fmt.Errorf("%w Base", gctcommon.ErrNilPointer)
 	}
+
+	fmt.Printf("SETTING STREAM %v %p\n", len(s), b)
+
+	// TODO: Event should be aligned correctly before this. Reject in range below.
+	sort.Slice(s, func(i, j int) bool { return s[i].GetTime().Before(s[j].GetTime()) })
+
 	b.m.Lock()
 	defer b.m.Unlock()
 
-	sort.Slice(s, func(i, j int) bool { return s[i].GetTime().Before(s[j].GetTime()) })
-	fmt.Println("STREAMY")
+	if len(b.stream) > 0 { // TODO: ADD
+		return errors.New("stream has already been set")
+	}
+
 	for x := range s {
 		if s[x] == nil {
 			return fmt.Errorf("%w Event", gctcommon.ErrNilPointer)
 		}
-		if s[x].GetExchange() == "" || !s[x].GetAssetType().IsValid() || s[x].Pair().IsEmpty() || s[x].GetTime().IsZero() {
+		if s[x].GetExchange() == "" ||
+			!s[x].GetAssetType().IsValid() ||
+			s[x].Pair().IsEmpty() ||
+			s[x].GetTime().IsZero() ||
+			s[x].GetInterval() == 0 {
 			return ErrInvalidEventSupplied
 		}
-		if len(b.stream) > 0 {
+		if len(b.stream) > 0 { // TODO: Don't need to double set we can reject above.
 			if s[x].GetExchange() != b.stream[0].GetExchange() ||
 				s[x].GetAssetType() != b.stream[0].GetAssetType() ||
-				!s[x].Pair().Equal(b.stream[0].Pair()) {
-				return fmt.Errorf("%w cannot set base stream from %v %v %v to %v %v %v", errMisMatchedEvent, s[x].GetExchange(), s[x].GetAssetType(), s[x].Pair(), b.stream[0].GetExchange(), b.stream[0].GetAssetType(), b.stream[0].Pair())
+				!s[x].Pair().Equal(b.stream[0].Pair()) ||
+				s[x].GetInterval() != b.stream[0].GetInterval() {
+				return fmt.Errorf("%w cannot set base stream from %v %v %v %v to %v %v %v %v",
+					errMisMatchedEvent,
+					s[x].GetExchange(),
+					s[x].GetAssetType(),
+					s[x].Pair(),
+					s[x].GetInterval(),
+					b.stream[0].GetExchange(),
+					b.stream[0].GetAssetType(),
+					b.stream[0].Pair(),
+					b.stream[0].GetInterval())
 			}
 		}
 		// due to the Next() function, we cannot take
 		// stream offsets as is, and we re-set them
-		s[x].SetOffset(int64(x) + 1)
+		s[x].SetOffset(int64(x) + 1) // TODO: Reject misaligned offset
 	}
 
 	b.stream = s
@@ -188,6 +232,8 @@ func (b *Base) AppendStream(s ...Event) error {
 	if b == nil {
 		return fmt.Errorf("%w Base", gctcommon.ErrNilPointer)
 	}
+
+	fmt.Println("append stream", len(s))
 	if len(s) == 0 {
 		return errNothingToAdd
 	}

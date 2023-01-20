@@ -176,71 +176,81 @@ func (bt *BackTest) ExecuteStrategy(waitForOfflineCompletion bool) error {
 // Run will iterate over loaded data events
 // save them and then handle the event based on its type
 func (bt *BackTest) Run() error {
-	// doubleNil allows the run function to exit if no new data is detected on a live run
-	var doubleNil bool
 	if bt.MetaData.DateLoaded.IsZero() {
 		return errNotSetup
 	}
-	for ev := bt.EventQueue.NextEvent(); ; ev = bt.EventQueue.NextEvent() {
-		if ev == nil {
-			if bt.hasShutdown {
-				return nil
-			}
-			if doubleNil {
-				if bt.verbose {
-					log.Info(common.Backtester, "No new data on second check")
-				}
-				return nil
-			}
-			doubleNil = true
-			dataHandlers, err := bt.DataHolder.GetAllData()
-			if err != nil {
-				return err
-			}
-			for i := range dataHandlers {
-				var e data.Event
-				e, err = dataHandlers[i].Next()
-				if err != nil {
-					if errors.Is(err, data.ErrEndOfData) {
-						return nil
-					}
-					return err
-				}
-				if e == nil {
-					if !bt.hasProcessedAnEvent && bt.LiveDataHandler == nil {
-						var (
-							exch      string
-							assetItem asset.Item
-							cp        currency.Pair
-						)
-						exch, assetItem, cp, err = dataHandlers[i].GetDetails()
-						if err != nil {
-							return err
-						}
-						log.Errorf(common.Backtester, "Unable to perform `Next` for %v %v %v", exch, assetItem, cp)
-					}
-					return nil
-				}
-				o := e.GetOffset()
-				if bt.Strategy.UsingSimultaneousProcessing() && bt.hasProcessedDataAtOffset[o] {
-					// only append one event, as simultaneous processing
-					// will retrieve all relevant events to process under
-					// processSimultaneousDataEvents()
-					continue
-				}
-				bt.EventQueue.AppendEvent(e)
-				if !bt.hasProcessedDataAtOffset[o] {
-					bt.hasProcessedDataAtOffset[o] = true
-				}
-			}
-		} else {
+
+	// doubleNil allows the run function to exit if no new data is detected on a
+	// live run.
+	var doubleNil bool
+
+eventcheck:
+	for {
+		event := bt.EventQueue.NextEvent()
+		if event != nil {
 			doubleNil = false
-			err := bt.handleEvent(ev)
+			err := bt.handleEvent(event)
 			if err != nil {
 				log.Error(common.Backtester, err)
+				fmt.Println("ONSIGNAL ERROR")
 			}
 			if !bt.hasProcessedAnEvent {
 				bt.hasProcessedAnEvent = true
+			}
+			continue
+		}
+
+		if bt.hasShutdown {
+			return nil
+		}
+
+		if doubleNil {
+			if bt.verbose {
+				log.Info(common.Backtester, "No new data on second check")
+			}
+			return nil
+		}
+
+		doubleNil = true
+		// TODO: Will probably need to combine a slice of handlers into one.
+		dataHandlers, err := bt.DataHolder.GetAllData()
+		if err != nil {
+			return err
+		}
+		for i := range dataHandlers {
+			fmt.Println("BROS data handlers")
+			event, err = dataHandlers[i].Next()
+			if err != nil {
+				if errors.Is(err, data.ErrEndOfData) {
+					return nil
+				}
+				return err
+			}
+			if event == nil {
+				if !bt.hasProcessedAnEvent && bt.LiveDataHandler == nil {
+					var (
+						exch      string
+						assetItem asset.Item
+						cp        currency.Pair
+					)
+					exch, assetItem, cp, err = dataHandlers[i].GetDetails()
+					if err != nil {
+						return err
+					}
+					log.Errorf(common.Backtester, "Unable to perform `Next` for %v %v %v", exch, assetItem, cp)
+				}
+				return nil
+			}
+			o := event.GetOffset()
+			if bt.Strategy.UsingSimultaneousProcessing() && bt.hasProcessedDataAtOffset[o] {
+				// only append one event, as simultaneous processing
+				// will retrieve all relevant events to process under
+				// processSimultaneousDataEvents()
+				continue eventcheck // TODO: Rethink this.
+			}
+			bt.EventQueue.AppendEvent(event)
+			if !bt.hasProcessedDataAtOffset[o] {
+				bt.hasProcessedDataAtOffset[o] = true
 			}
 		}
 	}
@@ -299,6 +309,7 @@ func (bt *BackTest) handleEvent(ev common.Event) error {
 
 // processSingleDataEvent will pass the event to the strategy and determine how it should be handled
 func (bt *BackTest) processSingleDataEvent(ev data.Event, funds funding.IFundReleaser) error {
+	fmt.Println("processing a single data event:", ev.GetTime(), ev.GetInterval())
 	err := bt.updateStatsForDataEvent(ev, funds)
 	if err != nil {
 		return err
@@ -320,7 +331,7 @@ func (bt *BackTest) processSingleDataEvent(ev data.Event, funds funding.IFundRel
 	if err != nil {
 		log.Errorf(common.Backtester, "SetEventForOffset %v", err)
 	}
-	bt.EventQueue.AppendEvent(s)
+	bt.EventQueue.AppendEvent(s) // <---- WHAT?
 
 	return nil
 }
@@ -480,7 +491,7 @@ func (bt *BackTest) processSignalEvent(ev signal.Event, funds funding.IFundReser
 		return fmt.Errorf("SetEventForOffset %v", err)
 	}
 
-	bt.EventQueue.AppendEvent(o)
+	bt.EventQueue.AppendEvent(o) // <--- What???
 	return nil
 }
 
