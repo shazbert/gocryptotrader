@@ -40,13 +40,13 @@ func (s *CustomStrategy) SupportsSimultaneousProcessing() bool {
 }
 
 // OnSignal handles a data event and returns what action the strategy believes should occur
-func (s *CustomStrategy) OnSignal(d data.Handler, _ funding.IFundingTransferer, _ portfolio.Handler) (signal.Event, error) {
+func (s *CustomStrategy) OnSignal(d []data.Handler, _ funding.IFundingTransferer, _ portfolio.Handler) (signal.Event, error) {
 	return s.createSignal(d)
 }
 
 // OnSimultaneousSignals analyses multiple data points simultaneously, allowing flexibility
 // in allowing a strategy to only place an order for X currency if Y currency's price is Z
-func (s *CustomStrategy) OnSimultaneousSignals(d []data.Handler, f funding.IFundingTransferer, p portfolio.Handler) ([]signal.Event, error) {
+func (s *CustomStrategy) OnSimultaneousSignals(d [][]data.Handler, f funding.IFundingTransferer, p portfolio.Handler) ([]signal.Event, error) {
 	response := make([]signal.Event, len(d))
 	for i := range d {
 		sig, err := s.createSignal(d[i])
@@ -58,7 +58,7 @@ func (s *CustomStrategy) OnSimultaneousSignals(d []data.Handler, f funding.IFund
 	return response, nil
 }
 
-func (s *CustomStrategy) createSignal(d data.Handler) (*signal.Signal, error) {
+func (s *CustomStrategy) createSignal(d []data.Handler) (*signal.Signal, error) {
 	es, err := s.GetBaseData(d)
 	if err != nil {
 		return nil, err

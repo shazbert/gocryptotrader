@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/thrasher-corp/gocryptotrader/backtester/common"
 	gctcommon "github.com/thrasher-corp/gocryptotrader/common"
@@ -26,7 +27,7 @@ func (h *HandlerHolder) SetDataForCurrency(e string, a asset.Item, p currency.Pa
 		return fmt.Errorf("%w handler holder", gctcommon.ErrNilPointer)
 	}
 
-	// TODO: Add checks for empty params
+	// TODO: Add checks for empty params, can call get details and purge most params?
 
 	h.m.Lock()
 	defer h.m.Unlock()
@@ -68,21 +69,24 @@ func (h *HandlerHolder) SetDataForCurrency(e string, a asset.Item, p currency.Pa
 }
 
 // GetAllData returns all set Data in the Data map
-func (h *HandlerHolder) GetAllData() ([]Handler, error) {
+func (h *HandlerHolder) GetAllData() ([][]Handler, error) {
 	if h == nil {
 		return nil, fmt.Errorf("%w handler holder", gctcommon.ErrNilPointer)
 	}
 
 	h.m.Lock()
 	defer h.m.Unlock()
-	var resp []Handler
+
+	var resp [][]Handler // TODO: Temp type to segregate interval data specific to the asset.
 	for _, exchMap := range h.data {
 		for _, assetMap := range exchMap {
 			for _, baseMap := range assetMap {
 				for _, quoteMap := range baseMap {
+					multiIntervals := make([]Handler, 0, len(quoteMap))
 					for _, handler := range quoteMap {
-						resp = append(resp, handler)
+						multiIntervals = append(multiIntervals, handler)
 					}
+					resp = append(resp, multiIntervals)
 				}
 			}
 		}
@@ -92,7 +96,7 @@ func (h *HandlerHolder) GetAllData() ([]Handler, error) {
 }
 
 // GetDataForCurrency returns the Handler for a specific exchange, asset, currency
-func (h *HandlerHolder) GetDataForCurrency(ev common.Event) (Handler, error) {
+func (h *HandlerHolder) GetDataForCurrency(ev common.Event) ([]Handler, error) {
 	if h == nil {
 		return nil, fmt.Errorf("%w handler holder", gctcommon.ErrNilPointer)
 	}
@@ -104,13 +108,18 @@ func (h *HandlerHolder) GetDataForCurrency(ev common.Event) (Handler, error) {
 	exch := ev.GetExchange()
 	a := ev.GetAssetType()
 	p := ev.Pair()
-	in := ev.GetInterval()
-	handler, ok := h.data[exch][a][p.Base.Item][p.Quote.Item][in]
+
+	intervalCurrencyData, ok := h.data[exch][a][p.Base.Item][p.Quote.Item]
 	if !ok {
 		return nil, fmt.Errorf("%s %s %s %w", exch, a, p, ErrHandlerNotFound)
 	}
-	fmt.Println("getting data for curreny:", in)
-	return handler, nil
+
+	var handlers []Handler
+	for _, handler := range intervalCurrencyData {
+		handlers = append(handlers, handler)
+	}
+	// fmt.Println("getting data for curreny:", in)
+	return handlers, nil
 }
 
 // Reset returns the struct to defaults
@@ -125,13 +134,18 @@ func (h *HandlerHolder) Reset() error {
 }
 
 // GetDetails returns data about the Base Holder
-func (b *Base) GetDetails() (string, asset.Item, currency.Pair, error) {
+func (b *Base) GetDetails() (Details, error) {
 	if b == nil {
-		return "", asset.Empty, currency.EMPTYPAIR, fmt.Errorf("%w base", gctcommon.ErrNilPointer)
+		return Details{}, fmt.Errorf("%w base", gctcommon.ErrNilPointer)
 	}
 	b.m.Lock()
 	defer b.m.Unlock()
-	return b.latest.GetExchange(), b.latest.GetAssetType(), b.latest.Pair(), nil
+	return Details{
+		b.latest.GetExchange(),
+		b.latest.GetAssetType(),
+		b.latest.Pair(),
+		b.latest.GetInterval(),
+	}, nil
 }
 
 // Reset loaded Data to blank state
@@ -286,6 +300,29 @@ func (b *Base) Next() (Event, error) {
 	ret := b.stream[b.offset]
 	b.offset++
 	b.latest = ret
+	return ret, nil
+}
+
+// Next will return the next event in the list if matched and also shift the
+// offset one. If not matched it will not increment offset and keep returning
+// last event.
+func (b *Base) NextByTime(et time.Time) (Event, error) {
+	if b == nil {
+		return nil, fmt.Errorf("%w Base", gctcommon.ErrNilPointer)
+	}
+	if et.IsZero() {
+		return nil, errors.New("time is empty")
+	}
+	b.m.Lock()
+	defer b.m.Unlock()
+	if int64(len(b.stream)) <= b.offset {
+		return nil, fmt.Errorf("%w data length %v offset %v", ErrEndOfData, len(b.stream), b.offset)
+	}
+	ret := b.stream[b.offset]
+	if ret.GetTime().Equal(et) {
+		b.offset++
+		b.latest = ret
+	}
 	return ret, nil
 }
 

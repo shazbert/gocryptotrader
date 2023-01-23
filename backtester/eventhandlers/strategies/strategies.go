@@ -7,10 +7,7 @@ import (
 	"sync"
 
 	"github.com/thrasher-corp/gocryptotrader/backtester/eventhandlers/strategies/base"
-	"github.com/thrasher-corp/gocryptotrader/backtester/eventhandlers/strategies/binancecashandcarry"
-	"github.com/thrasher-corp/gocryptotrader/backtester/eventhandlers/strategies/dollarcostaverage"
 	"github.com/thrasher-corp/gocryptotrader/backtester/eventhandlers/strategies/rsi"
-	"github.com/thrasher-corp/gocryptotrader/backtester/eventhandlers/strategies/top2bottom2"
 	"github.com/thrasher-corp/gocryptotrader/common"
 )
 
@@ -96,9 +93,9 @@ var (
 	m sync.Mutex
 
 	supportedStrategies = StrategyHolder{
-		new(dollarcostaverage.Strategy),
+		// new(dollarcostaverage.Strategy),
 		new(rsi.Strategy),
-		new(top2bottom2.Strategy),
-		new(binancecashandcarry.Strategy),
+		// new(top2bottom2.Strategy),
+		// new(binancecashandcarry.Strategy),
 	}
 )

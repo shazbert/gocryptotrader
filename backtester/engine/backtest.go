@@ -186,10 +186,10 @@ func (bt *BackTest) Run() error {
 
 eventcheck:
 	for {
-		event := bt.EventQueue.NextEvent()
-		if event != nil {
+		events := bt.EventQueue.NextEvents()
+		if events != nil {
 			doubleNil = false
-			err := bt.handleEvent(event)
+			err := bt.handleEvents(events)
 			if err != nil {
 				log.Error(common.Backtester, err)
 				fmt.Println("ONSIGNAL ERROR")
@@ -217,66 +217,89 @@ eventcheck:
 		if err != nil {
 			return err
 		}
-		for i := range dataHandlers {
-			fmt.Println("BROS data handlers")
-			event, err = dataHandlers[i].Next()
-			if err != nil {
-				if errors.Is(err, data.ErrEndOfData) {
+
+		for _, intervalHandlers := range dataHandlers {
+			var intervalSpecicEvents []common.Event
+			var aligned time.Time
+			// NOTE: Intervals should be ascending e.g. 1hr -> 3hr -> 6hr
+			// Everything will be aligned functionally on the smallest time
+			// interval for charting.
+			for x := range intervalHandlers {
+				var event common.Event
+				if aligned.IsZero() {
+					event, err = intervalHandlers[x].Next()
+				} else {
+					event, err = intervalHandlers[x].NextByTime(aligned)
+				}
+
+				if err != nil {
+					if errors.Is(err, data.ErrEndOfData) {
+						return nil
+					}
+					return err
+				}
+
+				if event == nil {
+					if !bt.hasProcessedAnEvent && bt.LiveDataHandler == nil {
+						var details data.Details
+						details, err = intervalHandlers[x].GetDetails()
+						if err != nil {
+							return err
+						}
+						log.Errorf(common.Backtester, "Unable to perform `Next` for %v %v %v %v",
+							details.ExchangeName,
+							details.Asset,
+							details.Pair,
+							details.Interval)
+					}
 					return nil
 				}
-				return err
-			}
-			if event == nil {
-				if !bt.hasProcessedAnEvent && bt.LiveDataHandler == nil {
-					var (
-						exch      string
-						assetItem asset.Item
-						cp        currency.Pair
-					)
-					exch, assetItem, cp, err = dataHandlers[i].GetDetails()
-					if err != nil {
-						return err
-					}
-					log.Errorf(common.Backtester, "Unable to perform `Next` for %v %v %v", exch, assetItem, cp)
+
+				aligned = event.GetTime()
+
+				o := event.GetOffset()
+
+				if bt.Strategy.UsingSimultaneousProcessing() && bt.hasProcessedDataAtOffset[o] {
+					// only append one event, as simultaneous processing
+					// will retrieve all relevant events to process under
+					// processSimultaneousDataEvents()
+					continue eventcheck // TODO: Rethink this.
 				}
-				return nil
+
+				if !bt.hasProcessedDataAtOffset[o] {
+					bt.hasProcessedDataAtOffset[o] = true
+				}
 			}
-			o := event.GetOffset()
-			if bt.Strategy.UsingSimultaneousProcessing() && bt.hasProcessedDataAtOffset[o] {
-				// only append one event, as simultaneous processing
-				// will retrieve all relevant events to process under
-				// processSimultaneousDataEvents()
-				continue eventcheck // TODO: Rethink this.
-			}
-			bt.EventQueue.AppendEvent(event)
-			if !bt.hasProcessedDataAtOffset[o] {
-				bt.hasProcessedDataAtOffset[o] = true
-			}
+			// Input block of events
+			bt.EventQueue.AppendEvents(intervalSpecicEvents)
 		}
 	}
 }
 
-// handleEvent is the main processor of data for the backtester
-// after data has been loaded and Run has appended a data event to the queue,
-// handle event will process events and add further events to the queue if they
-// are required
-func (bt *BackTest) handleEvent(ev common.Event) error {
-	if ev == nil {
+// handleEvents is the main processor of data for the backtester after data has
+// been loaded and Run has appended data events to the queue, handle event will
+// process events and add further events to the queue if they are required.
+func (bt *BackTest) handleEvents(evs []common.Event) error {
+	if evs == nil {
 		return fmt.Errorf("cannot handle event %w", errNilData)
 	}
 
-	funds, err := bt.Funding.GetFundingForEvent(ev)
+	funds, err := bt.Funding.GetFundingForEvent(evs[0]) // TODO: Rethink this.
 	if err != nil {
 		return err
 	}
 
-	switch eType := ev.(type) {
+	switch eType := evs[0].(type) { // NOTE: All evnts should be the same type.
 	case kline.Event:
 		// using kline.Event as signal.Event also matches data.Event
 		if bt.Strategy.UsingSimultaneousProcessing() {
 			err = bt.processSimultaneousDataEvents()
 		} else {
-			err = bt.processSingleDataEvent(eType, funds.FundReleaser())
+			var conv []data.Event // TODO: Obviously change this
+			for x := range evs {
+				conv = append(conv, evs[x].(data.Event))
+			}
+			err = bt.processDataEvents(conv, funds.FundReleaser())
 		}
 	case signal.Event:
 		err = bt.processSignalEvent(eType, funds.FundReserver())
@@ -298,23 +321,24 @@ func (bt *BackTest) handleEvent(ev common.Event) error {
 	default:
 		err = fmt.Errorf("handleEvent %w %T received, could not process",
 			errUnhandledDatatype,
-			ev)
+			evs) // TODO: redo
 	}
 	if err != nil {
 		return err
 	}
 
-	return bt.Funding.CreateSnapshot(ev.GetTime())
+	return bt.Funding.CreateSnapshot(evs[0].GetTime()) // TODO: RETHINK THIS.
 }
 
-// processSingleDataEvent will pass the event to the strategy and determine how it should be handled
-func (bt *BackTest) processSingleDataEvent(ev data.Event, funds funding.IFundReleaser) error {
-	fmt.Println("processing a single data event:", ev.GetTime(), ev.GetInterval())
-	err := bt.updateStatsForDataEvent(ev, funds)
+// processDataEvents will pass the events to the strategy and determine how
+// it should be handled
+func (bt *BackTest) processDataEvents(evs []data.Event, funds funding.IFundReleaser) error {
+	fmt.Println("processing a block of data events:", evs[0].GetTime(), evs[0].GetInterval()) // TODO: RETHINK
+	err := bt.updateStatsForDataEvent(evs[0], funds)                                          // TODO: Actually implement
 	if err != nil {
 		return err
 	}
-	d, err := bt.DataHolder.GetDataForCurrency(ev)
+	d, err := bt.DataHolder.GetDataForCurrency(evs[0]) // TODO: Actually implement
 	if err != nil {
 		return err
 	}
@@ -331,7 +355,7 @@ func (bt *BackTest) processSingleDataEvent(ev data.Event, funds funding.IFundRel
 	if err != nil {
 		log.Errorf(common.Backtester, "SetEventForOffset %v", err)
 	}
-	bt.EventQueue.AppendEvent(s) // <---- WHAT?
+	// bt.EventQueue.AppendEvents(s) // <---- WHAT? Loop back? // TODO: implement
 
 	return nil
 }
@@ -345,37 +369,43 @@ func (bt *BackTest) processSimultaneousDataEvents() error {
 		return err
 	}
 
-	dataEvents := make([]data.Handler, 0, len(dataHolders))
-	for i := range dataHolders {
-		var latestData data.Event
-		latestData, err = dataHolders[i].Latest()
-		if err != nil {
-			return err
-		}
-		var funds funding.IFundingPair
-		funds, err = bt.Funding.GetFundingForEvent(latestData)
-		if err != nil {
-			return err
-		}
-		err = bt.updateStatsForDataEvent(latestData, funds.FundReleaser())
-		if err != nil {
-			switch {
-			case errors.Is(err, statistics.ErrAlreadyProcessed):
-				if !bt.MetaData.Closed || !bt.MetaData.ClosePositionsOnStop {
-					// Closing positions on close reuses existing events and doesn't need to be logged
-					// any other scenario, this should be logged
-					log.Warnf(common.LiveStrategy, "%v %v", latestData.GetOffset(), err)
-				}
-				continue
-			case errors.Is(err, gctorder.ErrPositionLiquidated):
-				return nil
-			default:
-				log.Error(common.Backtester, err)
+	fullDataEvents := make([][]data.Handler, 0, len(dataHolders))
+events:
+	for _, intervalHolder := range dataHolders {
+		intervalEvents := make([]data.Handler, 0, len(intervalHolder))
+		for x := range intervalHolder {
+			var latestData data.Event
+			latestData, err = intervalHolder[x].Latest()
+			if err != nil {
+				return err
 			}
+			var funds funding.IFundingPair
+			funds, err = bt.Funding.GetFundingForEvent(latestData)
+			if err != nil {
+				return err
+			}
+			err = bt.updateStatsForDataEvent(latestData, funds.FundReleaser())
+			if err != nil {
+				switch {
+				case errors.Is(err, statistics.ErrAlreadyProcessed):
+					if !bt.MetaData.Closed || !bt.MetaData.ClosePositionsOnStop {
+						// Closing positions on close reuses existing events and doesn't need to be logged
+						// any other scenario, this should be logged
+						log.Warnf(common.LiveStrategy, "%v %v", latestData.GetOffset(), err)
+					}
+					continue events // TODO: RETHINK THIS
+				case errors.Is(err, gctorder.ErrPositionLiquidated):
+					return nil // TODO: What about other positions?
+				default:
+					log.Error(common.Backtester, err)
+				}
+			}
+			intervalEvents = append(intervalEvents, intervalHolder[x])
 		}
-		dataEvents = append(dataEvents, dataHolders[i])
+		fullDataEvents = append(fullDataEvents, intervalEvents)
 	}
-	signals, err := bt.Strategy.OnSimultaneousSignals(dataEvents, bt.Funding, bt.Portfolio)
+
+	signals, err := bt.Strategy.OnSimultaneousSignals(fullDataEvents, bt.Funding, bt.Portfolio)
 	if err != nil {
 		switch {
 		case errors.Is(err, base.ErrTooMuchBadData):
@@ -385,16 +415,22 @@ func (bt *BackTest) processSimultaneousDataEvents() error {
 			// event queue is being cleared with no data events to process
 			return nil
 		default:
-			log.Errorf(common.Backtester, "OnSimultaneousSignals %v", err)
+			log.Errorf(common.Backtester, "OnSimultaneousSignals %v", err) // Return error?
 			return nil
 		}
 	}
 	for i := range signals {
 		err = bt.Statistic.SetEventForOffset(signals[i])
 		if err != nil {
-			log.Errorf(common.Backtester, "SetEventForOffset %v %v %v %v", signals[i].GetExchange(), signals[i].GetAssetType(), signals[i].Pair(), err)
+			log.Errorf(common.Backtester, "SetEventForOffset %v %v %v %v %v",
+				signals[i].GetExchange(),
+				signals[i].GetAssetType(),
+				signals[i].Pair(),
+				signals[i].GetInterval(),
+				err)
+			// continue TODO: ????
 		}
-		bt.EventQueue.AppendEvent(signals[i])
+		bt.EventQueue.AppendEvents([]common.Event{signals[i]})
 	}
 	return nil
 }
@@ -477,21 +513,21 @@ func (bt *BackTest) processSignalEvent(ev signal.Event, funds funding.IFundReser
 	}
 	cs, err := bt.Exchange.GetCurrencySettings(ev.GetExchange(), ev.GetAssetType(), ev.Pair())
 	if err != nil {
-		log.Errorf(common.Backtester, "GetCurrencySettings %v", err)
-		return fmt.Errorf("GetCurrencySettings %v", err)
+		log.Errorf(common.Backtester, "GetCurrencySettings %v", err) // TODO: Need to log? RM?
+		return fmt.Errorf("GetCurrencySettings %w", err)
 	}
 	var o *order.Order
 	o, err = bt.Portfolio.OnSignal(ev, &cs, funds)
 	if err != nil {
-		log.Errorf(common.Backtester, "OnSignal %v", err)
-		return fmt.Errorf("OnSignal %v %v %v %v", ev.GetExchange(), ev.GetAssetType(), ev.Pair(), err)
+		log.Errorf(common.Backtester, "OnSignal %v", err) // <--- ?
+		return fmt.Errorf("OnSignal %v %v %v %v %w", ev.GetExchange(), ev.GetAssetType(), ev.Pair(), ev.GetInterval(), err)
 	}
 	err = bt.Statistic.SetEventForOffset(o)
 	if err != nil {
-		return fmt.Errorf("SetEventForOffset %v", err)
+		return fmt.Errorf("SetEventForOffset %w", err)
 	}
 
-	bt.EventQueue.AppendEvent(o) // <--- What???
+	bt.EventQueue.AppendEvents([]common.Event{o}) // TODO: ?
 	return nil
 }
 
@@ -506,7 +542,7 @@ func (bt *BackTest) processOrderEvent(ev order.Event, funds funding.IFundRelease
 	if err != nil {
 		return err
 	}
-	f, err := bt.Exchange.ExecuteOrder(ev, d, bt.orderManager, funds)
+	f, err := bt.Exchange.ExecuteOrder(ev, d[0], bt.orderManager, funds) // TODO: Correctly implement, Lowest interval.
 	if err != nil {
 		if f == nil {
 			log.Errorf(common.Backtester, "ExecuteOrder fill event should always be returned, please fix, %v", err)
@@ -520,7 +556,7 @@ func (bt *BackTest) processOrderEvent(ev order.Event, funds funding.IFundRelease
 	if err != nil {
 		log.Errorf(common.Backtester, "SetEventForOffset %v %v %v %v", ev.GetExchange(), ev.GetAssetType(), ev.Pair(), err)
 	}
-	bt.EventQueue.AppendEvent(f)
+	bt.EventQueue.AppendEvents([]common.Event{f}) // TODO: Variadic param?
 	return nil
 }
 
@@ -557,14 +593,24 @@ func (bt *BackTest) processFillEvent(ev fill.Event, funds funding.IFundReleaser)
 		fde.SetOffset(ev.GetOffset())
 		err = bt.Statistic.SetEventForOffset(fde)
 		if err != nil {
-			log.Errorf(common.Backtester, "SetEventForOffset %v %v %v %v", fde.GetExchange(), fde.GetAssetType(), fde.Pair(), err)
+			log.Errorf(common.Backtester, "SetEventForOffset %v %v %v %v %v",
+				fde.GetExchange(),
+				fde.GetAssetType(),
+				fde.Pair(),
+				fde.GetInterval(),
+				err)
+			// TODO: Return and above on error?
 		}
 		od := ev.GetOrder()
 		if fde.MatchOrderAmount() && od != nil {
 			fde.SetAmount(ev.GetAmount())
 		}
-		fde.AppendReasonf("raising event after %v %v %v fill", ev.GetExchange(), ev.GetAssetType(), ev.Pair())
-		bt.EventQueue.AppendEvent(fde)
+		fde.AppendReasonf("raising event after %v %v %v %v fill",
+			ev.GetExchange(),
+			ev.GetAssetType(),
+			ev.Pair(),
+			ev.GetInterval())
+		bt.EventQueue.AppendEvents([]common.Event{fde}) // <---- WHAT!????
 	}
 	if ev.GetAssetType().IsFutures() {
 		return bt.processFuturesFillEvent(ev, funds)
@@ -659,13 +705,13 @@ func (bt *BackTest) triggerLiquidationsForExchange(ev data.Event, pnl *portfolio
 		// which may not have been processed yet
 		// this will create and store stats for each order
 		// then liquidate it at the funding level
-		var datas data.Handler
+		var datas []data.Handler
 		datas, err = bt.DataHolder.GetDataForCurrency(orders[i])
 		if err != nil {
 			return err
 		}
 		var latest data.Event
-		latest, err = datas.Latest()
+		latest, err = datas[0].Latest() // TODO: More correctly implemented. This should be the smallest time scale.
 		if err != nil {
 			return err
 		}
@@ -673,7 +719,7 @@ func (bt *BackTest) triggerLiquidationsForExchange(ev data.Event, pnl *portfolio
 		if err != nil && !errors.Is(err, statistics.ErrAlreadyProcessed) {
 			return err
 		}
-		bt.EventQueue.AppendEvent(orders[i])
+		bt.EventQueue.AppendEvents([]common.Event{orders[i]})
 		err = bt.Statistic.SetEventForOffset(orders[i])
 		if err != nil {
 			log.Errorf(common.Backtester, "SetEventForOffset %v %v %v %v", ev.GetExchange(), ev.GetAssetType(), ev.Pair(), err)
@@ -705,7 +751,7 @@ func (bt *BackTest) CloseAllPositions() error {
 	latestPrices := make([]data.Event, len(dataHolders))
 	for i := range dataHolders {
 		var latest data.Event
-		latest, err = dataHolders[i].Latest()
+		latest, err = dataHolders[0][i].Latest() // TODO: Correctly implement. This should be the smallest time scale.
 		if err != nil {
 			return err
 		}
@@ -732,7 +778,7 @@ func (bt *BackTest) CloseAllPositions() error {
 		if err != nil {
 			return err
 		}
-		bt.EventQueue.AppendEvent(events[i])
+		bt.EventQueue.AppendEvents([]common.Event{events[i]})
 	}
 	err = bt.Run()
 	if err != nil {

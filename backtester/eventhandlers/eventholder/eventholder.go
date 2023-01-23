@@ -1,9 +1,6 @@
 package eventholder
 
 import (
-	"fmt"
-	"runtime"
-
 	"github.com/thrasher-corp/gocryptotrader/backtester/common"
 	gctcommon "github.com/thrasher-corp/gocryptotrader/common"
 )
@@ -18,22 +15,22 @@ func (h *Holder) Reset() error {
 }
 
 // AppendEvent adds and event to the queue
-func (h *Holder) AppendEvent(i common.Event) {
-	runtime.Breakpoint()
-	fmt.Println("appending event", i.GetTime(), i.GetInterval())
-	h.Queue = append(h.Queue, i)
+func (h *Holder) AppendEvents(events []common.Event) { // TODO: Return errors?
+	// runtime.Breakpoint()
+	// fmt.Println("appending event", i.GetTime(), i.GetInterval())
+	h.Queue = append(h.Queue, events)
 }
 
 // NextEvent removes the current event and returns the next event in the queue
-func (h *Holder) NextEvent() (i common.Event) {
+// TODO: Rethink this design.
+func (h *Holder) NextEvents() (events []common.Event) { // TODO: Return error
 	if len(h.Queue) == 0 {
 		return nil
 	}
 
-	i = h.Queue[0]
+	events = h.Queue[0]
 	h.Queue = h.Queue[1:]
 	// TODO: Use integer to iterate through events so we don't need to resize
 	// queue system
-
-	return i
+	return events
 }

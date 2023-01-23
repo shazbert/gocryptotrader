@@ -20,8 +20,9 @@ type StrategyHolder []Handler
 type Handler interface {
 	Name() string
 	Description() string
-	OnSignal(data.Handler, funding.IFundingTransferer, portfolio.Handler) (signal.Event, error)
-	OnSimultaneousSignals([]data.Handler, funding.IFundingTransferer, portfolio.Handler) ([]signal.Event, error)
+	OnSignal([]data.Handler, funding.IFundingTransferer, portfolio.Handler) (signal.Event, error)
+	// NOTE: [][]data.Handler 1st dimension is asset then second dimension is interval segregation
+	OnSimultaneousSignals([][]data.Handler, funding.IFundingTransferer, portfolio.Handler) ([]signal.Event, error)
 	UsingSimultaneousProcessing() bool
 	SupportsSimultaneousProcessing() bool
 	SetSimultaneousProcessing(bool)

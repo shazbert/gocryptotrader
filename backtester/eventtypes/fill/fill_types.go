@@ -26,6 +26,7 @@ type Fill struct {
 
 // Event holds all functions required to handle a fill event
 type Event interface {
+	// TODO: Name all interface functions as to what is going on.
 	common.Event
 	common.Directioner
 

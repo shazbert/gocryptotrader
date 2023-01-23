@@ -47,22 +47,22 @@ func (s *Strategy) Description() string {
 // OnSignal handles a data event and returns what action the strategy believes should occur
 // For rsi, this means returning a buy signal when rsi is at or below a certain level, and a
 // sell signal when it is at or above a certain level
-func (s *Strategy) OnSignal(d data.Handler, _ funding.IFundingTransferer, _ portfolio.Handler) (signal.Event, error) {
+func (s *Strategy) OnSignal(d []data.Handler, _ funding.IFundingTransferer, _ portfolio.Handler) (signal.Event, error) {
 	if d == nil {
 		return nil, common.ErrNilEvent
 	}
 
-	es, err := s.GetBaseData(d)
+	es, err := s.GetBaseData(d[0]) // TODO: Better implementation
 	if err != nil {
 		return nil, err
 	}
 
-	latest, err := d.Latest()
+	latest, err := d[0].Latest() // First latest but add total processing.
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Println("EVENT AT TIME BRO:", latest.GetTime(), latest.GetInterval())
+	fmt.Println("EVENT AT TIME:", latest.GetTime(), latest.GetInterval())
 
 	es.SetPrice(latest.GetClosePrice())
 
@@ -72,7 +72,7 @@ func (s *Strategy) OnSignal(d data.Handler, _ funding.IFundingTransferer, _ port
 		return &es, nil
 	}
 
-	dataRange, err := d.StreamClose()
+	dataRange, err := d[0].StreamClose()
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func (s *Strategy) OnSignal(d data.Handler, _ funding.IFundingTransferer, _ port
 	}
 	rsi := indicators.RSI(massagedData, int(s.rsiPeriod.IntPart()))
 	latestRSIValue := decimal.NewFromFloat(rsi[len(rsi)-1])
-	hasDataAtTime, err := d.HasDataAtTime(latest.GetTime())
+	hasDataAtTime, err := d[0].HasDataAtTime(latest.GetTime())
 	if err != nil {
 		return nil, err
 	}
@@ -115,11 +115,11 @@ func (s *Strategy) SupportsSimultaneousProcessing() bool {
 
 // OnSimultaneousSignals analyses multiple data points simultaneously, allowing flexibility
 // in allowing a strategy to only place an order for X currency if Y currency's price is Z
-func (s *Strategy) OnSimultaneousSignals(d []data.Handler, _ funding.IFundingTransferer, _ portfolio.Handler) ([]signal.Event, error) {
+func (s *Strategy) OnSimultaneousSignals(d [][]data.Handler, _ funding.IFundingTransferer, _ portfolio.Handler) ([]signal.Event, error) {
 	var resp []signal.Event
 	var errs gctcommon.Errors
 	for i := range d {
-		latest, err := d[i].Latest()
+		latest, err := d[i][0].Latest() // TODO: Implement correctly
 		if err != nil {
 			return nil, err
 		}

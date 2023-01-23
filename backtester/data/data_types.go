@@ -2,6 +2,7 @@ package data
 
 import (
 	"errors"
+	"sort"
 	"sync"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/backtester/common"
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	gctkline "github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 )
 
@@ -37,8 +39,10 @@ type HandlerHolder struct {
 // Holder interface dictates what a Data holder is expected to do
 type Holder interface {
 	SetDataForCurrency(string, asset.Item, currency.Pair, gctkline.Interval, Handler) error
-	GetAllData() ([]Handler, error)
-	GetDataForCurrency(ev common.Event) (Handler, error)
+	// TODO: temp return type to segregate asset intervals from other specific
+	// handlers.
+	GetAllData() ([][]Handler, error)
+	GetDataForCurrency(ev common.Event) ([]Handler, error)
 	Reset() error
 }
 
@@ -52,11 +56,45 @@ type Base struct {
 	isLiveData bool
 }
 
+// Details defines details of data handler storage.
+type Details struct {
+	ExchangeName string
+	Asset        asset.Item
+	Pair         currency.Pair
+	Interval     kline.Interval
+}
+
+// MultiInterval holds data haandlers for each individual interval level
+// for that asset. NOTE: Name changes welcome.
+type MultiInterval struct {
+	handlers []Handler
+}
+
+// GetIntervals returns the intervals for the events that are stored.
+func (m *MultiInterval) GetIntervals() ([]kline.Interval, error) {
+	if m == nil {
+		return nil, errors.New("this is nil bro")
+	}
+
+	var klines []kline.Interval
+	for x := range m.handlers {
+		d, err := m.handlers[x].GetDetails()
+		if err != nil {
+			return nil, err
+		}
+		klines = append(klines, d.Interval)
+	}
+
+	// Temp sort
+	sort.Slice(klines, func(i, j int) bool { return klines[i] < klines[j] })
+	return klines, nil
+}
+
 // Handler interface for Loading and Streaming Data
 type Handler interface {
 	Loader
 	Streamer
-	GetDetails() (string, asset.Item, currency.Pair, error)
+	GetDetails() (Details, error)
 	Reset() error
 }
 
@@ -69,6 +107,11 @@ type Loader interface {
 // Streamer interface handles loading, parsing, distributing BackTest Data
 type Streamer interface {
 	Next() (Event, error)
+	// NextByTime will push forward event if found for multi interval processing
+	// so this will allow e.g 1hr candles to fetch the next 5 hr only when it's
+	// aligned correctly if not it will return the last event if available for
+	// signal comparison.
+	NextByTime(time.Time) (Event, error)
 	GetStream() (Events, error)
 	History() (Events, error)
 	Latest() (Event, error)
