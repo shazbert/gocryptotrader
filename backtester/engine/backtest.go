@@ -279,83 +279,101 @@ eventcheck:
 // handleEvents is the main processor of data for the backtester after data has
 // been loaded and Run has appended data events to the queue, handle event will
 // process events and add further events to the queue if they are required.
-func (bt *BackTest) handleEvents(evs []common.Event) error {
-	if evs == nil {
+func (bt *BackTest) handleEvents(events []common.Event) error {
+	if events == nil {
 		return fmt.Errorf("cannot handle event %w", errNilData)
 	}
 
-	funds, err := bt.Funding.GetFundingForEvent(evs[0]) // TODO: Rethink this.
-	if err != nil {
-		return err
-	}
-
-	switch eType := evs[0].(type) { // NOTE: All evnts should be the same type.
-	case kline.Event:
-		// using kline.Event as signal.Event also matches data.Event
-		if bt.Strategy.UsingSimultaneousProcessing() {
-			err = bt.processSimultaneousDataEvents()
-		} else {
-			var conv []data.Event // TODO: Obviously change this
-			for x := range evs {
-				conv = append(conv, evs[x].(data.Event))
-			}
-			err = bt.processDataEvents(conv, funds.FundReleaser())
+	// NOTE: This will range over first event to dictate event type then if
+	// needed will range across the rest of the data.
+	for x := range events {
+		funds, err := bt.Funding.GetFundingForEvent(events[x]) // TODO: Rethink this.
+		if err != nil {
+			return err
 		}
-	case signal.Event:
-		err = bt.processSignalEvent(eType, funds.FundReserver())
-	case order.Event:
-		err = bt.processOrderEvent(eType, funds.FundReleaser())
-	case fill.Event:
-		err = bt.processFillEvent(eType, funds.FundReleaser())
-		if bt.LiveDataHandler != nil {
-			// output log data per interval instead of at the end
-			result, logErr := bt.Statistic.CreateLog(eType)
-			if logErr != nil {
-				return logErr
-			}
-			if err != nil {
-				return err
-			}
-			log.Info(common.LiveStrategy, result)
-		}
-	default:
-		err = fmt.Errorf("handleEvent %w %T received, could not process",
-			errUnhandledDatatype,
-			evs) // TODO: redo
-	}
-	if err != nil {
-		return err
-	}
 
-	return bt.Funding.CreateSnapshot(evs[0].GetTime()) // TODO: RETHINK THIS.
+		switch eType := events[x].(type) { // NOTE: All evnts should be the same type.
+		case kline.Event:
+			// using kline.Event as signal.Event also matches data.Event
+			if bt.Strategy.UsingSimultaneousProcessing() {
+				err = bt.processSimultaneousDataEvents()
+			} else {
+				var conv []data.Event // TODO: Obviously change this
+				for y := range events {
+					conv = append(conv, events[y].(data.Event))
+				}
+				err = bt.processDataEvents(conv, funds.FundReleaser())
+			}
+		case signal.Event:
+			err = bt.processSignalEvent(eType, funds.FundReserver())
+		case order.Event:
+			err = bt.processOrderEvent(eType, funds.FundReleaser())
+		case fill.Event:
+			err = bt.processFillEvent(eType, funds.FundReleaser())
+			if bt.LiveDataHandler != nil {
+				// output log data per interval instead of at the end
+				result, logErr := bt.Statistic.CreateLog(eType)
+				if logErr != nil {
+					return logErr
+				}
+				if err != nil {
+					return err
+				}
+				log.Info(common.LiveStrategy, result)
+			}
+		default:
+			err = fmt.Errorf("handleEvent %w %T received, could not process",
+				errUnhandledDatatype,
+				events) // TODO: redo
+		}
+		if err != nil {
+			return err
+		}
+
+		return bt.Funding.CreateSnapshot(events[x].GetTime()) // TODO: RETHINK THIS.
+
+	}
+	return errors.New("no data") // TODO: RETHINK THIS.
 }
 
 // processDataEvents will pass the events to the strategy and determine how
 // it should be handled
-func (bt *BackTest) processDataEvents(evs []data.Event, funds funding.IFundReleaser) error {
-	fmt.Println("processing a block of data events:", evs[0].GetTime(), evs[0].GetInterval()) // TODO: RETHINK
-	err := bt.updateStatsForDataEvent(evs[0], funds)                                          // TODO: Actually implement
-	if err != nil {
-		return err
-	}
-	d, err := bt.DataHolder.GetDataForCurrency(evs[0]) // TODO: Actually implement
-	if err != nil {
-		return err
-	}
-	s, err := bt.Strategy.OnSignal(d, bt.Funding, bt.Portfolio)
-	if err != nil {
-		if errors.Is(err, base.ErrTooMuchBadData) {
-			// too much bad data is a severe error and backtesting must cease
+func (bt *BackTest) processDataEvents(events data.Events, funds funding.IFundReleaser) error {
+
+	for x := range events {
+		fmt.Println("processing a block of data events:", events[x].GetTime(), events[x].GetInterval()) // TODO: RETHINK
+
+		err := bt.updateStatsForDataEvent(events[x], funds) // TODO: Actually implement
+		if err != nil {
 			return err
 		}
-		log.Errorf(common.Backtester, "OnSignal %v", err)
-		return nil
+		d, err := bt.DataHolder.GetDataForCurrency(events[0]) // TODO: Actually implement
+		if err != nil {
+			return err
+		}
+		signalEvents, err := bt.Strategy.OnSignal(d, bt.Funding, bt.Portfolio)
+		if err != nil {
+			if errors.Is(err, base.ErrTooMuchBadData) {
+				// too much bad data is a severe error and backtesting must cease
+				return err
+			}
+			log.Errorf(common.Backtester, "OnSignal %v", err)
+			return nil
+		}
+
+		eventBlock := make([]common.Event, len(signalEvents))
+		for y := range signalEvents {
+			// TODO: Maybe Set multiple signal events for offset?
+			err = bt.Statistic.SetEventForOffset(signalEvents[y])
+			if err != nil {
+				log.Errorf(common.Backtester, "SetEventForOffset %v", err) // Return error?
+			}
+
+			eventBlock[y] = signalEvents[y]
+		}
+
+		bt.EventQueue.AppendEvents(eventBlock) // RETHINK THIS? // Might have an interface that returns the conforming slice?
 	}
-	err = bt.Statistic.SetEventForOffset(s)
-	if err != nil {
-		log.Errorf(common.Backtester, "SetEventForOffset %v", err)
-	}
-	// bt.EventQueue.AppendEvents(s) // <---- WHAT? Loop back? // TODO: implement
 
 	return nil
 }
@@ -369,7 +387,7 @@ func (bt *BackTest) processSimultaneousDataEvents() error {
 		return err
 	}
 
-	fullDataEvents := make([][]data.Handler, 0, len(dataHolders))
+	fullDataEvents := make(data.AssetSegregated, 0, len(dataHolders))
 events:
 	for _, intervalHolder := range dataHolders {
 		intervalEvents := make([]data.Handler, 0, len(intervalHolder))
@@ -405,7 +423,7 @@ events:
 		fullDataEvents = append(fullDataEvents, intervalEvents)
 	}
 
-	signals, err := bt.Strategy.OnSimultaneousSignals(fullDataEvents, bt.Funding, bt.Portfolio)
+	assetSignals, err := bt.Strategy.OnSimultaneousSignals(fullDataEvents, bt.Funding, bt.Portfolio)
 	if err != nil {
 		switch {
 		case errors.Is(err, base.ErrTooMuchBadData):
@@ -419,18 +437,20 @@ events:
 			return nil
 		}
 	}
-	for i := range signals {
-		err = bt.Statistic.SetEventForOffset(signals[i])
-		if err != nil {
-			log.Errorf(common.Backtester, "SetEventForOffset %v %v %v %v %v",
-				signals[i].GetExchange(),
-				signals[i].GetAssetType(),
-				signals[i].Pair(),
-				signals[i].GetInterval(),
-				err)
-			// continue TODO: ????
+	for i := range assetSignals {
+		for j := range assetSignals[i] {
+			err = bt.Statistic.SetEventForOffset(assetSignals[i][j])
+			if err != nil {
+				log.Errorf(common.Backtester, "SetEventForOffset %v %v %v %v %v",
+					assetSignals[i][j].GetExchange(),
+					assetSignals[i][j].GetAssetType(),
+					assetSignals[i][j].Pair(),
+					assetSignals[i][j].GetInterval(),
+					err)
+				// continue TODO: ????
+			}
+			bt.EventQueue.AppendEvents([]common.Event{assetSignals[i][j]})
 		}
-		bt.EventQueue.AppendEvents([]common.Event{signals[i]})
 	}
 	return nil
 }

@@ -41,8 +41,8 @@ type Holder interface {
 	SetDataForCurrency(string, asset.Item, currency.Pair, gctkline.Interval, Handler) error
 	// TODO: temp return type to segregate asset intervals from other specific
 	// handlers.
-	GetAllData() ([][]Handler, error)
-	GetDataForCurrency(ev common.Event) ([]Handler, error)
+	GetAllData() (AssetSegregated, error)
+	GetDataForCurrency(ev common.Event) (IntervalSegregated, error)
 	Reset() error
 }
 
@@ -89,6 +89,15 @@ func (m *MultiInterval) GetIntervals() ([]kline.Interval, error) {
 	sort.Slice(klines, func(i, j int) bool { return klines[i] < klines[j] })
 	return klines, nil
 }
+
+// AssetSegregated defines a list of data handlers (these hold currency data)
+// for different asset types e.g. BTC-USD SPOT or BTC-USDT SPOT.
+type AssetSegregated []IntervalSegregated
+
+// IntervalSegregated defines a list of data handlers (these hold currency data)
+// for the same asset type but segragated by time intervals e.g. BTC-USD SPOT
+// 1HR or BTC-USD SPOT 3HR etc.
+type IntervalSegregated []Handler
 
 // Handler interface for Loading and Streaming Data
 type Handler interface {

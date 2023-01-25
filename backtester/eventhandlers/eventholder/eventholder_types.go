@@ -11,6 +11,7 @@ type Holder struct {
 
 // EventHolder interface details what is expected of an event holder to perform
 type EventHolder interface {
+	// TODO: Add error returns
 	Reset() error
 	// AppendEvents allows single or mutliple events separated by intervals to
 	// be loaded. 1hr, 3hr, 1 week.

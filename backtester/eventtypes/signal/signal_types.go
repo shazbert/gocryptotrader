@@ -9,6 +9,14 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
 )
 
+// AssetEvents define events that potentialy occur across multiple assets and
+// time intervals.
+type AssetEvents []Events
+
+// Events define events that potentially occur across multiple data time
+// intervals.
+type Events []Event
+
 // Event handler is used for getting trade signal details
 // Example Amount and Price of current candle tick
 type Event interface {

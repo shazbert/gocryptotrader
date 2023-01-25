@@ -38,6 +38,7 @@ var (
 
 // Event interface implements required GetTime() & Pair() return
 type Event interface {
+	// TODO: RETURN ERRORS
 	GetBase() *event.Base
 	GetOffset() int64
 	SetOffset(int64)
@@ -76,6 +77,7 @@ var (
 
 // Directioner dictates the side of an order
 type Directioner interface {
+	// TODO: Return errors
 	SetDirection(side order.Side)
 	GetDirection() order.Side
 }

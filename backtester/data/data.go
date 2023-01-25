@@ -69,7 +69,7 @@ func (h *HandlerHolder) SetDataForCurrency(e string, a asset.Item, p currency.Pa
 }
 
 // GetAllData returns all set Data in the Data map
-func (h *HandlerHolder) GetAllData() ([][]Handler, error) {
+func (h *HandlerHolder) GetAllData() (AssetSegregated, error) {
 	if h == nil {
 		return nil, fmt.Errorf("%w handler holder", gctcommon.ErrNilPointer)
 	}
@@ -77,7 +77,7 @@ func (h *HandlerHolder) GetAllData() ([][]Handler, error) {
 	h.m.Lock()
 	defer h.m.Unlock()
 
-	var resp [][]Handler // TODO: Temp type to segregate interval data specific to the asset.
+	var resp AssetSegregated // TODO: Temp type to segregate interval data specific to the asset.
 	for _, exchMap := range h.data {
 		for _, assetMap := range exchMap {
 			for _, baseMap := range assetMap {
@@ -96,7 +96,7 @@ func (h *HandlerHolder) GetAllData() ([][]Handler, error) {
 }
 
 // GetDataForCurrency returns the Handler for a specific exchange, asset, currency
-func (h *HandlerHolder) GetDataForCurrency(ev common.Event) ([]Handler, error) {
+func (h *HandlerHolder) GetDataForCurrency(ev common.Event) (IntervalSegregated, error) {
 	if h == nil {
 		return nil, fmt.Errorf("%w handler holder", gctcommon.ErrNilPointer)
 	}

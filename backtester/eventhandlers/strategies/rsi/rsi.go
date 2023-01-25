@@ -47,63 +47,79 @@ func (s *Strategy) Description() string {
 // OnSignal handles a data event and returns what action the strategy believes should occur
 // For rsi, this means returning a buy signal when rsi is at or below a certain level, and a
 // sell signal when it is at or above a certain level
-func (s *Strategy) OnSignal(d []data.Handler, _ funding.IFundingTransferer, _ portfolio.Handler) (signal.Event, error) {
-	if d == nil {
+func (s *Strategy) OnSignal(dataPoints data.IntervalSegregated, _ funding.IFundingTransferer, _ portfolio.Handler) (signal.Events, error) {
+	if dataPoints == nil {
 		return nil, common.ErrNilEvent
 	}
 
-	es, err := s.GetBaseData(d[0]) // TODO: Better implementation
-	if err != nil {
-		return nil, err
-	}
+	signals := make([]signal.Event, len(dataPoints))
+	var latestTime time.Time
+	for x := range dataPoints {
+		es, err := s.GetBaseData(dataPoints[x])
+		if err != nil {
+			return nil, err
+		}
 
-	latest, err := d[0].Latest() // First latest but add total processing.
-	if err != nil {
-		return nil, err
-	}
+		signals[x] = es
 
-	fmt.Println("EVENT AT TIME:", latest.GetTime(), latest.GetInterval())
+		var latest data.Event
+		if latestTime.IsZero() {
+			latest, err = dataPoints[x].Next()
+			if err != nil {
+				return nil, err
+			}
+			latestTime = latest.GetTime()
+		} else {
+			latest, err = dataPoints[x].NextByTime(latestTime)
+			if err != nil {
+				return nil, err
+			}
+		}
 
-	es.SetPrice(latest.GetClosePrice())
+		fmt.Println("EVENT AT TIME:", latest.GetTime(), latest.GetInterval())
 
-	if offset := latest.GetOffset(); offset <= s.rsiPeriod.IntPart() {
-		es.AppendReason("Not enough data for signal generation")
-		es.SetDirection(order.DoNothing)
-		return &es, nil
-	}
+		es.SetPrice(latest.GetClosePrice())
 
-	dataRange, err := d[0].StreamClose()
-	if err != nil {
-		return nil, err
-	}
-	var massagedData []float64
-	massagedData, err = s.massageMissingData(dataRange, es.GetTime())
-	if err != nil {
-		return nil, err
-	}
-	rsi := indicators.RSI(massagedData, int(s.rsiPeriod.IntPart()))
-	latestRSIValue := decimal.NewFromFloat(rsi[len(rsi)-1])
-	hasDataAtTime, err := d[0].HasDataAtTime(latest.GetTime())
-	if err != nil {
-		return nil, err
-	}
-	if !hasDataAtTime {
-		es.SetDirection(order.MissingData)
-		es.AppendReasonf("missing data at %v, cannot perform any actions. RSI %v", latest.GetTime(), latestRSIValue)
-		return &es, nil
-	}
+		if offset := latest.GetOffset(); offset <= s.rsiPeriod.IntPart() {
+			es.AppendReason("Not enough data for signal generation")
+			es.SetDirection(order.DoNothing)
+			continue
+		}
 
-	switch {
-	case latestRSIValue.GreaterThanOrEqual(s.rsiHigh):
-		es.SetDirection(order.Sell)
-	case latestRSIValue.LessThanOrEqual(s.rsiLow):
-		es.SetDirection(order.Buy)
-	default:
-		es.SetDirection(order.DoNothing)
-	}
-	es.AppendReasonf("RSI at %v", latestRSIValue)
+		dataRange, err := dataPoints[x].StreamClose()
+		if err != nil {
+			return nil, err
+		}
 
-	return &es, nil
+		massagedData, err := s.massageMissingData(dataRange, es.GetTime())
+		if err != nil {
+			return nil, err
+		}
+
+		rsi := indicators.RSI(massagedData, int(s.rsiPeriod.IntPart()))
+		latestRSIValue := decimal.NewFromFloat(rsi[len(rsi)-1])
+
+		hasDataAtTime, err := dataPoints[x].HasDataAtTime(latest.GetTime())
+		if err != nil {
+			return nil, err
+		}
+		if !hasDataAtTime {
+			es.SetDirection(order.MissingData)
+			es.AppendReasonf("missing data at %v, cannot perform any actions. RSI %v", latest.GetTime(), latestRSIValue)
+			continue
+		}
+
+		switch {
+		case latestRSIValue.GreaterThanOrEqual(s.rsiHigh):
+			es.SetDirection(order.Sell)
+		case latestRSIValue.LessThanOrEqual(s.rsiLow):
+			es.SetDirection(order.Buy)
+		default:
+			es.SetDirection(order.DoNothing)
+		}
+		es.AppendReasonf("%s RSI at %v", latest.GetInterval(), latestRSIValue)
+	}
+	return signals, nil
 }
 
 // SupportsSimultaneousProcessing highlights whether the strategy can handle multiple currency calculation
@@ -115,22 +131,21 @@ func (s *Strategy) SupportsSimultaneousProcessing() bool {
 
 // OnSimultaneousSignals analyses multiple data points simultaneously, allowing flexibility
 // in allowing a strategy to only place an order for X currency if Y currency's price is Z
-func (s *Strategy) OnSimultaneousSignals(d [][]data.Handler, _ funding.IFundingTransferer, _ portfolio.Handler) ([]signal.Event, error) {
-	var resp []signal.Event
+func (s *Strategy) OnSimultaneousSignals(dataPoints data.AssetSegregated, _ funding.IFundingTransferer, _ portfolio.Handler) (signal.AssetEvents, error) {
+	var resp signal.AssetEvents
 	var errs gctcommon.Errors
-	for i := range d {
-		latest, err := d[i][0].Latest() // TODO: Implement correctly
+	for i := range dataPoints {
+		latest, err := dataPoints[i][0].Latest() // TODO: Implement correctly
 		if err != nil {
 			return nil, err
 		}
-		sigEvent, err := s.OnSignal(d[i], nil, nil)
+		sigEvent, err := s.OnSignal(dataPoints[i], nil, nil)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%v %v %v %w", latest.GetExchange(), latest.GetAssetType(), latest.Pair(), err))
 		} else {
 			resp = append(resp, sigEvent)
 		}
 	}
-
 	if len(errs) > 0 {
 		return nil, errs
 	}
