@@ -41,7 +41,7 @@ type Event interface {
 	// TODO: RETURN ERRORS
 	GetBase() *event.Base
 	GetOffset() int64
-	SetOffset(int64)
+	SetOffset(int64) // TODO: int / Is this needed?
 	IsEvent() bool
 	GetTime() time.Time
 	Pair() currency.Pair

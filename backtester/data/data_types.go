@@ -2,7 +2,6 @@ package data
 
 import (
 	"errors"
-	"sort"
 	"sync"
 	"time"
 
@@ -10,7 +9,6 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/backtester/common"
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
-	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	gctkline "github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 )
 
@@ -30,30 +28,26 @@ var (
 
 // HandlerHolder stores an event handler per exchange asset pair
 type HandlerHolder struct {
-	m sync.Mutex
-	// TODO: Merge all intervals into one data handler
 	data map[string]map[asset.Item]map[*currency.Item]map[*currency.Item]map[gctkline.Interval]Handler
-	// TODO: Hold slice as well as map
+	m    sync.Mutex
 }
 
 // Holder interface dictates what a Data holder is expected to do
 type Holder interface {
 	SetDataForCurrency(string, asset.Item, currency.Pair, gctkline.Interval, Handler) error
-	// TODO: temp return type to segregate asset intervals from other specific
-	// handlers.
 	GetAllData() (AssetSegregated, error)
 	GetDataForCurrency(ev common.Event) (IntervalSegregated, error)
 	Reset() error
 }
 
-// Base is the base implementation of some interface functions
-// where further specific functions are implemented in DataFromKline
+// Base is the base implementation of some interface functions where further
+// specific functions are implemented in DataFromKline
 type Base struct {
-	m          sync.Mutex
 	latest     Event
 	stream     []Event
 	offset     int64
 	isLiveData bool
+	m          sync.Mutex
 }
 
 // Details defines details of data handler storage.
@@ -61,34 +55,34 @@ type Details struct {
 	ExchangeName string
 	Asset        asset.Item
 	Pair         currency.Pair
-	Interval     kline.Interval
+	Interval     gctkline.Interval
 }
 
-// MultiInterval holds data haandlers for each individual interval level
-// for that asset. NOTE: Name changes welcome.
-type MultiInterval struct {
-	handlers []Handler
-}
+// // MultiInterval holds data handlers for each individual interval level
+// // for that asset. NOTE: Name changes welcome.
+// type MultiInterval struct {
+// 	handlers []Handler
+// }
 
-// GetIntervals returns the intervals for the events that are stored.
-func (m *MultiInterval) GetIntervals() ([]kline.Interval, error) {
-	if m == nil {
-		return nil, errors.New("this is nil bro")
-	}
+// // GetIntervals returns the intervals for the events that are stored.
+// func (m *MultiInterval) GetIntervals() ([]gctkline.Interval, error) {
+// 	if m == nil {
+// 		return nil, errors.New("this is nil bro")
+// 	}
 
-	var klines []kline.Interval
-	for x := range m.handlers {
-		d, err := m.handlers[x].GetDetails()
-		if err != nil {
-			return nil, err
-		}
-		klines = append(klines, d.Interval)
-	}
+// 	var klines []gctkline.Interval
+// 	for x := range m.handlers {
+// 		d, err := m.handlers[x].GetDetails()
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		klines = append(klines, d.Interval)
+// 	}
 
-	// Temp sort
-	sort.Slice(klines, func(i, j int) bool { return klines[i] < klines[j] })
-	return klines, nil
-}
+// 	// Temp sort
+// 	sort.Slice(klines, func(i, j int) bool { return klines[i] < klines[j] })
+// 	return klines, nil
+// }
 
 // AssetSegregated defines a list of data handlers (these hold currency data)
 // for different asset types e.g. BTC-USD SPOT or BTC-USDT SPOT.

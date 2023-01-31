@@ -2,12 +2,12 @@ package data
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/shopspring/decimal"
-	"github.com/thrasher-corp/gocryptotrader/backtester/common"
 	"github.com/thrasher-corp/gocryptotrader/backtester/eventtypes/event"
 	gctcommon "github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/currency"
@@ -16,7 +16,6 @@ import (
 )
 
 const exch = "binance"
-const a = asset.Spot
 
 var p = currency.NewPair(currency.BTC, currency.USD)
 
@@ -25,31 +24,82 @@ type fakeEvent struct {
 	*event.Base
 }
 
-type fakeHandler struct{}
+type fakeHandler struct {
+	Handler
+}
 
 func TestSetDataForCurrency(t *testing.T) {
 	t.Parallel()
-	d := HandlerHolder{}
-	err := d.SetDataForCurrency(exch, a, p, nil)
+	var d *HandlerHolder
+	err := d.SetDataForCurrency(exch, asset.Spot, p, gctkline.OneHour, nil)
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+	}
+
+	d = &HandlerHolder{}
+
+	err = d.SetDataForCurrency("", asset.Spot, p, gctkline.OneHour, nil)
+	if !errors.Is(err, errExchangeNameUnset) {
+		t.Errorf("received '%v' expected '%v'", err, errExchangeNameUnset)
+	}
+
+	err = d.SetDataForCurrency(exch, 0, p, gctkline.OneHour, nil)
+	if !errors.Is(err, asset.ErrNotSupported) {
+		t.Errorf("received '%v' expected '%v'", err, asset.ErrNotSupported)
+	}
+
+	err = d.SetDataForCurrency(exch, asset.Spot, currency.EMPTYPAIR, gctkline.OneHour, nil)
+	if !errors.Is(err, currency.ErrCurrencyPairEmpty) {
+		t.Errorf("received '%v' expected '%v'", err, currency.ErrCurrencyPairEmpty)
+	}
+
+	err = d.SetDataForCurrency(exch, asset.Spot, p, 0, nil)
+	if !errors.Is(err, gctkline.ErrInvalidInterval) {
+		t.Errorf("received '%v' expected '%v'", err, gctkline.ErrInvalidInterval)
+	}
+
+	err = d.SetDataForCurrency(exch, asset.Spot, p, gctkline.OneHour, nil)
+	if !errors.Is(err, errHandlerIsNil) {
+		t.Errorf("received '%v' expected '%v'", err, errHandlerIsNil)
+	}
+
+	err = d.SetDataForCurrency(exch, asset.Spot, p, gctkline.OneHour, &fakeHandler{})
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
+
 	if d.data == nil {
 		t.Error("expected not nil")
 	}
-	if d.data[exch][a][p.Base.Item][p.Quote.Item] != nil {
-		t.Error("expected nil")
+
+	if d.data[exch][asset.Spot][p.Base.Item][p.Quote.Item][gctkline.OneHour] == nil {
+		t.Error("should not be nil")
+	}
+
+	err = d.SetDataForCurrency(exch, asset.Spot, p, gctkline.OneHour, &fakeHandler{})
+	if !errors.Is(err, errDataHandlerAlreadySet) {
+		t.Errorf("received '%v' expected '%v'", err, errDataHandlerAlreadySet)
 	}
 }
 
 func TestGetAllData(t *testing.T) {
 	t.Parallel()
-	d := HandlerHolder{}
-	err := d.SetDataForCurrency(exch, a, p, nil)
+	var d *HandlerHolder
+	err := d.SetDataForCurrency(exch, asset.Spot, p, gctkline.OneHour, &fakeHandler{})
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+	}
+
+	d = &HandlerHolder{}
+	err = d.SetDataForCurrency(exch, asset.Spot, p, gctkline.OneHour, &fakeHandler{})
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
-	err = d.SetDataForCurrency(exch, a, currency.NewPair(currency.BTC, currency.DOGE), nil)
+	err = d.SetDataForCurrency(exch, asset.Spot, currency.NewPair(currency.BTC, currency.DOGE), gctkline.OneHour, &fakeHandler{})
+	if !errors.Is(err, nil) {
+		t.Errorf("received '%v' expected '%v'", err, nil)
+	}
+	err = d.SetDataForCurrency(exch, asset.Spot, currency.NewPair(currency.BTC, currency.DOGE), gctkline.ThreeHour, &fakeHandler{})
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
@@ -57,42 +107,52 @@ func TestGetAllData(t *testing.T) {
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
+
 	if len(result) != 2 {
+		t.Error("expected 2")
+	}
+
+	if len(result[1]) != 2 {
 		t.Error("expected 2")
 	}
 }
 
 func TestGetDataForCurrency(t *testing.T) {
 	t.Parallel()
-	d := HandlerHolder{}
-	err := d.SetDataForCurrency(exch, a, p, &fakeHandler{})
+
+	var d *HandlerHolder
+	_, err := d.GetDataForCurrency("", 0, currency.EMPTYPAIR)
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+	}
+
+	d = &HandlerHolder{}
+	err = d.SetDataForCurrency(exch, asset.Spot, p, gctkline.OneHour, &fakeHandler{})
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
 
-	err = d.SetDataForCurrency(exch, a, currency.NewPair(currency.BTC, currency.DOGE), nil)
-	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
-	}
-	_, err = d.GetDataForCurrency(nil)
-	if !errors.Is(err, common.ErrNilEvent) {
-		t.Errorf("received '%v' expected '%v'", err, common.ErrNilEvent)
+	_, err = d.GetDataForCurrency("", 0, currency.EMPTYPAIR)
+	if !errors.Is(err, errExchangeNameUnset) {
+		t.Errorf("received '%v' expected '%v'", err, errExchangeNameUnset)
 	}
 
-	_, err = d.GetDataForCurrency(&fakeEvent{Base: &event.Base{
-		Exchange:     "lol",
-		AssetType:    asset.USDTMarginedFutures,
-		CurrencyPair: currency.NewPair(currency.EMB, currency.DOGE),
-	}})
+	_, err = d.GetDataForCurrency("lol", 0, currency.EMPTYPAIR)
+	if !errors.Is(err, asset.ErrNotSupported) {
+		t.Errorf("received '%v' expected '%v'", err, asset.ErrNotSupported)
+	}
+
+	_, err = d.GetDataForCurrency("lol", asset.USDTMarginedFutures, currency.EMPTYPAIR)
+	if !errors.Is(err, currency.ErrCurrencyPairEmpty) {
+		t.Errorf("received '%v' expected '%v'", err, currency.ErrCurrencyPairEmpty)
+	}
+
+	_, err = d.GetDataForCurrency("lol", asset.USDTMarginedFutures, currency.NewPair(currency.EMB, currency.DOGE))
 	if !errors.Is(err, ErrHandlerNotFound) {
 		t.Errorf("received '%v' expected '%v'", err, ErrHandlerNotFound)
 	}
 
-	_, err = d.GetDataForCurrency(&fakeEvent{Base: &event.Base{
-		Exchange:     exch,
-		AssetType:    a,
-		CurrencyPair: p,
-	}})
+	_, err = d.GetDataForCurrency(exch, asset.Spot, p)
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
@@ -101,11 +161,11 @@ func TestGetDataForCurrency(t *testing.T) {
 func TestReset(t *testing.T) {
 	t.Parallel()
 	d := &HandlerHolder{}
-	err := d.SetDataForCurrency(exch, a, p, nil)
+	err := d.SetDataForCurrency(exch, asset.Spot, p, gctkline.OneHour, &fakeHandler{})
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
-	err = d.SetDataForCurrency(exch, a, currency.NewPair(currency.BTC, currency.DOGE), nil)
+	err = d.SetDataForCurrency(exch, asset.Spot, currency.NewPair(currency.BTC, currency.DOGE), gctkline.OneHour, &fakeHandler{})
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
@@ -741,147 +801,47 @@ func (f fakeEvent) GetOffset() int64 {
 	return f.Offset
 }
 
-func (f fakeEvent) SetOffset(o int64) {
-	f.Offset = o
-}
-
-func (f fakeEvent) IsEvent() bool {
-	return false
-}
-
-func (f fakeEvent) GetTime() time.Time {
-	return f.Base.Time
-}
-
-func (f fakeEvent) Pair() currency.Pair {
-	return currency.NewPair(currency.BTC, currency.USD)
-}
-
-func (f fakeEvent) GetExchange() string {
-	return f.Exchange
-}
-
-func (f fakeEvent) GetInterval() gctkline.Interval {
-	return gctkline.Interval(time.Minute)
-}
-
-func (f fakeEvent) GetAssetType() asset.Item {
-	return f.AssetType
-}
-
-func (f fakeEvent) GetReason() string {
-	return strings.Join(f.Reasons, ",")
-}
-
-func (f fakeEvent) AppendReason(string) {
-}
-
-func (f fakeEvent) GetClosePrice() decimal.Decimal {
-	return decimal.Zero
-}
-
-func (f fakeEvent) GetHighPrice() decimal.Decimal {
-	return decimal.Zero
-}
-
-func (f fakeEvent) GetLowPrice() decimal.Decimal {
-	return decimal.Zero
-}
-
-func (f fakeEvent) GetOpenPrice() decimal.Decimal {
-	return decimal.Zero
-}
-
-func (f fakeEvent) GetVolume() decimal.Decimal {
-	return decimal.Zero
-}
-
-func (f fakeEvent) GetUnderlyingPair() currency.Pair {
-	return f.Pair()
-}
-
+func (f fakeEvent) SetOffset(o int64)                    { f.Offset = o }
+func (f fakeEvent) IsEvent() bool                        { return false }
+func (f fakeEvent) GetTime() time.Time                   { return f.Base.Time }
+func (f fakeEvent) Pair() currency.Pair                  { return currency.NewPair(currency.BTC, currency.USD) }
+func (f fakeEvent) GetExchange() string                  { return f.Exchange }
+func (f fakeEvent) GetInterval() gctkline.Interval       { return gctkline.Interval(time.Minute) }
+func (f fakeEvent) GetAssetType() asset.Item             { return f.AssetType }
+func (f fakeEvent) GetReason() string                    { return strings.Join(f.Reasons, ",") }
+func (f fakeEvent) AppendReason(string)                  {}
+func (f fakeEvent) GetClosePrice() decimal.Decimal       { return decimal.Zero }
+func (f fakeEvent) GetHighPrice() decimal.Decimal        { return decimal.Zero }
+func (f fakeEvent) GetLowPrice() decimal.Decimal         { return decimal.Zero }
+func (f fakeEvent) GetOpenPrice() decimal.Decimal        { return decimal.Zero }
+func (f fakeEvent) GetVolume() decimal.Decimal           { return decimal.Zero }
+func (f fakeEvent) GetUnderlyingPair() currency.Pair     { return f.Pair() }
 func (f fakeEvent) AppendReasonf(string, ...interface{}) {}
+func (f fakeEvent) GetBase() *event.Base                 { return &event.Base{} }
+func (f fakeEvent) GetConcatReasons() string             { return "" }
+func (f fakeEvent) GetReasons() []string                 { return nil }
 
-func (f fakeEvent) GetBase() *event.Base {
-	return &event.Base{}
-}
+// func (f fakeHandler) Load() error                             { return nil }
+// func (f fakeHandler) AppendStream(...Event) error             { return nil }
+// func (f fakeHandler) GetBase() Base                           { return Base{} }
+// func (f fakeHandler) Next() (Event, error)                    { return nil, nil }
+// func (f fakeHandler) GetStream() (Events, error)              { return nil, nil }
+// func (f fakeHandler) History() (Events, error)                { return nil, nil }
+// func (f fakeHandler) Latest() (Event, error)                  { return nil, nil }
+// func (f fakeHandler) List() (Events, error)                   { return nil, nil }
+// func (f fakeHandler) IsLastEvent() (bool, error)              { return false, nil }
+// func (f fakeHandler) Offset() (int64, error)                  { return 0, nil }
+// func (f fakeHandler) StreamOpen() ([]decimal.Decimal, error)  { return nil, nil }
+// func (f fakeHandler) StreamHigh() ([]decimal.Decimal, error)  { return nil, nil }
+// func (f fakeHandler) StreamLow() ([]decimal.Decimal, error)   { return nil, nil }
+// func (f fakeHandler) StreamClose() ([]decimal.Decimal, error) { return nil, nil }
+// func (f fakeHandler) StreamVol() ([]decimal.Decimal, error)   { return nil, nil }
+// func (f fakeHandler) HasDataAtTime(time.Time) (bool, error)   { return false, nil }
+// func (f fakeHandler) Reset() error                            { return nil }
+// func (f fakeHandler) GetDetails() (Details, error)            { return Details{}, nil }
 
-func (f fakeEvent) GetConcatReasons() string {
-	return ""
-}
+func TestXxx(t *testing.T) {
+	hello := []string{"1", "2", "3", "4", "5", "6"}
 
-func (f fakeEvent) GetReasons() []string {
-	return nil
-}
-
-func (f fakeHandler) Load() error {
-	return nil
-}
-
-func (f fakeHandler) AppendStream(...Event) error {
-	return nil
-}
-
-func (f fakeHandler) GetBase() Base {
-	return Base{}
-}
-
-func (f fakeHandler) Next() (Event, error) {
-	return nil, nil
-}
-
-func (f fakeHandler) GetStream() (Events, error) {
-	return nil, nil
-}
-
-func (f fakeHandler) History() (Events, error) {
-	return nil, nil
-}
-
-func (f fakeHandler) Latest() (Event, error) {
-	return nil, nil
-}
-
-func (f fakeHandler) List() (Events, error) {
-	return nil, nil
-}
-
-func (f fakeHandler) IsLastEvent() (bool, error) {
-	return false, nil
-}
-
-func (f fakeHandler) Offset() (int64, error) {
-	return 0, nil
-}
-
-func (f fakeHandler) StreamOpen() ([]decimal.Decimal, error) {
-	return nil, nil
-}
-
-func (f fakeHandler) StreamHigh() ([]decimal.Decimal, error) {
-	return nil, nil
-}
-
-func (f fakeHandler) StreamLow() ([]decimal.Decimal, error) {
-	return nil, nil
-}
-
-func (f fakeHandler) StreamClose() ([]decimal.Decimal, error) {
-	return nil, nil
-}
-
-func (f fakeHandler) StreamVol() ([]decimal.Decimal, error) {
-	return nil, nil
-}
-
-func (f fakeHandler) HasDataAtTime(time.Time) (bool, error) {
-	return false, nil
-}
-
-func (f fakeHandler) Reset() error {
-	return nil
-}
-
-func (f fakeHandler) GetDetails() (string, asset.Item, currency.Pair, error) {
-	return "", asset.Empty, currency.EMPTYPAIR, nil
+	fmt.Println(hello[:3])
 }
