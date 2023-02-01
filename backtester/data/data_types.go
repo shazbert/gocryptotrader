@@ -45,7 +45,7 @@ type Holder interface {
 type Base struct {
 	latest     Event
 	stream     []Event
-	offset     int64
+	offset     int
 	isLiveData bool
 	m          sync.Mutex
 }

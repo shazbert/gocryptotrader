@@ -3,7 +3,6 @@ package data
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	gctcommon "github.com/thrasher-corp/gocryptotrader/common"
@@ -19,9 +18,13 @@ var (
 	errOffsetShifted                 = errors.New("offset has shifted beyond events slice")
 	errEventsNotTimeAligned          = errors.New("events not time aligned")
 	errEventsAlreadySet              = errors.New("events have already been set")
-	errLatestEventHasNotBeenSet      = errors.New("latest event has not been set")
+	errLatestEventHasNotBeenSet      = errors.New("latest e has not been set")
 	errDataFeedTypeHasAlreadyBeenSet = errors.New("data feed type has already been set")
 	errDuplicateEvent                = errors.New("duplicate event")
+	errTimeIsUnset                   = errors.New("time is unset")
+	errNoDataEventsLoaded            = errors.New("no data events loaded")
+	errTimeMustBeUTC                 = errors.New("e time must be UTC")
+	errEventTimeIntervalMismatch     = errors.New("e time not truncated to time interval")
 )
 
 // NewHandlerHolder returns a new HandlerHolder
@@ -32,12 +35,12 @@ func NewHandlerHolder() *HandlerHolder {
 }
 
 // SetDataForCurrency assigns a Data Handler to the Data map by exchange, asset and currency
-func (h *HandlerHolder) SetDataForCurrency(e string, a asset.Item, p currency.Pair, in gctkline.Interval, k Handler) error {
+func (h *HandlerHolder) SetDataForCurrency(exchangeName string, a asset.Item, p currency.Pair, in gctkline.Interval, k Handler) error {
 	if h == nil {
 		return fmt.Errorf("%w handler holder", gctcommon.ErrNilPointer)
 	}
 
-	if e == "" {
+	if exchangeName == "" {
 		return errExchangeNameUnset
 	}
 
@@ -63,11 +66,11 @@ func (h *HandlerHolder) SetDataForCurrency(e string, a asset.Item, p currency.Pa
 	if h.data == nil {
 		h.data = make(map[string]map[asset.Item]map[*currency.Item]map[*currency.Item]map[gctkline.Interval]Handler)
 	}
-	e = strings.ToLower(e)
-	m1, ok := h.data[e]
+
+	m1, ok := h.data[exchangeName]
 	if !ok {
 		m1 = make(map[asset.Item]map[*currency.Item]map[*currency.Item]map[gctkline.Interval]Handler)
-		h.data[e] = m1
+		h.data[exchangeName] = m1
 	}
 
 	m2, ok := m1[a]
@@ -124,12 +127,12 @@ func (h *HandlerHolder) GetAllData() (AssetSegregated, error) {
 }
 
 // GetDataForCurrency returns the Handler for a specific exchange, asset, currency
-func (h *HandlerHolder) GetDataForCurrency(exch string, a asset.Item, p currency.Pair) (IntervalSegregated, error) {
+func (h *HandlerHolder) GetDataForCurrency(exchangeName string, a asset.Item, p currency.Pair) (IntervalSegregated, error) {
 	if h == nil {
 		return nil, fmt.Errorf("%w handler holder", gctcommon.ErrNilPointer)
 	}
 
-	if exch == "" {
+	if exchangeName == "" {
 		return nil, errExchangeNameUnset
 	}
 
@@ -144,9 +147,9 @@ func (h *HandlerHolder) GetDataForCurrency(exch string, a asset.Item, p currency
 	h.m.Lock()
 	defer h.m.Unlock()
 
-	intervalCurrencyData, ok := h.data[exch][a][p.Base.Item][p.Quote.Item]
+	intervalCurrencyData, ok := h.data[exchangeName][a][p.Base.Item][p.Quote.Item]
 	if !ok {
-		return nil, fmt.Errorf("%s %s %s %w", exch, a, p, ErrHandlerNotFound)
+		return nil, fmt.Errorf("%s %s %s %w", exchangeName, a, p, ErrHandlerNotFound)
 	}
 
 	handlers := make([]Handler, 0, len(intervalCurrencyData))
@@ -168,7 +171,7 @@ func (h *HandlerHolder) Reset() error {
 	return nil
 }
 
-// GetDetails returns data about the Base Holder
+// GetDetails returns identification details about the base holder
 func (b *Base) GetDetails() (Details, error) {
 	if b == nil {
 		return Details{}, fmt.Errorf("%w base", gctcommon.ErrNilPointer)
@@ -195,12 +198,14 @@ func (b *Base) Reset() error {
 	}
 	b.m.Lock()
 	defer b.m.Unlock()
-	*b = Base{}
+	b.isLiveData = false
+	b.latest = nil
+	b.offset = 0
+	b.stream = nil
 	return nil
 }
 
-// GetStream will return entire Data list
-// TODO: Change name from GetStream to GetAllEvents
+// GetStream will return entire data list
 func (b *Base) GetStream() (Events, error) {
 	if b == nil {
 		return nil, fmt.Errorf("%w Base", gctcommon.ErrNilPointer)
@@ -220,11 +225,10 @@ func (b *Base) Offset() (int64, error) {
 	}
 	b.m.Lock()
 	defer b.m.Unlock()
-	return b.offset, nil
+	return int64(b.offset), nil
 }
 
 // SetStream sets the Data stream for candle analysis
-// TODO: Change name from SetStream to SetAllEvents
 func (b *Base) SetStream(events []Event) error {
 	if b == nil {
 		return fmt.Errorf("%w Base", gctcommon.ErrNilPointer)
@@ -241,10 +245,11 @@ func (b *Base) SetStream(events []Event) error {
 		return errEventsAlreadySet
 	}
 
-	b.stream = make([]Event, len(events))
+	bucket := make([]Event, len(events)) // separates incoming slice from b.stream
 	for x := range events {
 		err := ValidateEvent(events[x])
 		if err != nil {
+			fmt.Printf("%+v\n", events[x])
 			return err
 		}
 
@@ -257,8 +262,9 @@ func (b *Base) SetStream(events []Event) error {
 		// Due to the Next() function, we cannot take stream offsets as is, and
 		// we re-set them.
 		events[x].SetOffset(int64(x) + 1)
-		b.stream[x] = events[x]
+		bucket[x] = events[x]
 	}
+	b.stream = bucket
 	return nil
 }
 
@@ -275,7 +281,7 @@ func (b *Base) AppendStream(events ...Event) error {
 	b.m.Lock()
 	defer b.m.Unlock()
 
-	bucket := make([]Event, 0, len(b.stream)+len(events))
+	bucket := make([]Event, len(b.stream), len(b.stream)+len(events))
 	copy(bucket, b.stream)
 
 	for x := range events {
@@ -293,12 +299,11 @@ func (b *Base) AppendStream(events ...Event) error {
 		bucket = append(bucket, events[x])
 		events[x].SetOffset(int64(len(bucket) + 1))
 	}
-
 	b.stream = bucket
 	return nil
 }
 
-// Next will return the next event in the list and also shifts the offset by one
+// Next will return the next e in the list and also shifts the offset by one
 func (b *Base) Next() (Event, error) {
 	if b == nil {
 		return nil, fmt.Errorf("%w Base", gctcommon.ErrNilPointer)
@@ -307,11 +312,11 @@ func (b *Base) Next() (Event, error) {
 	b.m.Lock()
 	defer b.m.Unlock()
 
-	if int64(len(b.stream)) < b.offset {
+	if len(b.stream) < b.offset {
 		return nil, errOffsetShifted
 	}
 
-	if int64(len(b.stream)) == b.offset {
+	if len(b.stream) == b.offset {
 		return nil, fmt.Errorf("%w data length %v offset %v", ErrEndOfData, len(b.stream), b.offset)
 	}
 
@@ -320,29 +325,34 @@ func (b *Base) Next() (Event, error) {
 	return b.latest, nil
 }
 
-// Next will return the next event in the list if matched and also shift the
-// offset one. If not matched it will not increment offset and keep returning
-// last event.
-func (b *Base) NextByTime(et time.Time) (Event, error) {
+// Next will return the next e in the list if matched and also shift the
+// offset. If not matched it will not increment offset and keep returning last
+// event.
+func (b *Base) NextByTime(eventTime time.Time) (Event, error) {
 	if b == nil {
 		return nil, fmt.Errorf("%w Base", gctcommon.ErrNilPointer)
 	}
-	if et.IsZero() {
-		return nil, errors.New("time is empty")
+	if eventTime.IsZero() {
+		return nil, errTimeIsUnset
+	}
+	if eventTime.Location() != time.UTC {
+		return nil, errTimeMustBeUTC
 	}
 	b.m.Lock()
 	defer b.m.Unlock()
 
-	if int64(len(b.stream)) < b.offset {
+	if len(b.stream) < b.offset {
 		return nil, errOffsetShifted
 	}
 
-	if int64(len(b.stream)) == b.offset {
+	if len(b.stream) == b.offset {
 		return nil, fmt.Errorf("%w data length %v offset %v", ErrEndOfData, len(b.stream), b.offset)
 	}
 
 	ret := b.stream[b.offset]
-	if ret.GetTime().Equal(et) {
+	// NOTE: This might need to be adjusted e.g. 3Day, 7Day time intervals will
+	// usually not intersect very often if we just do an equal check.
+	if ret.GetTime().Equal(eventTime) || ret.GetTime().After(eventTime) {
 		b.offset++
 		b.latest = ret
 	}
@@ -357,14 +367,12 @@ func (b *Base) History() (Events, error) {
 	b.m.Lock()
 	defer b.m.Unlock()
 
-	if int64(len(b.stream)) < b.offset {
+	if len(b.stream) < b.offset {
 		return nil, errOffsetShifted
 	}
 
 	return b.stream[:b.offset], nil
 }
-
-var errNoDataEventsLoaded = errors.New("no data events loaded")
 
 // Latest will return latest Data event
 func (b *Base) Latest() (Event, error) {
@@ -392,14 +400,14 @@ func (b *Base) List() (Events, error) {
 	b.m.Lock()
 	defer b.m.Unlock()
 
-	if int64(len(b.stream)) < b.offset {
+	if len(b.stream) < b.offset {
 		return nil, errOffsetShifted
 	}
 
 	return b.stream[b.offset:], nil
 }
 
-// IsLastEvent determines whether the latest event is the last event for live
+// IsLastEvent determines whether the latest e is the last e for live
 // data, this will be false, as all appended data is the latest available data
 // and this signal cannot be completely relied upon.
 func (b *Base) IsLastEvent() (bool, error) {
@@ -408,7 +416,7 @@ func (b *Base) IsLastEvent() (bool, error) {
 	}
 	b.m.Lock()
 	defer b.m.Unlock()
-	return !b.isLiveData && b.latest != nil && b.latest == b.stream[len(b.stream)], nil
+	return !b.isLiveData && b.latest != nil && b.latest == b.stream[len(b.stream)-1], nil
 }
 
 // IsLive returns if the Data source is a live one. Less scrutiny on checks is
@@ -453,42 +461,56 @@ func (e Events) Last() (Event, error) {
 	return e[len(e)-1], nil
 }
 
-// ValidateEvent validates incoming event type
-func ValidateEvent(event Event) error {
-	if event == nil {
+// ValidateEvent validates incoming e type
+func ValidateEvent(e Event) error {
+	if e == nil {
 		return fmt.Errorf("%w Event", gctcommon.ErrNilPointer)
 	}
-	if event.GetExchange() == "" ||
-		event.GetAssetType().IsValid() ||
-		event.Pair().IsEmpty() ||
-		event.GetTime().IsZero() ||
-		event.GetInterval() == 0 {
+
+	eventTime := e.GetTime()
+	eventInterval := e.GetInterval()
+	if e.GetExchange() == "" ||
+		!e.GetAssetType().IsValid() ||
+		e.Pair().IsEmpty() ||
+		eventTime.IsZero() ||
+		eventInterval == 0 {
 		return ErrInvalidEventSupplied
 	}
+
+	// This should always be UTC when (*event.Base).GetTime() is called.
+	// TODO: Remove event time conversion.
+	if eventTime.Location() != time.UTC {
+		return errTimeMustBeUTC
+	}
+
+	if !eventTime.Equal(eventTime.Truncate(eventInterval.Duration())) {
+		return errEventTimeIntervalMismatch
+	}
+
 	return nil
 }
 
 // CompareEvent determines if the previous and current are in the correct order
 // (time aligned) and have the same currency details.
-func CompareEvent(prev, curr Event) error {
-	if prev.GetTime().Equal(curr.GetTime()) {
+func CompareEvent(prev, current Event) error {
+	if prev.GetTime().Equal(current.GetTime()) {
 		return errDuplicateEvent
 	}
 
-	if prev.GetTime().After(curr.GetTime()) {
+	if prev.GetTime().After(current.GetTime()) {
 		return errEventsNotTimeAligned
 	}
 
-	if prev.GetExchange() != curr.GetExchange() ||
-		prev.GetAssetType() != curr.GetAssetType() ||
-		!prev.Pair().Equal(curr.Pair()) ||
-		prev.GetInterval() != curr.GetInterval() {
+	if prev.GetExchange() != current.GetExchange() ||
+		prev.GetAssetType() != current.GetAssetType() ||
+		!prev.Pair().Equal(current.Pair()) ||
+		prev.GetInterval() != current.GetInterval() {
 		return fmt.Errorf("%w cannot set base stream from %v %v %v %v to %v %v %v %v",
 			errMisMatchedEvent,
-			curr.GetExchange(),
-			curr.GetAssetType(),
-			curr.Pair(),
-			curr.GetInterval(),
+			current.GetExchange(),
+			current.GetAssetType(),
+			current.Pair(),
+			current.GetInterval(),
 			prev.GetExchange(),
 			prev.GetAssetType(),
 			prev.Pair(),
