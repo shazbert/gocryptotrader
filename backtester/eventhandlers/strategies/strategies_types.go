@@ -18,15 +18,15 @@ type StrategyHolder []Handler
 
 // Handler defines all functions required to run strategies against data events
 type Handler interface {
-	Name() string
-	Description() string
+	GetName() (string, error)
+	GetDescription() (string, error)
 	OnSignal(data.IntervalSegregated, funding.IFundingTransferer, portfolio.Handler) (signal.Events, error)
 	// NOTE: [][]data.Handler 1st dimension is asset then second dimension is interval segregation
 	OnSimultaneousSignals(data.AssetSegregated, funding.IFundingTransferer, portfolio.Handler) (signal.AssetEvents, error)
-	UsingSimultaneousProcessing() bool
-	SupportsSimultaneousProcessing() bool
-	SetSimultaneousProcessing(bool)
+	UsingSimultaneousProcessing() (bool, error)
+	SupportsSimultaneousProcessing() (bool, error)
+	SetSimultaneousProcessing(bool) error
 	SetCustomSettings(map[string]interface{}) error
-	SetDefaults()
+	SetDefaults() error
 	CloseAllPositions([]holdings.Holding, []data.Event) ([]signal.Event, error)
 }

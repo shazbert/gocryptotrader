@@ -33,10 +33,12 @@ type HandlerHolder struct {
 }
 
 // Holder interface dictates what a Data holder is expected to do
+// TODO: Only one type is utilizing this interface. Just for the sake of keeping
+// things simple we can remove this until multiple structs are interfacing.
 type Holder interface {
 	SetDataForCurrency(string, asset.Item, currency.Pair, gctkline.Interval, Handler) error
 	GetAllData() (AssetSegregated, error)
-	GetDataForCurrency(ev common.Event) (IntervalSegregated, error)
+	GetDataForCurrency(exchangeName string, a asset.Item, p currency.Pair) (IntervalSegregated, error)
 	Reset() error
 }
 

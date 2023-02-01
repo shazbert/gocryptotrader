@@ -22,8 +22,7 @@ import (
 
 func TestName(t *testing.T) {
 	t.Parallel()
-	d := Strategy{}
-	if n := d.Name(); n != Name {
+	if n := (&Strategy{}).Name(); n != Name {
 		t.Errorf("expected %v", Name)
 	}
 }
@@ -123,14 +122,14 @@ func TestOnSignal(t *testing.T) {
 		Base:        d,
 		RangeHolder: &gctkline.IntervalRangeHolder{},
 	}
-	var resp signal.Event
-	_, err = s.OnSignal(da, nil, nil)
+
+	_, err = s.OnSignal(data.IntervalSegregated{da}, nil, nil)
 	if !errors.Is(err, base.ErrTooMuchBadData) {
 		t.Fatalf("expected: %v, received %v", base.ErrTooMuchBadData, err)
 	}
 
 	s.rsiPeriod = decimal.NewFromInt(1)
-	_, err = s.OnSignal(da, nil, nil)
+	_, err = s.OnSignal(data.IntervalSegregated{da}, nil, nil)
 	if !errors.Is(err, nil) {
 		t.Errorf("received: %v, expected: %v", err, nil)
 	}
@@ -162,11 +161,13 @@ func TestOnSignal(t *testing.T) {
 	}
 	da.RangeHolder = ranger
 	da.RangeHolder.SetHasDataFromCandles(da.Item.Candles)
-	resp, err = s.OnSignal(da, nil, nil)
+	var resp signal.Events
+	resp, err = s.OnSignal(data.IntervalSegregated{da}, nil, nil)
 	if !errors.Is(err, nil) {
 		t.Errorf("received: %v, expected: %v", err, nil)
 	}
-	if resp.GetDirection() != order.DoNothing {
+
+	if resp[0].GetDirection() != order.DoNothing {
 		t.Error("expected do nothing")
 	}
 }
@@ -210,7 +211,7 @@ func TestOnSignals(t *testing.T) {
 		Base:        d,
 		RangeHolder: &gctkline.IntervalRangeHolder{},
 	}
-	_, err = s.OnSimultaneousSignals([]data.Handler{da}, nil, nil)
+	_, err = s.OnSimultaneousSignals(data.AssetSegregated{data.IntervalSegregated{da}}, nil, nil)
 	if !strings.Contains(err.Error(), base.ErrTooMuchBadData.Error()) {
 		// common.Errs type doesn't keep type
 		t.Errorf("received: %v, expected: %v", err, base.ErrTooMuchBadData)

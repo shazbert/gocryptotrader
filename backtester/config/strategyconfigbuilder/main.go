@@ -239,8 +239,12 @@ func parseStrategySettings(cfg *config.Config, reader *bufio.Reader) error {
 	strats := strategies.GetSupportedStrategies()
 	strategiesToUse := make([]string, len(strats))
 	for i := range strats {
-		fmt.Printf("%v. %s\n", i+1, strats[i].Name())
-		strategiesToUse[i] = strats[i].Name()
+		stratName, err := strats[i].GetName()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%v. %s\n", i+1, stratName)
+		strategiesToUse[i] = stratName
 	}
 	var err error
 	cfg.StrategySettings.Name, err = parseStratName(quickParse(reader), strategiesToUse)

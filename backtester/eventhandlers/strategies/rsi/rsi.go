@@ -33,15 +33,18 @@ type Strategy struct {
 	rsiHigh   decimal.Decimal
 }
 
-// Name returns the name of the strategy
-func (s *Strategy) Name() string {
-	return Name
-}
-
-// Description provides a nice overview of the strategy
-// be it definition of terms or to highlight its purpose
-func (s *Strategy) Description() string {
-	return description
+// SetDefaults sets the custom settings to their default values
+func (s *Strategy) SetDefaults() error {
+	if s == nil {
+		return fmt.Errorf("%w strategy", gctcommon.ErrNilPointer)
+	}
+	s.Strategy.Name = Name
+	s.Strategy.Description = description
+	s.CanSupportSimultaneousProcessing = true
+	s.rsiHigh = decimal.NewFromInt(70)
+	s.rsiLow = decimal.NewFromInt(30)
+	s.rsiPeriod = decimal.NewFromInt(14)
+	return nil
 }
 
 // OnSignal handles a data event and returns what action the strategy believes should occur
@@ -122,26 +125,24 @@ func (s *Strategy) OnSignal(dataPoints data.IntervalSegregated, _ funding.IFundi
 	return signals, nil
 }
 
-// SupportsSimultaneousProcessing highlights whether the strategy can handle multiple currency calculation
-// There is nothing actually stopping this strategy from considering multiple currencies at once
-// but for demonstration purposes, this strategy does not
-func (s *Strategy) SupportsSimultaneousProcessing() bool {
-	return true
-}
-
 // OnSimultaneousSignals analyses multiple data points simultaneously, allowing flexibility
 // in allowing a strategy to only place an order for X currency if Y currency's price is Z
-func (s *Strategy) OnSimultaneousSignals(dataPoints data.AssetSegregated, _ funding.IFundingTransferer, _ portfolio.Handler) (signal.AssetEvents, error) {
+func (s *Strategy) OnSimultaneousSignals(assets data.AssetSegregated, fund funding.IFundingTransferer, port portfolio.Handler) (signal.AssetEvents, error) {
+	if s == nil {
+		return nil, fmt.Errorf("%w strategy", gctcommon.ErrNilPointer)
+	}
+
 	var resp signal.AssetEvents
 	var errs gctcommon.Errors
-	for i := range dataPoints {
-		latest, err := dataPoints[i][0].Latest() // TODO: Implement correctly
+	for x := range assets {
+		sigEvent, err := s.OnSignal(assets[x], fund, port)
 		if err != nil {
-			return nil, err
-		}
-		sigEvent, err := s.OnSignal(dataPoints[i], nil, nil)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("%v %v %v %w", latest.GetExchange(), latest.GetAssetType(), latest.Pair(), err))
+			// latest, err := assets[x][y].Latest()
+			// if err != nil {
+			// 	return nil, err
+			// }
+			// fmt.Errorf("%v %v %v %w", latest.GetExchange(), latest.GetAssetType(), latest.Pair(), err)
+			errs = append(errs, err)
 		} else {
 			resp = append(resp, sigEvent)
 		}
@@ -154,6 +155,10 @@ func (s *Strategy) OnSimultaneousSignals(dataPoints data.AssetSegregated, _ fund
 
 // SetCustomSettings allows a user to modify the RSI limits in their config
 func (s *Strategy) SetCustomSettings(customSettings map[string]interface{}) error {
+	if s == nil {
+		return fmt.Errorf("%w strategy", gctcommon.ErrNilPointer)
+	}
+
 	for k, v := range customSettings {
 		switch k {
 		case rsiHighKey:
@@ -182,18 +187,11 @@ func (s *Strategy) SetCustomSettings(customSettings map[string]interface{}) erro
 	return nil
 }
 
-// SetDefaults sets the custom settings to their default values
-func (s *Strategy) SetDefaults() {
-	s.rsiHigh = decimal.NewFromInt(70)
-	s.rsiLow = decimal.NewFromInt(30)
-	s.rsiPeriod = decimal.NewFromInt(14)
-}
-
 // massageMissingData will replace missing data with the previous candle's data
 // this will ensure that RSI can be calculated correctly
 // the decision to handle missing data occurs at the strategy level, not all strategies
 // may wish to modify data
-func (s *Strategy) massageMissingData(data []decimal.Decimal, t time.Time) ([]float64, error) {
+func (s *Strategy) massageMissingData(data []decimal.Decimal, open time.Time) ([]float64, error) {
 	resp := make([]float64, len(data))
 	var missingDataStreak int64
 	for i := range data {
@@ -206,7 +204,7 @@ func (s *Strategy) massageMissingData(data []decimal.Decimal, t time.Time) ([]fl
 		if missingDataStreak >= s.rsiPeriod.IntPart() {
 			return nil, fmt.Errorf("missing data exceeds RSI period length of %v at %s and will distort results. %w",
 				s.rsiPeriod,
-				t.Format(gctcommon.SimpleTimeFormat),
+				open.Format(gctcommon.SimpleTimeFormat),
 				base.ErrTooMuchBadData)
 		}
 		resp[i] = data[i].InexactFloat64()

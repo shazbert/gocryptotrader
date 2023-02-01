@@ -249,7 +249,6 @@ func (b *Base) SetStream(events []Event) error {
 	for x := range events {
 		err := ValidateEvent(events[x])
 		if err != nil {
-			fmt.Printf("%+v\n", events[x])
 			return err
 		}
 

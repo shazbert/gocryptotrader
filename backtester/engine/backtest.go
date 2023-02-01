@@ -347,7 +347,9 @@ func (bt *BackTest) processDataEvents(events data.Events, funds funding.IFundRel
 		if err != nil {
 			return err
 		}
-		d, err := bt.DataHolder.GetDataForCurrency(events[0]) // TODO: Actually implement
+		d, err := bt.DataHolder.GetDataForCurrency(events[0].GetExchange(),
+			events[0].GetAssetType(),
+			events[0].GetUnderlyingPair()) // TODO: Actually implement
 		if err != nil {
 			return err
 		}
@@ -558,7 +560,9 @@ func (bt *BackTest) processOrderEvent(ev order.Event, funds funding.IFundRelease
 	if funds == nil {
 		return fmt.Errorf("%w funds", gctcommon.ErrNilPointer)
 	}
-	d, err := bt.DataHolder.GetDataForCurrency(ev)
+	d, err := bt.DataHolder.GetDataForCurrency(ev.GetExchange(),
+		ev.GetAssetType(),
+		ev.GetUnderlyingPair())
 	if err != nil {
 		return err
 	}
@@ -726,7 +730,9 @@ func (bt *BackTest) triggerLiquidationsForExchange(ev data.Event, pnl *portfolio
 		// this will create and store stats for each order
 		// then liquidate it at the funding level
 		var datas []data.Handler
-		datas, err = bt.DataHolder.GetDataForCurrency(orders[i])
+		datas, err = bt.DataHolder.GetDataForCurrency(orders[i].GetExchange(),
+			orders[i].GetAssetType(),
+			orders[i].Pair())
 		if err != nil {
 			return err
 		}

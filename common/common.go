@@ -433,6 +433,55 @@ func InArray(val, array interface{}) (exists bool, index int) {
 	return
 }
 
+func AppendError(p *error, incoming error) {
+	if p == nil {
+		return
+	}
+
+	if incoming == nil {
+		return
+	}
+
+	if *p == nil {
+		*p = &ErrorSlice{}
+	}
+
+	errSliceP, ok := (*p).(*ErrorSlice)
+	if !ok {
+		return
+	}
+
+	errSliceP.Errors = append(errSliceP.Errors, incoming)
+}
+
+type ErrorSlice struct {
+	Errors []error
+	offset int
+}
+
+func (e *ErrorSlice) Error() string {
+	var allErrors []string
+	for x := range e.Errors {
+		allErrors = append(allErrors, e.Errors[x].Error())
+	}
+	return strings.Join(allErrors, ", ")
+}
+
+func (e *ErrorSlice) Unwrap() error {
+	if e.offset == len(e.Errors) {
+		e.offset = 0 // Reset which will occur every errors.Is() iteration.
+		return nil
+	}
+	r := e.Errors[e.offset]
+	e.offset++
+	return r
+}
+
+type HolderError struct {
+	This error
+	Next error
+}
+
 // Errors defines multiple errors
 type Errors []error
 

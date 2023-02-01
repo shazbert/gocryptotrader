@@ -124,7 +124,11 @@ func (c *Config) validateStrategySettings() error {
 	}
 	strats := strategies.GetSupportedStrategies()
 	for i := range strats {
-		if strings.EqualFold(strats[i].Name(), c.StrategySettings.Name) {
+		stratName, err := strats[i].GetName()
+		if err != nil {
+			return err
+		}
+		if strings.EqualFold(stratName, c.StrategySettings.Name) {
 			return nil
 		}
 	}

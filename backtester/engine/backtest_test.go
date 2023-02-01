@@ -445,10 +445,7 @@ func TestFullCycle(t *testing.T) {
 	stats.ExchangeAssetPairStatistics[ex][a] = make(map[*currency.Item]map[*currency.Item]*statistics.CurrencyPairStatistic)
 	stats.ExchangeAssetPairStatistics[ex][a][cp.Base.Item] = make(map[*currency.Item]*statistics.CurrencyPairStatistic)
 
-	port, err := portfolio.Setup(&size.Size{
-		BuySide:  exchange.MinMax{},
-		SellSide: exchange.MinMax{},
-	}, &risk.Risk{}, decimal.Zero)
+	port, err := portfolio.Setup(&size.Size{}, &risk.Risk{}, decimal.Zero)
 	if !errors.Is(err, nil) {
 		t.Errorf("received: %v, expected: %v", err, nil)
 	}

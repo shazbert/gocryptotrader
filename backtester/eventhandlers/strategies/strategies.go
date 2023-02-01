@@ -30,7 +30,13 @@ func createNewStrategy(name string, useSimultaneousProcessing bool, h Handler) (
 	if h == nil {
 		return nil, fmt.Errorf("cannot load %v supported strategies contains %w", name, common.ErrNilPointer)
 	}
-	if !strings.EqualFold(name, h.Name()) {
+
+	supportedStrategyName, err := h.GetName()
+	if err != nil {
+		return nil, err
+	}
+
+	if !strings.EqualFold(name, supportedStrategyName) {
 		return nil, nil
 	}
 	// create new instance so strategy is not shared across all tasks
@@ -58,7 +64,11 @@ func createNewStrategy(name string, useSimultaneousProcessing bool, h Handler) (
 	if !ok {
 		return nil, fmt.Errorf("cannot load %v new instance of strategy is not a Handler interface. %w", name, common.ErrTypeAssertFailure)
 	}
-	if useSimultaneousProcessing && !strategy.SupportsSimultaneousProcessing() {
+	supports, err := strategy.SupportsSimultaneousProcessing()
+	if err != nil {
+		return nil, err
+	}
+	if useSimultaneousProcessing && !supports {
 		return nil, base.ErrSimultaneousProcessingNotSupported
 	}
 	strategy.SetSimultaneousProcessing(useSimultaneousProcessing)
@@ -78,11 +88,22 @@ func AddStrategy(strategy Handler) error {
 	if strategy == nil {
 		return fmt.Errorf("%w strategy handler", common.ErrNilPointer)
 	}
+
+	incoming, err := strategy.GetName()
+	if err != nil {
+		return err
+	}
+
 	m.Lock()
 	defer m.Unlock()
 	for i := range supportedStrategies {
-		if strings.EqualFold(supportedStrategies[i].Name(), strategy.Name()) {
-			return fmt.Errorf("'%v' %w", strategy.Name(), ErrStrategyAlreadyExists)
+		var loaded string
+		loaded, err = supportedStrategies[i].GetName()
+		if err != nil {
+			return err
+		}
+		if strings.EqualFold(loaded, incoming) {
+			return fmt.Errorf("'%v' %w", incoming, ErrStrategyAlreadyExists)
 		}
 	}
 	supportedStrategies = append(supportedStrategies, strategy)
