@@ -2,12 +2,10 @@ package data
 
 import (
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/shopspring/decimal"
-	"github.com/thrasher-corp/gocryptotrader/backtester/common"
 	"github.com/thrasher-corp/gocryptotrader/backtester/eventtypes/event"
 	gctcommon "github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/currency"
@@ -16,40 +14,130 @@ import (
 )
 
 const exch = "binance"
-const a = asset.Spot
-
-var p = currency.NewPair(currency.BTC, currency.USD)
 
 type fakeEvent struct {
 	secretID int64
 	*event.Base
 }
 
-type fakeHandler struct{}
+func (f fakeEvent) GetClosePrice() decimal.Decimal { return decimal.Zero }
+func (f fakeEvent) GetHighPrice() decimal.Decimal  { return decimal.Zero }
+func (f fakeEvent) GetLowPrice() decimal.Decimal   { return decimal.Zero }
+func (f fakeEvent) GetOpenPrice() decimal.Decimal  { return decimal.Zero }
+func (f fakeEvent) GetVolume() decimal.Decimal     { return decimal.Zero }
+func (f fakeEvent) GetTime() time.Time             { return f.Time }
+func (f fakeEvent) GetOffset() int64 {
+	if f.secretID > 0 {
+		return f.secretID
+	}
+	return f.Offset
+}
+
+type fakeHandler struct{ Handler }
+
+var (
+	p                   = currency.NewPair(currency.BTC, currency.USD)
+	tnUTCOneHourAligned = time.Now().UTC().Truncate(time.Hour)
+	validEvents         = []Event{
+		&fakeEvent{Base: &event.Base{
+			Offset:       1337,
+			Time:         tnUTCOneHourAligned.Add(-time.Hour),
+			Exchange:     exch,
+			AssetType:    asset.Spot,
+			Interval:     gctkline.OneHour,
+			CurrencyPair: p,
+		}},
+		&fakeEvent{Base: &event.Base{
+			Offset:       2048,
+			Time:         tnUTCOneHourAligned,
+			Exchange:     exch,
+			AssetType:    asset.Spot,
+			Interval:     gctkline.OneHour,
+			CurrencyPair: p,
+		}},
+	}
+)
+
+func TestNewHandlerHolder(t *testing.T) {
+	t.Parallel()
+	holder := NewHandlerHolder()
+	if holder == nil {
+		t.Errorf("received '%v' expected '%v'", holder, "not nil")
+	}
+
+	if holder.data == nil {
+		t.Errorf("received '%v' expected '%v'", holder.data, "not nil")
+	}
+}
 
 func TestSetDataForCurrency(t *testing.T) {
 	t.Parallel()
-	d := HandlerHolder{}
-	err := d.SetDataForCurrency(exch, a, p, nil)
+	var d *HandlerHolder
+	err := d.SetDataForCurrency(exch, asset.Spot, p, nil)
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+	}
+
+	d = &HandlerHolder{}
+
+	err = d.SetDataForCurrency("", asset.Spot, p, nil)
+	if !errors.Is(err, errExchangeNameUnset) {
+		t.Errorf("received '%v' expected '%v'", err, errExchangeNameUnset)
+	}
+
+	err = d.SetDataForCurrency(exch, 0, p, nil)
+	if !errors.Is(err, asset.ErrNotSupported) {
+		t.Errorf("received '%v' expected '%v'", err, asset.ErrNotSupported)
+	}
+
+	err = d.SetDataForCurrency(exch, asset.Spot, currency.EMPTYPAIR, nil)
+	if !errors.Is(err, currency.ErrCurrencyPairEmpty) {
+		t.Errorf("received '%v' expected '%v'", err, currency.ErrCurrencyPairEmpty)
+	}
+
+	err = d.SetDataForCurrency(exch, asset.Spot, p, nil)
+	if !errors.Is(err, errHandlerIsNil) {
+		t.Errorf("received '%v' expected '%v'", err, errHandlerIsNil)
+	}
+
+	err = d.SetDataForCurrency(exch, asset.Spot, p, &fakeHandler{})
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
+
 	if d.data == nil {
 		t.Error("expected not nil")
 	}
-	if d.data[exch][a][p.Base.Item][p.Quote.Item] != nil {
-		t.Error("expected nil")
+
+	if d.data[exch][asset.Spot][p.Base.Item][p.Quote.Item] == nil {
+		t.Error("should not be nil")
+	}
+
+	err = d.SetDataForCurrency(exch, asset.Spot, p, &fakeHandler{})
+	if !errors.Is(err, errDataHandlerAlreadySet) {
+		t.Errorf("received '%v' expected '%v'", err, errDataHandlerAlreadySet)
 	}
 }
 
 func TestGetAllData(t *testing.T) {
 	t.Parallel()
-	d := HandlerHolder{}
-	err := d.SetDataForCurrency(exch, a, p, nil)
+	var d *HandlerHolder
+	_, err := d.GetAllData()
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+	}
+
+	err = d.SetDataForCurrency(exch, asset.Spot, p, &fakeHandler{})
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+	}
+
+	d = &HandlerHolder{}
+	err = d.SetDataForCurrency(exch, asset.Spot, p, &fakeHandler{})
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
-	err = d.SetDataForCurrency(exch, a, currency.NewPair(currency.BTC, currency.DOGE), nil)
+	err = d.SetDataForCurrency(exch, asset.Spot, currency.NewPair(currency.BTC, currency.DOGE), &fakeHandler{})
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
@@ -57,6 +145,7 @@ func TestGetAllData(t *testing.T) {
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
+
 	if len(result) != 2 {
 		t.Error("expected 2")
 	}
@@ -64,35 +153,40 @@ func TestGetAllData(t *testing.T) {
 
 func TestGetDataForCurrency(t *testing.T) {
 	t.Parallel()
-	d := HandlerHolder{}
-	err := d.SetDataForCurrency(exch, a, p, &fakeHandler{})
+
+	var d *HandlerHolder
+	_, err := d.GetDataForCurrency("", 0, currency.EMPTYPAIR)
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+	}
+
+	d = &HandlerHolder{}
+	err = d.SetDataForCurrency(exch, asset.Spot, p, &fakeHandler{})
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
 
-	err = d.SetDataForCurrency(exch, a, currency.NewPair(currency.BTC, currency.DOGE), nil)
-	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
-	}
-	_, err = d.GetDataForCurrency(nil)
-	if !errors.Is(err, common.ErrNilEvent) {
-		t.Errorf("received '%v' expected '%v'", err, common.ErrNilEvent)
+	_, err = d.GetDataForCurrency("", 0, currency.EMPTYPAIR)
+	if !errors.Is(err, errExchangeNameUnset) {
+		t.Errorf("received '%v' expected '%v'", err, errExchangeNameUnset)
 	}
 
-	_, err = d.GetDataForCurrency(&fakeEvent{Base: &event.Base{
-		Exchange:     "lol",
-		AssetType:    asset.USDTMarginedFutures,
-		CurrencyPair: currency.NewPair(currency.EMB, currency.DOGE),
-	}})
+	_, err = d.GetDataForCurrency("lol", 0, currency.EMPTYPAIR)
+	if !errors.Is(err, asset.ErrNotSupported) {
+		t.Errorf("received '%v' expected '%v'", err, asset.ErrNotSupported)
+	}
+
+	_, err = d.GetDataForCurrency("lol", asset.USDTMarginedFutures, currency.EMPTYPAIR)
+	if !errors.Is(err, currency.ErrCurrencyPairEmpty) {
+		t.Errorf("received '%v' expected '%v'", err, currency.ErrCurrencyPairEmpty)
+	}
+
+	_, err = d.GetDataForCurrency("lol", asset.USDTMarginedFutures, currency.NewPair(currency.EMB, currency.DOGE))
 	if !errors.Is(err, ErrHandlerNotFound) {
 		t.Errorf("received '%v' expected '%v'", err, ErrHandlerNotFound)
 	}
 
-	_, err = d.GetDataForCurrency(&fakeEvent{Base: &event.Base{
-		Exchange:     exch,
-		AssetType:    a,
-		CurrencyPair: p,
-	}})
+	_, err = d.GetDataForCurrency(exch, asset.Spot, p)
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
@@ -101,11 +195,11 @@ func TestGetDataForCurrency(t *testing.T) {
 func TestReset(t *testing.T) {
 	t.Parallel()
 	d := &HandlerHolder{}
-	err := d.SetDataForCurrency(exch, a, p, nil)
+	err := d.SetDataForCurrency(exch, asset.Spot, p, &fakeHandler{})
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
-	err = d.SetDataForCurrency(exch, a, currency.NewPair(currency.BTC, currency.DOGE), nil)
+	err = d.SetDataForCurrency(exch, asset.Spot, currency.NewPair(currency.BTC, currency.DOGE), &fakeHandler{})
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
@@ -137,6 +231,51 @@ func TestBaseReset(t *testing.T) {
 	err = b.Reset()
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
 		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+	}
+}
+
+func TestGetDetails(t *testing.T) {
+	t.Parallel()
+	var b *Base
+	_, err := b.GetDetails()
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+	}
+
+	b = &Base{}
+	_, err = b.GetDetails()
+	// This might need to be changed, maybe find the latest in the event slice.
+	if !errors.Is(err, errLatestEventHasNotBeenSet) {
+		t.Errorf("received '%v' expected '%v'", err, errLatestEventHasNotBeenSet)
+	}
+
+	b.latest = fakeEvent{
+		Base: &event.Base{
+			Exchange:     exch,
+			CurrencyPair: p,
+			AssetType:    asset.Spot,
+			Interval:     gctkline.TenMin,
+		},
+	}
+	deets, err := b.GetDetails()
+	if !errors.Is(err, nil) {
+		t.Errorf("received '%v' expected '%v'", err, nil)
+	}
+
+	if deets.ExchangeName != exch {
+		t.Errorf("received '%v' expected '%v'", deets.ExchangeName, exch)
+	}
+
+	if deets.Asset != asset.Spot {
+		t.Errorf("received '%v' expected '%v'", deets.Asset, asset.Spot)
+	}
+
+	if !deets.Pair.Equal(p) {
+		t.Errorf("received '%v' expected '%v'", deets.Pair, p)
+	}
+
+	if deets.Interval != gctkline.TenMin {
+		t.Errorf("received '%v' expected '%v'", deets.Interval, gctkline.TenMin)
 	}
 }
 
@@ -209,154 +348,117 @@ func TestSetStream(t *testing.T) {
 	t.Parallel()
 	b := &Base{}
 	err := b.SetStream(nil)
-	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+	if !errors.Is(err, ErrEmptySlice) {
+		t.Fatalf("received '%v' expected '%v'", err, ErrEmptySlice)
 	}
-	if len(b.stream) != 0 {
-		t.Errorf("received '%v' expected '%v'", len(b.stream), 0)
+
+	containsInvalidEvent := []Event{
+		&fakeEvent{Base: &event.Base{
+			Offset: 2048,
+		}},
 	}
-	cp := currency.NewPair(currency.BTC, currency.USD)
-	err = b.SetStream([]Event{
-		&fakeEvent{
-			Base: &event.Base{
-				Offset:       2048,
-				Time:         time.Now(),
-				Exchange:     "test",
-				AssetType:    asset.Spot,
-				CurrencyPair: cp,
-			},
-		},
-		&fakeEvent{
-			Base: &event.Base{
-				Offset:       1337,
-				Time:         time.Now().Add(-time.Hour),
-				Exchange:     "test",
-				AssetType:    asset.Spot,
-				CurrencyPair: cp,
-			},
-		},
-	})
+
+	err = b.SetStream(containsInvalidEvent)
+	if !errors.Is(err, ErrInvalidEventSupplied) {
+		t.Fatalf("received '%v' expected '%v'", err, ErrInvalidEventSupplied)
+	}
+
+	tn := time.Now().UTC().Truncate(gctkline.OneHour.Duration())
+
+	unalignedEvents := []Event{
+		&fakeEvent{Base: &event.Base{
+			Offset:       2048,
+			Time:         tn,
+			Exchange:     exch,
+			AssetType:    asset.Spot,
+			Interval:     gctkline.OneHour,
+			CurrencyPair: p,
+		}},
+		&fakeEvent{Base: &event.Base{
+			Offset:       1337,
+			Time:         tn.Add(-time.Hour),
+			Exchange:     exch,
+			AssetType:    asset.Spot,
+			Interval:     gctkline.OneHour,
+			CurrencyPair: p,
+		}},
+	}
+
+	err = b.SetStream(unalignedEvents)
+	if !errors.Is(err, errEventsNotTimeAligned) {
+		t.Fatalf("received '%v' expected '%v'", err, errEventsNotTimeAligned)
+	}
+
+	err = b.SetStream(validEvents)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 
 	if len(b.stream) != 2 {
 		t.Fatalf("received '%v' expected '%v'", len(b.stream), 2)
 	}
 	if b.stream[0].GetOffset() != 1 {
-		t.Errorf("received '%v' expected '%v'", b.stream[0].GetOffset(), 1)
+		t.Fatalf("received '%v' expected '%v'", b.stream[0].GetOffset(), 1)
 	}
 
-	misMatchEvent := &fakeEvent{
-		Base: &event.Base{
-			Exchange:     "mismatch",
-			CurrencyPair: currency.NewPair(currency.BTC, currency.DOGE),
-			AssetType:    asset.Futures,
-		},
-	}
-	err = b.SetStream([]Event{misMatchEvent})
-	if !errors.Is(err, ErrInvalidEventSupplied) {
-		t.Fatalf("received '%v' expected '%v'", err, ErrInvalidEventSupplied)
-	}
-
-	misMatchEvent.Time = time.Now()
-	err = b.SetStream([]Event{misMatchEvent})
-	if !errors.Is(err, errMisMatchedEvent) {
-		t.Fatalf("received '%v' expected '%v'", err, errMisMatchedEvent)
-	}
-
-	err = b.SetStream([]Event{nil})
-	if !errors.Is(err, gctcommon.ErrNilPointer) {
-		t.Fatalf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+	err = b.SetStream(validEvents)
+	if !errors.Is(err, errEventsAlreadySet) {
+		t.Fatalf("received '%v' expected '%v'", err, errEventsAlreadySet)
 	}
 
 	b = nil
 	err = b.SetStream(nil)
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
-		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+		t.Fatalf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
 	}
 }
 
 func TestNext(t *testing.T) {
 	t.Parallel()
 	b := &Base{}
-	cp := currency.NewPair(currency.BTC, currency.USD)
-	err := b.SetStream([]Event{
-		&fakeEvent{
-			Base: &event.Base{
-				Offset:       2048,
-				Time:         time.Now(),
-				Exchange:     "test",
-				AssetType:    asset.Spot,
-				CurrencyPair: cp,
-			},
-		},
-		&fakeEvent{
-			Base: &event.Base{
-				Offset:       1337,
-				Time:         time.Now().Add(-time.Hour),
-				Exchange:     "test",
-				AssetType:    asset.Spot,
-				CurrencyPair: cp,
-			},
-		},
-	})
+	err := b.SetStream(validEvents)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	resp, err := b.Next()
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	if resp != b.stream[0] {
-		t.Errorf("received '%v' expected '%v'", resp, b.stream[0])
+		t.Fatalf("received '%v' expected '%v'", resp, b.stream[0])
 	}
 	if b.offset != 1 {
-		t.Errorf("received '%v' expected '%v'", b.offset, 1)
+		t.Fatalf("received '%v' expected '%v'", b.offset, 1)
 	}
 	_, err = b.Next()
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	resp, err = b.Next()
 	if !errors.Is(err, ErrEndOfData) {
-		t.Errorf("received '%v' expected '%v'", err, ErrEndOfData)
+		t.Fatalf("received '%v' expected '%v'", err, ErrEndOfData)
 	}
 	if resp != nil {
-		t.Errorf("received '%v' expected '%v'", resp, nil)
+		t.Fatalf("received '%v' expected '%v'", resp, nil)
+	}
+
+	b.offset = 420 // <- offset went out and got on the beers
+	_, err = b.Next()
+	if !errors.Is(err, errOffsetShifted) {
+		t.Fatalf("received '%v' expected '%v'", err, errOffsetShifted)
 	}
 
 	b = nil
 	_, err = b.Next()
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
-		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+		t.Fatalf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
 	}
 }
 
 func TestHistory(t *testing.T) {
 	t.Parallel()
 	b := &Base{}
-	cp := currency.NewPair(currency.BTC, currency.USD)
-	err := b.SetStream([]Event{
-		&fakeEvent{
-			Base: &event.Base{
-				Offset:       2048,
-				Time:         time.Now(),
-				Exchange:     "test",
-				AssetType:    asset.Spot,
-				CurrencyPair: cp,
-			},
-		},
-		&fakeEvent{
-			Base: &event.Base{
-				Offset:       1337,
-				Time:         time.Now().Add(-time.Hour),
-				Exchange:     "test",
-				AssetType:    asset.Spot,
-				CurrencyPair: cp,
-			},
-		},
-	})
+	err := b.SetStream(validEvents)
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
@@ -380,6 +482,12 @@ func TestHistory(t *testing.T) {
 		t.Errorf("received '%v' expected '%v'", len(resp), 1)
 	}
 
+	b.offset = 420
+	_, err = b.History()
+	if !errors.Is(err, errOffsetShifted) {
+		t.Fatalf("received '%v' expected '%v'", err, errOffsetShifted)
+	}
+
 	b = nil
 	_, err = b.History()
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
@@ -390,27 +498,11 @@ func TestHistory(t *testing.T) {
 func TestLatest(t *testing.T) {
 	t.Parallel()
 	b := &Base{}
-	cp := currency.NewPair(currency.BTC, currency.USD)
-	err := b.SetStream([]Event{
-		&fakeEvent{
-			Base: &event.Base{
-				Offset:       2048,
-				Time:         time.Now(),
-				Exchange:     "test",
-				AssetType:    asset.Spot,
-				CurrencyPair: cp,
-			},
-		},
-		&fakeEvent{
-			Base: &event.Base{
-				Offset:       1337,
-				Time:         time.Now().Add(-time.Hour),
-				Exchange:     "test",
-				AssetType:    asset.Spot,
-				CurrencyPair: cp,
-			},
-		},
-	})
+	_, err := b.Latest()
+	if !errors.Is(err, errNoDataEventsLoaded) {
+		t.Errorf("received '%v' expected '%v'", err, errNoDataEventsLoaded)
+	}
+	err = b.SetStream(validEvents)
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
@@ -455,27 +547,7 @@ func TestLatest(t *testing.T) {
 func TestList(t *testing.T) {
 	t.Parallel()
 	b := &Base{}
-	cp := currency.NewPair(currency.BTC, currency.USD)
-	err := b.SetStream([]Event{
-		&fakeEvent{
-			Base: &event.Base{
-				Offset:       2048,
-				Time:         time.Now(),
-				Exchange:     "test",
-				AssetType:    asset.Spot,
-				CurrencyPair: cp,
-			},
-		},
-		&fakeEvent{
-			Base: &event.Base{
-				Offset:       1337,
-				Time:         time.Now().Add(-time.Hour),
-				Exchange:     "test",
-				AssetType:    asset.Spot,
-				CurrencyPair: cp,
-			},
-		},
-	})
+	err := b.SetStream(validEvents)
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
@@ -485,6 +557,12 @@ func TestList(t *testing.T) {
 	}
 	if len(list) != 2 {
 		t.Errorf("received '%v' expected '%v'", len(list), 2)
+	}
+
+	b.offset = 420
+	_, err = b.List()
+	if !errors.Is(err, errOffsetShifted) {
+		t.Fatalf("received '%v' expected '%v'", err, errOffsetShifted)
 	}
 
 	b = nil
@@ -497,32 +575,11 @@ func TestList(t *testing.T) {
 func TestIsLastEvent(t *testing.T) {
 	t.Parallel()
 	b := &Base{}
-	cp := currency.NewPair(currency.BTC, currency.USD)
-	err := b.SetStream([]Event{
-		&fakeEvent{
-			Base: &event.Base{
-				Offset:       2048,
-				Time:         time.Now(),
-				Exchange:     "test",
-				AssetType:    asset.Spot,
-				CurrencyPair: cp,
-			},
-		},
-		&fakeEvent{
-			Base: &event.Base{
-				Offset:       1337,
-				Time:         time.Now().Add(-time.Hour),
-				Exchange:     "test",
-				AssetType:    asset.Spot,
-				CurrencyPair: cp,
-			},
-		},
-	})
+	err := b.SetStream(validEvents)
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
-	b.latest = b.stream[0]
-	b.offset = b.stream[0].GetOffset()
+
 	isLastEvent, err := b.IsLastEvent()
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
@@ -584,6 +641,11 @@ func TestSetLive(t *testing.T) {
 		t.Error("expected true")
 	}
 
+	err = b.SetLive(true)
+	if !errors.Is(err, errDataFeedTypeHasAlreadyBeenSet) {
+		t.Errorf("received '%v' expected '%v'", err, errDataFeedTypeHasAlreadyBeenSet)
+	}
+
 	err = b.SetLive(false)
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
@@ -602,28 +664,23 @@ func TestSetLive(t *testing.T) {
 func TestAppendStream(t *testing.T) {
 	t.Parallel()
 	b := &Base{}
-	e := &fakeEvent{
-		Base: &event.Base{},
-	}
-	err := b.AppendStream(e)
+	err := b.AppendStream(&fakeEvent{Base: &event.Base{}})
 	if !errors.Is(err, ErrInvalidEventSupplied) {
 		t.Errorf("received '%v' expected '%v'", err, ErrInvalidEventSupplied)
 	}
 	if len(b.stream) != 0 {
 		t.Errorf("received '%v' expected '%v'", len(b.stream), 0)
 	}
-	tt := time.Now().Add(-time.Hour)
-	cp := currency.NewPair(currency.BTC, currency.USD)
-	e.Exchange = "b"
-	e.AssetType = asset.Spot
-	e.CurrencyPair = cp
-	err = b.AppendStream(e)
-	if !errors.Is(err, ErrInvalidEventSupplied) {
-		t.Fatalf("received '%v' expected '%v'", err, ErrInvalidEventSupplied)
+
+	err = b.AppendStream(validEvents[0], validEvents[0])
+	if !errors.Is(err, errDuplicateEvent) {
+		t.Fatalf("received '%v' expected '%v'", err, errDuplicateEvent)
+	}
+	if len(b.stream) != 0 {
+		t.Errorf("received '%v' expected '%v'", len(b.stream), 1)
 	}
 
-	e.Time = tt
-	err = b.AppendStream(e, e)
+	err = b.AppendStream(validEvents[0])
 	if !errors.Is(err, nil) {
 		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
@@ -631,22 +688,15 @@ func TestAppendStream(t *testing.T) {
 		t.Errorf("received '%v' expected '%v'", len(b.stream), 1)
 	}
 
-	err = b.AppendStream(e)
-	if !errors.Is(err, nil) {
-		t.Fatalf("received '%v' expected '%v'", err, nil)
+	err = b.AppendStream(validEvents[0]) // <-- This is duplicate from last appended event
+	if !errors.Is(err, errDuplicateEvent) {
+		t.Fatalf("received '%v' expected '%v'", err, errDuplicateEvent)
 	}
 	if len(b.stream) != 1 {
 		t.Errorf("received '%v' expected '%v'", len(b.stream), 1)
 	}
 
-	err = b.AppendStream(&fakeEvent{
-		Base: &event.Base{
-			Exchange:     "b",
-			AssetType:    asset.Spot,
-			CurrencyPair: cp,
-			Time:         time.Now(),
-		},
-	})
+	err = b.AppendStream(validEvents[1])
 	if !errors.Is(err, nil) {
 		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
@@ -654,15 +704,13 @@ func TestAppendStream(t *testing.T) {
 		t.Errorf("received '%v' expected '%v'", len(b.stream), 2)
 	}
 
-	misMatchEvent := &fakeEvent{
-		Base: &event.Base{
-			Exchange:     "mismatch",
-			CurrencyPair: currency.NewPair(currency.BTC, currency.DOGE),
-			AssetType:    asset.Futures,
-			Time:         tt,
-		},
-	}
-	err = b.AppendStream(misMatchEvent)
+	err = b.AppendStream(&fakeEvent{Base: &event.Base{
+		Exchange:     "mismatch",
+		CurrencyPair: currency.NewPair(currency.BTC, currency.DOGE),
+		AssetType:    asset.Futures,
+		Time:         tnUTCOneHourAligned.Add(time.Hour * 2),
+		Interval:     gctkline.OneHour,
+	}})
 	if !errors.Is(err, errMisMatchedEvent) {
 		t.Fatalf("received '%v' expected '%v'", err, errMisMatchedEvent)
 	}
@@ -695,193 +743,85 @@ func TestAppendStream(t *testing.T) {
 
 func TestFirst(t *testing.T) {
 	t.Parallel()
-	var id1 int64 = 1
-	var id2 int64 = 2
-	var id3 int64 = 3
-	e := Events{
-		fakeEvent{secretID: id1},
-		fakeEvent{secretID: id2},
-		fakeEvent{secretID: id3},
+
+	var e Events
+	_, err := e.First()
+	if !errors.Is(err, ErrEmptySlice) {
+		t.Errorf("received '%v' expected '%v'", err, ErrEmptySlice)
 	}
 
+	e = Events{fakeEvent{secretID: 1}, fakeEvent{secretID: 2}, fakeEvent{secretID: 3}}
 	first, err := e.First()
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
-	if first.GetOffset() != id1 {
-		t.Errorf("received '%v' expected '%v'", first.GetOffset(), id1)
+	if first.GetOffset() != 1 {
+		t.Errorf("received '%v' expected '%v'", first.GetOffset(), 1)
 	}
 }
 
 func TestLast(t *testing.T) {
 	t.Parallel()
-	var id1 int64 = 1
-	var id2 int64 = 2
-	var id3 int64 = 3
-	e := Events{
-		fakeEvent{secretID: id1},
-		fakeEvent{secretID: id2},
-		fakeEvent{secretID: id3},
+
+	var e Events
+	_, err := e.Last()
+	if !errors.Is(err, ErrEmptySlice) {
+		t.Errorf("received '%v' expected '%v'", err, ErrEmptySlice)
 	}
 
+	e = Events{fakeEvent{secretID: 1}, fakeEvent{secretID: 2}, fakeEvent{secretID: 3}}
 	last, err := e.Last()
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
-	if last.GetOffset() != id3 {
-		t.Errorf("received '%v' expected '%v'", last.GetOffset(), id1)
+	if last.GetOffset() != 3 {
+		t.Errorf("received '%v' expected '%v'", last.GetOffset(), 3)
 	}
 }
 
-// methods that satisfy the common.Event interface
-func (f fakeEvent) GetOffset() int64 {
-	if f.secretID > 0 {
-		return f.secretID
+func TestValidateEvent(t *testing.T) {
+	t.Parallel()
+
+	err := ValidateEvent(nil)
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Fatalf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
 	}
-	return f.Offset
-}
 
-func (f fakeEvent) SetOffset(o int64) {
-	f.Offset = o
-}
+	err = ValidateEvent(fakeEvent{Base: &event.Base{}})
+	if !errors.Is(err, ErrInvalidEventSupplied) {
+		t.Fatalf("received '%v' expected '%v'", err, ErrInvalidEventSupplied)
+	}
 
-func (f fakeEvent) IsEvent() bool {
-	return false
-}
+	err = ValidateEvent(fakeEvent{Base: &event.Base{
+		Exchange:     exch,
+		AssetType:    asset.Spot,
+		CurrencyPair: p,
+		Interval:     gctkline.OneHour,
+		Time:         time.Now().Local(),
+	}})
+	if !errors.Is(err, errTimeMustBeUTC) {
+		t.Fatalf("received '%v' expected '%v'", err, errTimeMustBeUTC)
+	}
 
-func (f fakeEvent) GetTime() time.Time {
-	return f.Base.Time
-}
+	err = ValidateEvent(fakeEvent{Base: &event.Base{
+		Exchange:     exch,
+		AssetType:    asset.Spot,
+		CurrencyPair: p,
+		Interval:     gctkline.OneHour,
+		Time:         time.Now().UTC(),
+	}})
+	if !errors.Is(err, errEventTimeIntervalMismatch) {
+		t.Fatalf("received '%v' expected '%v'", err, errEventTimeIntervalMismatch)
+	}
 
-func (f fakeEvent) Pair() currency.Pair {
-	return currency.NewPair(currency.BTC, currency.USD)
-}
-
-func (f fakeEvent) GetExchange() string {
-	return f.Exchange
-}
-
-func (f fakeEvent) GetInterval() gctkline.Interval {
-	return gctkline.Interval(time.Minute)
-}
-
-func (f fakeEvent) GetAssetType() asset.Item {
-	return f.AssetType
-}
-
-func (f fakeEvent) GetReason() string {
-	return strings.Join(f.Reasons, ",")
-}
-
-func (f fakeEvent) AppendReason(string) {
-}
-
-func (f fakeEvent) GetClosePrice() decimal.Decimal {
-	return decimal.Zero
-}
-
-func (f fakeEvent) GetHighPrice() decimal.Decimal {
-	return decimal.Zero
-}
-
-func (f fakeEvent) GetLowPrice() decimal.Decimal {
-	return decimal.Zero
-}
-
-func (f fakeEvent) GetOpenPrice() decimal.Decimal {
-	return decimal.Zero
-}
-
-func (f fakeEvent) GetVolume() decimal.Decimal {
-	return decimal.Zero
-}
-
-func (f fakeEvent) GetUnderlyingPair() currency.Pair {
-	return f.Pair()
-}
-
-func (f fakeEvent) AppendReasonf(string, ...interface{}) {}
-
-func (f fakeEvent) GetBase() *event.Base {
-	return &event.Base{}
-}
-
-func (f fakeEvent) GetConcatReasons() string {
-	return ""
-}
-
-func (f fakeEvent) GetReasons() []string {
-	return nil
-}
-
-func (f fakeHandler) Load() error {
-	return nil
-}
-
-func (f fakeHandler) AppendStream(...Event) error {
-	return nil
-}
-
-func (f fakeHandler) GetBase() Base {
-	return Base{}
-}
-
-func (f fakeHandler) Next() (Event, error) {
-	return nil, nil
-}
-
-func (f fakeHandler) GetStream() (Events, error) {
-	return nil, nil
-}
-
-func (f fakeHandler) History() (Events, error) {
-	return nil, nil
-}
-
-func (f fakeHandler) Latest() (Event, error) {
-	return nil, nil
-}
-
-func (f fakeHandler) List() (Events, error) {
-	return nil, nil
-}
-
-func (f fakeHandler) IsLastEvent() (bool, error) {
-	return false, nil
-}
-
-func (f fakeHandler) Offset() (int64, error) {
-	return 0, nil
-}
-
-func (f fakeHandler) StreamOpen() ([]decimal.Decimal, error) {
-	return nil, nil
-}
-
-func (f fakeHandler) StreamHigh() ([]decimal.Decimal, error) {
-	return nil, nil
-}
-
-func (f fakeHandler) StreamLow() ([]decimal.Decimal, error) {
-	return nil, nil
-}
-
-func (f fakeHandler) StreamClose() ([]decimal.Decimal, error) {
-	return nil, nil
-}
-
-func (f fakeHandler) StreamVol() ([]decimal.Decimal, error) {
-	return nil, nil
-}
-
-func (f fakeHandler) HasDataAtTime(time.Time) (bool, error) {
-	return false, nil
-}
-
-func (f fakeHandler) Reset() error {
-	return nil
-}
-
-func (f fakeHandler) GetDetails() (string, asset.Item, currency.Pair, error) {
-	return "", asset.Empty, currency.EMPTYPAIR, nil
+	err = ValidateEvent(fakeEvent{Base: &event.Base{
+		Exchange:     exch,
+		AssetType:    asset.Spot,
+		CurrencyPair: p,
+		Interval:     gctkline.OneHour,
+		Time:         time.Now().UTC().Truncate(time.Hour),
+	}})
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
+	}
 }

@@ -208,16 +208,15 @@ func (bt *BackTest) Run() error {
 				}
 				if e == nil {
 					if !bt.hasProcessedAnEvent && bt.LiveDataHandler == nil {
-						var (
-							exch      string
-							assetItem asset.Item
-							cp        currency.Pair
-						)
-						exch, assetItem, cp, err = dataHandlers[i].GetDetails()
+						var details data.Details
+						details, err = dataHandlers[i].GetDetails()
 						if err != nil {
 							return err
 						}
-						log.Errorf(common.Backtester, "Unable to perform `Next` for %v %v %v", exch, assetItem, cp)
+						log.Errorf(common.Backtester, "Unable to perform `Next` for %v %v %v",
+							details.ExchangeName,
+							details.Asset,
+							details.Pair)
 					}
 					return nil
 				}
@@ -303,7 +302,7 @@ func (bt *BackTest) processSingleDataEvent(ev data.Event, funds funding.IFundRel
 	if err != nil {
 		return err
 	}
-	d, err := bt.DataHolder.GetDataForCurrency(ev)
+	d, err := bt.DataHolder.GetDataForCurrency(ev.GetExchange(), ev.GetAssetType(), ev.Pair())
 	if err != nil {
 		return err
 	}
@@ -491,7 +490,7 @@ func (bt *BackTest) processOrderEvent(ev order.Event, funds funding.IFundRelease
 	if funds == nil {
 		return fmt.Errorf("%w funds", gctcommon.ErrNilPointer)
 	}
-	d, err := bt.DataHolder.GetDataForCurrency(ev)
+	d, err := bt.DataHolder.GetDataForCurrency(ev.GetExchange(), ev.GetAssetType(), ev.Pair())
 	if err != nil {
 		return err
 	}
@@ -649,7 +648,7 @@ func (bt *BackTest) triggerLiquidationsForExchange(ev data.Event, pnl *portfolio
 		// this will create and store stats for each order
 		// then liquidate it at the funding level
 		var datas data.Handler
-		datas, err = bt.DataHolder.GetDataForCurrency(orders[i])
+		datas, err = bt.DataHolder.GetDataForCurrency(orders[i].GetExchange(), orders[i].GetAssetType(), orders[i].Pair())
 		if err != nil {
 			return err
 		}

@@ -9,6 +9,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/backtester/common"
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
+	gctkline "github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 )
 
 var (
@@ -27,33 +28,43 @@ var (
 
 // HandlerHolder stores an event handler per exchange asset pair
 type HandlerHolder struct {
-	m    sync.Mutex
 	data map[string]map[asset.Item]map[*currency.Item]map[*currency.Item]Handler
+	m    sync.Mutex
 }
 
 // Holder interface dictates what a Data holder is expected to do
+// TODO: Only one type is utilizing this interface. Just for the sake of keeping
+// things simple we can remove this until multiple structs are interfacing.
 type Holder interface {
 	SetDataForCurrency(string, asset.Item, currency.Pair, Handler) error
 	GetAllData() ([]Handler, error)
-	GetDataForCurrency(ev common.Event) (Handler, error)
+	GetDataForCurrency(exchangeName string, a asset.Item, p currency.Pair) (Handler, error)
 	Reset() error
 }
 
-// Base is the base implementation of some interface functions
-// where further specific functions are implemented in DataFromKline
+// Base is the base implementation of some interface functions where further
+// specific functions are implemented in DataFromKline
 type Base struct {
-	m          sync.Mutex
 	latest     Event
 	stream     []Event
-	offset     int64
+	offset     int
 	isLiveData bool
+	m          sync.Mutex
+}
+
+// Details defines details of data handler storage.
+type Details struct {
+	ExchangeName string
+	Asset        asset.Item
+	Pair         currency.Pair
+	Interval     gctkline.Interval
 }
 
 // Handler interface for Loading and Streaming Data
 type Handler interface {
 	Loader
 	Streamer
-	GetDetails() (string, asset.Item, currency.Pair, error)
+	GetDetails() (Details, error)
 	Reset() error
 }
 
