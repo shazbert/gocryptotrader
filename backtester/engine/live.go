@@ -442,18 +442,21 @@ func (d *dataChecker) SetDataForClosingAllPositions(s ...signal.Event) error {
 			})
 			err = d.sourcesToCheck[y].pairCandles.AppendResults(d.sourcesToCheck[y].pairCandles.Item)
 			if err != nil {
-				log.Errorf(common.LiveStrategy, "%v %v %v issue appending kline data: %v", d.sourcesToCheck[y].exchangeName, d.sourcesToCheck[y].asset, d.sourcesToCheck[y].pair, err)
-				continue
+				return err
+				// log.Errorf(common.LiveStrategy, "%v %v %v issue appending kline data: %v", d.sourcesToCheck[y].exchangeName, d.sourcesToCheck[y].asset, d.sourcesToCheck[y].pair, err)
+				// continue
 			}
 			err = d.report.SetKlineData(d.sourcesToCheck[y].pairCandles.Item)
 			if err != nil {
-				log.Errorf(common.LiveStrategy, "%v %v %v issue processing kline data: %v", d.sourcesToCheck[y].exchangeName, d.sourcesToCheck[y].asset, d.sourcesToCheck[y].pair, err)
-				continue
+				return err
+				// log.Errorf(common.LiveStrategy, "%v %v %v issue processing kline data: %v", d.sourcesToCheck[y].exchangeName, d.sourcesToCheck[y].asset, d.sourcesToCheck[y].pair, err)
+				// continue
 			}
 			err = d.funding.AddUSDTrackingData(d.sourcesToCheck[y].pairCandles)
 			if err != nil && !errors.Is(err, funding.ErrUSDTrackingDisabled) {
-				log.Errorf(common.LiveStrategy, "%v %v %v issue processing USD tracking data: %v", d.sourcesToCheck[y].exchangeName, d.sourcesToCheck[y].asset, d.sourcesToCheck[y].pair, err)
-				continue
+				return err
+				// log.Errorf(common.LiveStrategy, "%v %v %v issue processing USD tracking data: %v", d.sourcesToCheck[y].exchangeName, d.sourcesToCheck[y].asset, d.sourcesToCheck[y].pair, err)
+				// continue
 			}
 			setData = true
 		}

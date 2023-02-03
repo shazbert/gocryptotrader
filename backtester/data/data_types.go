@@ -17,8 +17,8 @@ var (
 	ErrHandlerNotFound = errors.New("handler not found")
 	// ErrInvalidEventSupplied returned when a bad event is supplied
 	ErrInvalidEventSupplied = errors.New("invalid event supplied")
-	// ErrEmptySlice is returned when the supplied slice is nil or empty
-	ErrEmptySlice = errors.New("empty slice")
+	// ErrEmptyEventSlice is returned when the supplied slice is nil or empty
+	ErrEmptyEventSlice = errors.New("empty event slice")
 	// ErrEndOfData is returned when attempting to load the next offset when there is no more
 	ErrEndOfData = errors.New("no more data to retrieve")
 
@@ -70,7 +70,7 @@ type Handler interface {
 
 // Loader interface for Loading Data into backtest supported format
 type Loader interface {
-	Load() error
+	// Load() error
 	AppendStream(s ...Event) error
 }
 

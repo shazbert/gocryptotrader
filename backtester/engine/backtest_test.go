@@ -1241,7 +1241,7 @@ func TestProcessFuturesFillEvent(t *testing.T) {
 	if !errors.Is(err, expectedError) {
 		t.Errorf("received '%v' expected '%v'", err, expectedError)
 	}
-	tt := time.Now()
+	tt := time.Now().UTC().Truncate(gctkline.FifteenMin.Duration())
 	bt.DataHolder = data.NewHandlerHolder()
 	k := &kline.DataFromKline{
 		Item: &gctkline.Item{
@@ -1362,16 +1362,14 @@ func TestCloseAllPositions(t *testing.T) {
 				UnderlyingPair: cp,
 				Asset:          asset.Spot,
 				Interval:       gctkline.OneMin,
-				Candles: []gctkline.Candle{
-					{
-						Time:   time.Now(),
-						Open:   1337,
-						High:   1337,
-						Low:    1337,
-						Close:  1337,
-						Volume: 1337,
-					},
-				},
+				Candles: []gctkline.Candle{{
+					Time:   time.Now(),
+					Open:   1337,
+					High:   1337,
+					Low:    1337,
+					Close:  1337,
+					Volume: 1337,
+				}},
 			},
 		},
 	})
@@ -1975,8 +1973,9 @@ func TestProcessSingleDataEvent(t *testing.T) {
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
+
 	bt.Funding = f
-	tt := time.Now()
+	tt := time.Now().UTC()
 	bt.DataHolder = data.NewHandlerHolder()
 	k := &kline.DataFromKline{
 		Item: &gctkline.Item{

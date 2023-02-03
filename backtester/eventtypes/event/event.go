@@ -1,14 +1,89 @@
 package event
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	gctcommon "github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
-	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
+	gctkline "github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 )
+
+var (
+	// TODO: Shift to backtester common
+	errExchangeNameUnset          = errors.New("exchange name unset")
+	errInvalidInterval            = errors.New("invalid interval")
+	errInvalidOffset              = errors.New("invalid offset")
+	errTimeUnset                  = errors.New("time is unset")
+	errTimeShouldBeUTC            = errors.New("time should be UTC")
+	errTimeNotTruncatedToInterval = errors.New("time not truncated to interval")
+)
+
+// Base is the underlying event across all actions that occur for the backtester
+// Data, fill, order events all contain the base event and store important and
+// consistent information
+type Base struct {
+	Offset         int64             `json:"-"` // TODO: RM
+	Exchange       string            `json:"exchange"`
+	Time           time.Time         `json:"timestamp"`
+	Interval       gctkline.Interval `json:"interval-size"`
+	CurrencyPair   currency.Pair     `json:"pair"`
+	UnderlyingPair currency.Pair     `json:"underlying"`
+	AssetType      asset.Item        `json:"asset"`
+	Reasons        []string          `json:"reasons"`
+}
+
+// NewBaseFromKline
+func NewBaseFromKline(k *gctkline.Item, t time.Time, offset int64) (*Base, error) {
+	if k == nil {
+		return nil, fmt.Errorf("%w for %T", gctcommon.ErrNilPointer, k)
+	}
+
+	if k.Exchange == "" {
+		return nil, fmt.Errorf("%w for %T", errExchangeNameUnset, k)
+	}
+
+	if k.Pair.IsEmpty() {
+		return nil, fmt.Errorf("%w for %T", currency.ErrCurrencyPairEmpty, k)
+	}
+
+	if !k.Asset.IsValid() {
+		return nil, fmt.Errorf("%w for %T", asset.ErrNotSupported, k)
+	}
+
+	if k.Interval <= 0 {
+		return nil, fmt.Errorf("%w for %T", errInvalidInterval, k)
+	}
+
+	if t.IsZero() {
+		return nil, errTimeUnset
+	}
+
+	if t.Location() != time.UTC {
+		return nil, errTimeShouldBeUTC
+	}
+
+	if !t.Equal(t.Truncate(k.Interval.Duration())) {
+		return nil, errTimeNotTruncatedToInterval
+	}
+
+	if offset < 0 {
+		return nil, errInvalidOffset
+	}
+
+	return &Base{
+		Offset:         offset,
+		Exchange:       k.Exchange,
+		Time:           t,
+		Interval:       k.Interval,
+		CurrencyPair:   k.Pair,
+		AssetType:      k.Asset,
+		UnderlyingPair: k.UnderlyingPair,
+	}, nil
+}
 
 // GetOffset returns the offset
 func (b *Base) GetOffset() int64 {
@@ -51,7 +126,7 @@ func (b *Base) GetAssetType() asset.Item {
 }
 
 // GetInterval returns the interval
-func (b *Base) GetInterval() kline.Interval {
+func (b *Base) GetInterval() gctkline.Interval {
 	return b.Interval
 }
 

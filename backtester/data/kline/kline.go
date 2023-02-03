@@ -1,6 +1,7 @@
 package kline
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -9,19 +10,90 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/backtester/eventtypes/event"
 	"github.com/thrasher-corp/gocryptotrader/backtester/eventtypes/kline"
 	gctcommon "github.com/thrasher-corp/gocryptotrader/common"
+	"github.com/thrasher-corp/gocryptotrader/currency"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	gctkline "github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 )
 
-// NewDataFromKline returns a new struct
-func NewDataFromKline() *DataFromKline {
-	return &DataFromKline{
-		Base: &data.Base{},
+var (
+	// TODO: Shift to backtester common
+	errExchangeNameUnset = errors.New("exchange name unset")
+	errInvalidInterval   = errors.New("invalid interval")
+	errNoCandleData      = errors.New("no candle data")
+)
+
+// DataFromKline is a struct which implements the data.Streamer interface
+// It holds candle data for a specified range with helper functions
+type DataFromKline struct {
+	*data.Base
+	Item        *gctkline.Item
+	RangeHolder *gctkline.IntervalRangeHolder
+}
+
+// NewDataFromKline in time series and sets up the range holder and base events
+// defined by that data.
+func NewDataFromKline(timeSeries *gctkline.Item, start, end time.Time) (*DataFromKline, error) {
+	if timeSeries == nil {
+		return nil, fmt.Errorf("%w for %T", gctcommon.ErrNilPointer, timeSeries)
 	}
+
+	if timeSeries.Exchange == "" {
+		return nil, fmt.Errorf("%w for %T", errExchangeNameUnset, timeSeries)
+	}
+
+	if timeSeries.Pair.IsEmpty() {
+		return nil, fmt.Errorf("%w for %T", currency.ErrCurrencyPairEmpty, timeSeries)
+	}
+
+	if !timeSeries.Asset.IsValid() {
+		return nil, fmt.Errorf("%w for %T", asset.ErrNotSupported, timeSeries)
+	}
+
+	if timeSeries.Interval <= 0 {
+		return nil, fmt.Errorf("%w for %T", errInvalidInterval, timeSeries)
+	}
+
+	err := gctcommon.StartEndTimeCheck(start, end)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(timeSeries.Candles) == 0 {
+		return nil, fmt.Errorf("%w for %T", errNoCandleData, timeSeries)
+	}
+
+	rangeHolder, err := gctkline.CalculateCandleDateRanges(start, end, timeSeries.Interval, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: rangeholder to data check.
+
+	events, err := getEventsFromKlines(timeSeries)
+	if err != nil {
+		return nil, err
+	}
+
+	dataBase := &data.Base{}
+	err = dataBase.SetStream(events)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DataFromKline{
+		Base:        dataBase,
+		Item:        timeSeries,
+		RangeHolder: rangeHolder,
+	}, nil
 }
 
 // HasDataAtTime verifies checks the underlying range data
 // To determine whether there is any candle data present at the time provided
 func (d *DataFromKline) HasDataAtTime(t time.Time) (bool, error) {
+	if d == nil {
+		return false, fmt.Errorf("%w for %T", gctcommon.ErrNilPointer, d)
+	}
+
 	isLive, err := d.Base.IsLive()
 	if err != nil {
 		return false, err
@@ -45,39 +117,41 @@ func (d *DataFromKline) HasDataAtTime(t time.Time) (bool, error) {
 	return d.RangeHolder.HasDataAtDate(t), nil
 }
 
-// Load sets the candle data to the stream for processing
-func (d *DataFromKline) Load() error {
-	if d.Item == nil || len(d.Item.Candles) == 0 {
-		return errNoCandleData
+// getEventsFromKlines
+func getEventsFromKlines(k *gctkline.Item) ([]data.Event, error) {
+	if k == nil {
+		return nil, fmt.Errorf("%w for %T", gctcommon.ErrNilPointer, k)
 	}
 
-	klineData := make([]data.Event, len(d.Item.Candles))
-	for i := range d.Item.Candles {
-		newKline := &kline.Kline{
-			Base: &event.Base{
-				Offset:         int64(i + 1),
-				Exchange:       d.Item.Exchange,
-				Time:           d.Item.Candles[i].Time.UTC(),
-				Interval:       d.Item.Interval,
-				CurrencyPair:   d.Item.Pair,
-				AssetType:      d.Item.Asset,
-				UnderlyingPair: d.Item.UnderlyingPair,
-			},
-			Open:             decimal.NewFromFloat(d.Item.Candles[i].Open),
-			High:             decimal.NewFromFloat(d.Item.Candles[i].High),
-			Low:              decimal.NewFromFloat(d.Item.Candles[i].Low),
-			Close:            decimal.NewFromFloat(d.Item.Candles[i].Close),
-			Volume:           decimal.NewFromFloat(d.Item.Candles[i].Volume),
-			ValidationIssues: d.Item.Candles[i].ValidationIssues,
+	if len(k.Candles) == 0 {
+		return nil, errNoCandleData
+	}
+
+	events := make([]data.Event, len(k.Candles))
+	for i := range k.Candles {
+		baseEvent, err := event.NewBaseFromKline(k, k.Candles[i].Time, int64(i+1))
+		if err != nil {
+			return nil, err
 		}
-		klineData[i] = newKline
+		events[i] = &kline.Kline{
+			Base:             baseEvent,
+			Open:             decimal.NewFromFloat(k.Candles[i].Open),
+			High:             decimal.NewFromFloat(k.Candles[i].High),
+			Low:              decimal.NewFromFloat(k.Candles[i].Low),
+			Close:            decimal.NewFromFloat(k.Candles[i].Close),
+			Volume:           decimal.NewFromFloat(k.Candles[i].Volume),
+			ValidationIssues: k.Candles[i].ValidationIssues,
+		}
 	}
-
-	return d.SetStream(klineData)
+	return events, nil
 }
 
 // AppendResults adds a candle item to the data stream and sorts it to ensure it is all in order
 func (d *DataFromKline) AppendResults(ki *gctkline.Item) error {
+	if d == nil {
+		return fmt.Errorf("%w for %T", gctcommon.ErrNilPointer, d)
+	}
+
 	if ki == nil {
 		return fmt.Errorf("%w kline item", gctcommon.ErrNilPointer)
 	}
@@ -90,6 +164,7 @@ func (d *DataFromKline) AppendResults(ki *gctkline.Item) error {
 	if err != nil {
 		return err
 	}
+
 candleLoop:
 	for x := range ki.Candles {
 		for y := range stream {
@@ -102,35 +177,30 @@ candleLoop:
 	if len(gctCandles) == 0 {
 		return nil
 	}
-	klineData := make([]data.Event, len(gctCandles))
-	for i := range gctCandles {
-		d.Item.Candles = append(d.Item.Candles, gctCandles[i])
-		newKline := &kline.Kline{
-			Base: &event.Base{
-				Exchange:       d.Item.Exchange,
-				Interval:       d.Item.Interval,
-				CurrencyPair:   d.Item.Pair,
-				AssetType:      d.Item.Asset,
-				UnderlyingPair: d.Item.UnderlyingPair,
-				Time:           gctCandles[i].Time.UTC(),
-			},
-			Open:   decimal.NewFromFloat(gctCandles[i].Open),
-			High:   decimal.NewFromFloat(gctCandles[i].High),
-			Low:    decimal.NewFromFloat(gctCandles[i].Low),
-			Close:  decimal.NewFromFloat(gctCandles[i].Close),
-			Volume: decimal.NewFromFloat(gctCandles[i].Volume),
-		}
-		klineData[i] = newKline
-	}
-	err = d.AppendStream(klineData...)
+
+	cpyKi := *ki
+	cpyKi.Candles = gctCandles
+	events, err := getEventsFromKlines(&cpyKi)
 	if err != nil {
 		return err
 	}
 
+	err = d.AppendStream(events...)
+	if err != nil {
+		return err
+	}
+
+	// TODO: Should not have duplicates.
 	d.Item.RemoveDuplicates()
+	// TODO: Should already be aligned
 	d.Item.SortCandlesByTimestamp(false)
+
 	if d.RangeHolder != nil {
-		d.RangeHolder, err = gctkline.CalculateCandleDateRanges(d.Item.Candles[0].Time, d.Item.Candles[len(d.Item.Candles)-1].Time.Add(d.Item.Interval.Duration()), d.Item.Interval, uint32(d.RangeHolder.Limit))
+		// TODO: d.Item.Candles[0].Time
+		d.RangeHolder, err = gctkline.CalculateCandleDateRanges(d.Item.Candles[0].Time,
+			d.Item.Candles[len(d.Item.Candles)-1].Time.Add(d.Item.Interval.Duration()),
+			d.Item.Interval,
+			uint32(d.RangeHolder.Limit))
 		if err != nil {
 			return err
 		}
@@ -142,7 +212,12 @@ candleLoop:
 }
 
 // StreamOpen returns all Open prices from the beginning until the current iteration
+// TODO: Stream infers *all* data might change name to HistoryOpen etc?
 func (d *DataFromKline) StreamOpen() ([]decimal.Decimal, error) {
+	if d == nil {
+		return nil, fmt.Errorf("%w for %T", gctcommon.ErrNilPointer, d)
+	}
+
 	s, err := d.History()
 	if err != nil {
 		return nil, err
@@ -157,6 +232,10 @@ func (d *DataFromKline) StreamOpen() ([]decimal.Decimal, error) {
 
 // StreamHigh returns all High prices from the beginning until the current iteration
 func (d *DataFromKline) StreamHigh() ([]decimal.Decimal, error) {
+	if d == nil {
+		return nil, fmt.Errorf("%w for %T", gctcommon.ErrNilPointer, d)
+	}
+
 	s, err := d.History()
 	if err != nil {
 		return nil, err
@@ -171,6 +250,10 @@ func (d *DataFromKline) StreamHigh() ([]decimal.Decimal, error) {
 
 // StreamLow returns all Low prices from the beginning until the current iteration
 func (d *DataFromKline) StreamLow() ([]decimal.Decimal, error) {
+	if d == nil {
+		return nil, fmt.Errorf("%w for %T", gctcommon.ErrNilPointer, d)
+	}
+
 	s, err := d.History()
 	if err != nil {
 		return nil, err
@@ -185,6 +268,10 @@ func (d *DataFromKline) StreamLow() ([]decimal.Decimal, error) {
 
 // StreamClose returns all Close prices from the beginning until the current iteration
 func (d *DataFromKline) StreamClose() ([]decimal.Decimal, error) {
+	if d == nil {
+		return nil, fmt.Errorf("%w for %T", gctcommon.ErrNilPointer, d)
+	}
+
 	s, err := d.History()
 	if err != nil {
 		return nil, err
@@ -199,6 +286,9 @@ func (d *DataFromKline) StreamClose() ([]decimal.Decimal, error) {
 
 // StreamVol returns all Volume prices from the beginning until the current iteration
 func (d *DataFromKline) StreamVol() ([]decimal.Decimal, error) {
+	if d == nil {
+		return nil, fmt.Errorf("%w for %T", gctcommon.ErrNilPointer, d)
+	}
 	s, err := d.History()
 	if err != nil {
 		return nil, err

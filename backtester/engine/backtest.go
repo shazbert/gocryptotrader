@@ -690,17 +690,20 @@ func (bt *BackTest) CloseAllPositions() error {
 	if err != nil {
 		return err
 	}
+	fmt.Printf("DATAHOLDERS %#v\n", dataHolders[0])
 	latestPrices := make([]data.Event, len(dataHolders))
 	for i := range dataHolders {
 		var latest data.Event
 		latest, err = dataHolders[i].Latest()
 		if err != nil {
+			fmt.Println("bruh")
 			return err
 		}
 		latestPrices[i] = latest
 	}
 	events, err := bt.Strategy.CloseAllPositions(bt.Portfolio.GetLatestHoldingsForAllCurrencies(), latestPrices)
 	if err != nil {
+		fmt.Println("WHAT BRO?")
 		if errors.Is(err, gctcommon.ErrFunctionNotSupported) {
 			log.Warnf(common.LiveStrategy, "Closing all positions is not supported by strategy %v", bt.Strategy.Name())
 			return nil
@@ -710,23 +713,29 @@ func (bt *BackTest) CloseAllPositions() error {
 	if len(events) == 0 {
 		return nil
 	}
+
+	fmt.Printf("events %#v\n", events[0])
 	err = bt.LiveDataHandler.SetDataForClosingAllPositions(events...)
 	if err != nil {
+		fmt.Println("WHAT BRO?2")
 		return err
 	}
 	for i := range events {
 		k := events[i].ToKline()
 		err = bt.Statistic.SetEventForOffset(k)
 		if err != nil {
+			fmt.Println("WHAT BRO?3")
 			return err
 		}
 		bt.EventQueue.AppendEvent(events[i])
 	}
 	err = bt.Run()
 	if err != nil {
+		fmt.Println("WHAT BRO?4")
 		return err
 	}
 
+	fmt.Println("WHAT BRO?5")
 	err = bt.LiveDataHandler.UpdateFunding(true)
 	if err != nil {
 		return err

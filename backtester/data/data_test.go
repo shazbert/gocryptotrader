@@ -348,8 +348,8 @@ func TestSetStream(t *testing.T) {
 	t.Parallel()
 	b := &Base{}
 	err := b.SetStream(nil)
-	if !errors.Is(err, ErrEmptySlice) {
-		t.Fatalf("received '%v' expected '%v'", err, ErrEmptySlice)
+	if !errors.Is(err, ErrEmptyEventSlice) {
+		t.Fatalf("received '%v' expected '%v'", err, ErrEmptyEventSlice)
 	}
 
 	containsInvalidEvent := []Event{
@@ -746,8 +746,8 @@ func TestFirst(t *testing.T) {
 
 	var e Events
 	_, err := e.First()
-	if !errors.Is(err, ErrEmptySlice) {
-		t.Errorf("received '%v' expected '%v'", err, ErrEmptySlice)
+	if !errors.Is(err, ErrEmptyEventSlice) {
+		t.Errorf("received '%v' expected '%v'", err, ErrEmptyEventSlice)
 	}
 
 	e = Events{fakeEvent{secretID: 1}, fakeEvent{secretID: 2}, fakeEvent{secretID: 3}}
@@ -765,8 +765,8 @@ func TestLast(t *testing.T) {
 
 	var e Events
 	_, err := e.Last()
-	if !errors.Is(err, ErrEmptySlice) {
-		t.Errorf("received '%v' expected '%v'", err, ErrEmptySlice)
+	if !errors.Is(err, ErrEmptyEventSlice) {
+		t.Errorf("received '%v' expected '%v'", err, ErrEmptyEventSlice)
 	}
 
 	e = Events{fakeEvent{secretID: 1}, fakeEvent{secretID: 2}, fakeEvent{secretID: 3}}

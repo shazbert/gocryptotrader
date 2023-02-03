@@ -119,7 +119,7 @@ func TestLoadDataCandles(t *testing.T) {
 		t.Errorf("received: %v, expected: %v", err, nil)
 	}
 
-	_, err = LoadData(dStart, dEnd, gctkline.FifteenMin.Duration(), exch, common.DataCandle, p, a, false)
+	_, err = LoadData(dStart, dEnd, gctkline.FifteenMin, exch, common.DataCandle, p, a, false)
 	if !errors.Is(err, nil) {
 		t.Errorf("received: %v, expected: %v", err, nil)
 	}
@@ -187,7 +187,7 @@ func TestLoadDataTrades(t *testing.T) {
 		t.Errorf("received: %v, expected: %v", err, nil)
 	}
 
-	_, err = LoadData(dStart, dEnd, gctkline.FifteenMin.Duration(), exch, common.DataTrade, p, a, false)
+	_, err = LoadData(dStart, dEnd, gctkline.FifteenMin, exch, common.DataTrade, p, a, false)
 	if !errors.Is(err, nil) {
 		t.Errorf("received: %v, expected: %v", err, nil)
 	}
@@ -203,12 +203,12 @@ func TestLoadDataInvalid(t *testing.T) {
 	p := currency.NewPair(currency.BTC, currency.USDT)
 	dStart := time.Date(2020, 1, 0, 0, 0, 0, 0, time.UTC)
 	dEnd := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
-	_, err := LoadData(dStart, dEnd, gctkline.FifteenMin.Duration(), exch, -1, p, a, false)
+	_, err := LoadData(dStart, dEnd, gctkline.FifteenMin, exch, -1, p, a, false)
 	if !errors.Is(err, common.ErrInvalidDataType) {
 		t.Errorf("received: %v, expected: %v", err, common.ErrInvalidDataType)
 	}
 
-	_, err = LoadData(dStart, dEnd, gctkline.FifteenMin.Duration(), exch, -1, p, a, true)
+	_, err = LoadData(dStart, dEnd, gctkline.FifteenMin, exch, -1, p, a, true)
 	if !errors.Is(err, errNoUSDData) {
 		t.Errorf("received: %v, expected: %v", err, errNoUSDData)
 	}

@@ -14,6 +14,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/backtester/eventhandlers/portfolio/holdings"
 	"github.com/thrasher-corp/gocryptotrader/backtester/eventtypes/event"
 	"github.com/thrasher-corp/gocryptotrader/backtester/eventtypes/fill"
+	evkline "github.com/thrasher-corp/gocryptotrader/backtester/eventtypes/kline"
 	"github.com/thrasher-corp/gocryptotrader/backtester/eventtypes/order"
 	"github.com/thrasher-corp/gocryptotrader/backtester/eventtypes/signal"
 	"github.com/thrasher-corp/gocryptotrader/backtester/funding"
@@ -105,8 +106,28 @@ func (f fakeDataHolder) GetDataForCurrency(string, asset.Item, currency.Pair) (d
 }
 func (f fakeDataHolder) GetAllData() ([]data.Handler, error) {
 	cp := currency.NewPair(currency.BTC, currency.USD)
+
+	baseData := &data.Base{}
+	err := baseData.SetStream([]data.Event{&evkline.Kline{
+		Base: &event.Base{
+			Exchange:     testExchange,
+			Time:         time.Now().Truncate(gctkline.OneMin.Duration()),
+			Interval:     gctkline.OneMin,
+			CurrencyPair: cp,
+			AssetType:    asset.Spot,
+		},
+		Open:   leet,
+		Close:  leet,
+		Low:    leet,
+		High:   leet,
+		Volume: leet,
+	}})
+	if err != nil {
+		return nil, err
+	}
+
 	return []data.Handler{&kline.DataFromKline{
-		Base: &data.Base{},
+		Base: baseData,
 		Item: &gctkline.Item{
 			Exchange:       testExchange,
 			Pair:           cp,
@@ -177,7 +198,7 @@ func (f fakeStrat) CloseAllPositions([]holdings.Holding, []data.Event) ([]signal
 			Base: &event.Base{
 				Offset:         1,
 				Exchange:       testExchange,
-				Time:           time.Now(),
+				Time:           time.Now().UTC().Truncate(gctkline.FifteenSecond.Duration()),
 				Interval:       gctkline.FifteenSecond,
 				CurrencyPair:   currency.NewPair(currency.BTC, currency.USD),
 				UnderlyingPair: currency.NewPair(currency.BTC, currency.USD),

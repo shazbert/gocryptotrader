@@ -21,8 +21,8 @@ var (
 	errDataFeedTypeHasAlreadyBeenSet = errors.New("data feed type has already been set")
 	errDuplicateEvent                = errors.New("duplicate event")
 	errNoDataEventsLoaded            = errors.New("no data events loaded")
-	errTimeMustBeUTC                 = errors.New("e time must be UTC")
-	errEventTimeIntervalMismatch     = errors.New("e time not truncated to time interval")
+	errTimeMustBeUTC                 = errors.New("event time must be UTC")
+	errEventTimeIntervalMismatch     = errors.New("event time not truncated to time interval")
 )
 
 // NewHandlerHolder returns a new HandlerHolder
@@ -212,7 +212,7 @@ func (b *Base) SetStream(events []Event) error {
 	}
 
 	if len(events) == 0 {
-		return ErrEmptySlice
+		return fmt.Errorf("cannot set stream, %w", ErrEmptyEventSlice)
 	}
 
 	b.m.Lock()
@@ -390,7 +390,7 @@ func (b *Base) SetLive(isLive bool) error {
 // First returns the first element of a slice
 func (e Events) First() (Event, error) {
 	if len(e) == 0 {
-		return nil, ErrEmptySlice
+		return nil, ErrEmptyEventSlice
 	}
 	return e[0], nil
 }
@@ -398,7 +398,7 @@ func (e Events) First() (Event, error) {
 // Last returns the last element of a slice
 func (e Events) Last() (Event, error) {
 	if len(e) == 0 {
-		return nil, ErrEmptySlice
+		return nil, ErrEmptyEventSlice
 	}
 	return e[len(e)-1], nil
 }
