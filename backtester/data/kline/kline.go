@@ -18,7 +18,6 @@ import (
 var (
 	// TODO: Shift to backtester common
 	errExchangeNameUnset = errors.New("exchange name unset")
-	errInvalidInterval   = errors.New("invalid interval")
 	errNoCandleData      = errors.New("no candle data")
 )
 
@@ -49,11 +48,7 @@ func NewDataFromKline(timeSeries *gctkline.Item, start, end time.Time) (*DataFro
 		return nil, fmt.Errorf("%w for %T", asset.ErrNotSupported, timeSeries)
 	}
 
-	if timeSeries.Interval <= 0 {
-		return nil, fmt.Errorf("%w for %T", errInvalidInterval, timeSeries)
-	}
-
-	err := gctcommon.StartEndTimeCheck(start, end)
+	rangeHolder, err := gctkline.CalculateCandleDateRanges(start, end, timeSeries.Interval, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -62,21 +57,22 @@ func NewDataFromKline(timeSeries *gctkline.Item, start, end time.Time) (*DataFro
 		return nil, fmt.Errorf("%w for %T", errNoCandleData, timeSeries)
 	}
 
-	rangeHolder, err := gctkline.CalculateCandleDateRanges(start, end, timeSeries.Interval, 0)
+	err = rangeHolder.SetHasDataFromCandles(timeSeries.Candles)
 	if err != nil {
 		return nil, err
 	}
-
-	// TODO: rangeholder to data check.
 
 	events, err := getEventsFromKlines(timeSeries)
 	if err != nil {
+		fmt.Println("events from klines error")
 		return nil, err
 	}
 
+	// TODO: NewDataBase function and only append stream.
 	dataBase := &data.Base{}
 	err = dataBase.SetStream(events)
 	if err != nil {
+		fmt.Println("set stream error")
 		return nil, err
 	}
 
@@ -98,40 +94,42 @@ func (d *DataFromKline) HasDataAtTime(t time.Time) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if isLive {
-		var s []data.Event
-		s, err = d.GetStream()
-		if err != nil {
-			return false, err
+
+	if !isLive {
+		if d.RangeHolder == nil { // TODO: Shift check to range holder method
+			return false, fmt.Errorf("%w RangeHolder", gctcommon.ErrNilPointer)
 		}
-		for i := range s {
-			if s[i].GetTime().Equal(t) {
-				return true, nil
-			}
+		return d.RangeHolder.HasDataAtDate(t), nil
+	}
+
+	stream, err := d.GetStream()
+	if err != nil {
+		return false, err
+	}
+
+	for i := range stream {
+		if stream[i].GetTime().Equal(t) {
+			return true, nil
 		}
-		return false, nil
 	}
-	if d.RangeHolder == nil {
-		return false, fmt.Errorf("%w RangeHolder", gctcommon.ErrNilPointer)
-	}
-	return d.RangeHolder.HasDataAtDate(t), nil
+	return false, nil
 }
 
-// getEventsFromKlines
+// getEventsFromKlines returns data events from gct candles
 func getEventsFromKlines(k *gctkline.Item) ([]data.Event, error) {
 	if k == nil {
-		return nil, fmt.Errorf("%w for %T", gctcommon.ErrNilPointer, k)
+		return nil, fmt.Errorf("cannot get data events from gct klines: %w for %T", gctcommon.ErrNilPointer, k)
 	}
 
 	if len(k.Candles) == 0 {
-		return nil, errNoCandleData
+		return nil, fmt.Errorf("cannot get data events from gct klines: %w", errNoCandleData)
 	}
 
 	events := make([]data.Event, len(k.Candles))
 	for i := range k.Candles {
 		baseEvent, err := event.NewBaseFromKline(k, k.Candles[i].Time, int64(i+1))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("cannot get data events from gct klines: %w", err)
 		}
 		events[i] = &kline.Kline{
 			Base:             baseEvent,

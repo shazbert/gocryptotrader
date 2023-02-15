@@ -17,91 +17,108 @@ import (
 
 const testExchange = "binance"
 
-var elite = decimal.NewFromInt(1337)
+var (
+	elite = decimal.NewFromInt(1337)
+	pair  = currency.NewPair(currency.BTC, currency.USDT)
+)
 
-func TestLoad(t *testing.T) {
+func TestNewDataFromKline(t *testing.T) {
 	t.Parallel()
-	exch := testExchange
-	a := asset.Spot
-	p := currency.NewPair(currency.BTC, currency.USDT)
-	tt := time.Now()
-	d := DataFromKline{
-		Base: &data.Base{},
+	_, err := NewDataFromKline(nil, time.Time{}, time.Time{})
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Fatalf("received: %v, expected: %v", err, gctcommon.ErrNilPointer)
 	}
-	err := d.Load()
+
+	dummy := &gctkline.Item{}
+	_, err = NewDataFromKline(dummy, time.Time{}, time.Time{})
+	if !errors.Is(err, errExchangeNameUnset) {
+		t.Fatalf("received: %v, expected: %v", err, errExchangeNameUnset)
+	}
+
+	dummy.Exchange = testExchange
+	_, err = NewDataFromKline(dummy, time.Time{}, time.Time{})
+	if !errors.Is(err, currency.ErrCurrencyPairEmpty) {
+		t.Fatalf("received: %v, expected: %v", err, currency.ErrCurrencyPairEmpty)
+	}
+
+	dummy.Pair = pair
+	_, err = NewDataFromKline(dummy, time.Time{}, time.Time{})
+	if !errors.Is(err, asset.ErrNotSupported) {
+		t.Fatalf("received: %v, expected: %v", err, asset.ErrNotSupported)
+	}
+
+	dummy.Asset = asset.Spot
+	_, err = NewDataFromKline(dummy, time.Time{}, time.Time{})
+	if !errors.Is(err, gctcommon.ErrDateUnset) {
+		t.Fatalf("received: %v, expected: %v", err, gctcommon.ErrDateUnset)
+	}
+
+	end := time.Now().Truncate(gctkline.OneDay.Duration())
+	start := end.Add(-gctkline.OneDay.Duration())
+
+	_, err = NewDataFromKline(dummy, start, end)
+	if !errors.Is(err, gctkline.ErrInvalidInterval) {
+		t.Fatalf("received: %v, expected: %v", err, gctkline.ErrInvalidInterval)
+	}
+
+	dummy.Interval = gctkline.OneDay
+	_, err = NewDataFromKline(dummy, start, end)
 	if !errors.Is(err, errNoCandleData) {
-		t.Errorf("received: %v, expected: %v", err, errNoCandleData)
+		t.Fatalf("received: %v, expected: %v", err, errNoCandleData)
 	}
-	d.Item = &gctkline.Item{
-		Exchange: exch,
-		Pair:     p,
-		Asset:    a,
-		Interval: gctkline.FifteenMin,
-		Candles: []gctkline.Candle{
-			{
-				Time:   tt,
-				Open:   1337,
-				High:   1337,
-				Low:    1337,
-				Close:  1337,
-				Volume: 1337,
-			},
-		},
-	}
-	err = d.Load()
+
+	dummy.Candles = []gctkline.Candle{{Time: start.Add(-time.Duration(gctkline.OneDay)).UTC()}}
+	data, err := NewDataFromKline(dummy, start, end)
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
+	}
+
+	stream, err := data.Base.GetStream()
+	if !errors.Is(err, nil) {
+		t.Fatalf("received: %v, expected: %v", err, nil)
+	}
+
+	if len(stream) != 1 {
+		t.Fatalf("received: %v, expected: %v", len(stream), 1)
 	}
 }
 
 func TestHasDataAtTime(t *testing.T) {
 	t.Parallel()
-	dStart := time.Date(2020, 1, 0, 0, 0, 0, 0, time.UTC)
-	dEnd := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
-	exch := testExchange
-	a := asset.Spot
-	p := currency.NewPair(currency.BTC, currency.USDT)
-	d := DataFromKline{
-		Base: &data.Base{},
-	}
-	has, err := d.HasDataAtTime(time.Now())
+
+	var dataKline *DataFromKline
+	_, err := dataKline.HasDataAtTime(time.Now())
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
 		t.Errorf("received: %v, expected: %v", err, gctcommon.ErrNilPointer)
 	}
-	if has {
-		t.Error("expected false")
+
+	dataKline = &DataFromKline{}
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Errorf("received: %v, expected: %v", err, gctcommon.ErrNilPointer)
 	}
 
-	d.RangeHolder = &gctkline.IntervalRangeHolder{}
-	has, err = d.HasDataAtTime(time.Now())
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
-	}
-	if has {
-		t.Error("expected false")
+	dataKline = &DataFromKline{Base: &data.Base{}}
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Errorf("received: %v, expected: %v", err, gctcommon.ErrNilPointer)
 	}
 
-	d.Item = &gctkline.Item{
-		Exchange: exch,
-		Pair:     p,
-		Asset:    a,
+	start := time.Date(2020, 1, 0, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	dummy := &gctkline.Item{
+		Exchange: testExchange,
+		Pair:     pair,
+		Asset:    asset.Spot,
 		Interval: gctkline.OneDay,
-		Candles: []gctkline.Candle{
-			{
-				Time:   dStart,
-				Open:   1337,
-				High:   1337,
-				Low:    1337,
-				Close:  1337,
-				Volume: 1337,
-			},
-		},
-	}
-	if err = d.Load(); err != nil {
-		t.Error(err)
+		Candles:  []gctkline.Candle{{Time: start, Open: 1337, High: 1337, Low: 1337, Close: 1337, Volume: 1337}},
 	}
 
-	has, err = d.HasDataAtTime(dStart)
+	dataKline, err = NewDataFromKline(dummy, start, end)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received: %v, expected: %v", err, nil)
+	}
+
+	has, err := dataKline.HasDataAtTime(time.Now())
 	if !errors.Is(err, nil) {
 		t.Errorf("received: %v, expected: %v", err, nil)
 	}
@@ -109,34 +126,27 @@ func TestHasDataAtTime(t *testing.T) {
 		t.Error("expected false")
 	}
 
-	ranger, err := gctkline.CalculateCandleDateRanges(dStart, dEnd, gctkline.OneDay, 100000)
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
-	}
-	d.RangeHolder = ranger
-	err = d.RangeHolder.SetHasDataFromCandles(d.Item.Candles)
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
-	}
-	has, err = d.HasDataAtTime(dStart)
+	has, err = dataKline.HasDataAtTime(start)
 	if !errors.Is(err, nil) {
 		t.Errorf("received: %v, expected: %v", err, nil)
 	}
 	if !has {
 		t.Error("expected true")
 	}
-	err = d.SetLive(true)
+
+	err = dataKline.SetLive(true)
 	if !errors.Is(err, nil) {
 		t.Errorf("received: %v, expected: %v", err, nil)
 	}
-	has, err = d.HasDataAtTime(time.Time{})
+
+	has, err = dataKline.HasDataAtTime(time.Time{})
 	if !errors.Is(err, nil) {
 		t.Errorf("received: %v, expected: %v", err, nil)
 	}
 	if has {
 		t.Error("expected false")
 	}
-	has, err = d.HasDataAtTime(dStart)
+	has, err = dataKline.HasDataAtTime(start)
 	if !errors.Is(err, nil) {
 		t.Errorf("received: %v, expected: %v", err, nil)
 	}
