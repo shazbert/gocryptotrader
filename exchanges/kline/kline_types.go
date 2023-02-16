@@ -70,6 +70,9 @@ var (
 	// ErrRequestExceedsMaxLookback defines an error for when you cannot look
 	// back further than what is allowed.
 	ErrRequestExceedsMaxLookback = errors.New("the requested time window exceeds the maximum lookback period available in the historical data, please reduce window between start and end date of your request")
+	// ErrInvalidTimePeriod defines an error for when the time is outside of
+	// expected parameters.
+	ErrInvalidTimePeriod = errors.New("invalid time period")
 
 	errInsufficientTradeData     = errors.New("insufficient trade data")
 	errCandleDataNotPadded       = errors.New("candle data not padded")

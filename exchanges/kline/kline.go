@@ -445,10 +445,13 @@ func CalculateCandleDateRanges(start, end time.Time, interval Interval, limit ui
 
 // HasDataAtDate determines whether a there is any data at a set
 // date inside the existing limits
-func (h *IntervalRangeHolder) HasDataAtDate(t time.Time) bool {
+func (h *IntervalRangeHolder) HasDataAtDate(t time.Time) (bool, error) {
+	if h == nil {
+		return false, fmt.Errorf("%w %T", common.ErrNilPointer, h)
+	}
 	tu := t.Unix()
 	if tu < h.Start.Ticks || tu > h.End.Ticks {
-		return false
+		return false, nil
 	}
 	for i := range h.Ranges {
 		if tu < h.Ranges[i].Start.Ticks || tu >= h.Ranges[i].End.Ticks {
@@ -458,11 +461,11 @@ func (h *IntervalRangeHolder) HasDataAtDate(t time.Time) bool {
 		for j := range h.Ranges[i].Intervals {
 			if tu >= h.Ranges[i].Intervals[j].Start.Ticks &&
 				tu < h.Ranges[i].Intervals[j].End.Ticks {
-				return h.Ranges[i].Intervals[j].HasData
+				return h.Ranges[i].Intervals[j].HasData, nil
 			}
 		}
 	}
-	return false
+	return false, nil
 }
 
 // GetClosePriceAtTime returns the close price of a candle
@@ -486,7 +489,7 @@ func (h *IntervalRangeHolder) SetHasDataFromCandles(incoming []Candle) error {
 				return nil
 			}
 			if !h.Ranges[x].Intervals[y].Start.Time.Equal(incoming[offset].Time) {
-				return fmt.Errorf("%w '%v' expected '%v'", errInvalidPeriod, incoming[offset].Time.UTC(), h.Ranges[x].Intervals[y].Start.Time.UTC())
+				return fmt.Errorf("%w '%v' expected '%v'", ErrInvalidTimePeriod, incoming[offset].Time.UTC(), h.Ranges[x].Intervals[y].Start.Time.UTC())
 			}
 			if incoming[offset].Low <= 0 && incoming[offset].High <= 0 &&
 				incoming[offset].Close <= 0 && incoming[offset].Open <= 0 &&
@@ -572,10 +575,20 @@ func (k *Item) EqualSource(i *Item) error {
 	if k.Exchange != i.Exchange ||
 		k.Asset != i.Asset ||
 		!k.Pair.Equal(i.Pair) {
-		return fmt.Errorf("%v %v %v %w %v %v %v", k.Exchange, k.Asset, k.Pair, ErrItemNotEqual, i.Exchange, i.Asset, i.Pair)
+		return fmt.Errorf("%v %v %v %w %v %v %v",
+			k.Exchange,
+			k.Asset,
+			k.Pair,
+			ErrItemNotEqual,
+			i.Exchange,
+			i.Asset,
+			i.Pair)
 	}
-	if !k.UnderlyingPair.IsEmpty() && !i.UnderlyingPair.IsEmpty() && !k.UnderlyingPair.Equal(i.UnderlyingPair) {
-		return fmt.Errorf("%w %v %v", ErrItemUnderlyingNotEqual, k.UnderlyingPair, i.UnderlyingPair)
+	if !k.UnderlyingPair.Equal(i.UnderlyingPair) {
+		return fmt.Errorf("%w %v %v",
+			ErrItemUnderlyingNotEqual,
+			k.UnderlyingPair,
+			i.UnderlyingPair)
 	}
 	return nil
 }

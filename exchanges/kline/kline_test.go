@@ -736,14 +736,18 @@ func TestLoadCSV(t *testing.T) {
 
 func TestVerifyResultsHaveData(t *testing.T) {
 	t.Parallel()
-	tt1 := time.Now().Round(OneDay.Duration())
+	tt1 := time.Now().Truncate(OneDay.Duration())
 	tt2 := tt1.Add(OneDay.Duration())
 	tt3 := tt2.Add(OneDay.Duration()) // end date no longer inclusive
 	dateRanges, err := CalculateCandleDateRanges(tt1, tt3, OneDay, 0)
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
-	if dateRanges.HasDataAtDate(tt1) {
+	has, err := dateRanges.HasDataAtDate(tt1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if has {
 		t.Error("unexpected true value")
 	}
 	err = dateRanges.SetHasDataFromCandles([]Candle{
@@ -759,9 +763,14 @@ func TestVerifyResultsHaveData(t *testing.T) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
 
-	if !dateRanges.HasDataAtDate(tt1) {
+	has, err = dateRanges.HasDataAtDate(tt1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !has {
 		t.Error("expected true")
 	}
+
 	err = dateRanges.SetHasDataFromCandles([]Candle{
 		{
 			Time: tt1,
@@ -774,7 +783,12 @@ func TestVerifyResultsHaveData(t *testing.T) {
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
-	if dateRanges.HasDataAtDate(tt1) {
+
+	has, err = dateRanges.HasDataAtDate(tt1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if has {
 		t.Error("expected false")
 	}
 }
@@ -816,7 +830,12 @@ func TestHasDataAtDate(t *testing.T) {
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
-	if dateRanges.HasDataAtDate(tt2) {
+
+	has, err := dateRanges.HasDataAtDate(tt2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if has {
 		t.Error("unexpected true value")
 	}
 
@@ -834,11 +853,19 @@ func TestHasDataAtDate(t *testing.T) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
 
-	if !dateRanges.HasDataAtDate(tt2) {
+	has, err = dateRanges.HasDataAtDate(tt2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !has {
 		t.Error("unexpected false value")
 	}
 
-	if dateRanges.HasDataAtDate(tt2.Add(time.Hour * 24)) {
+	has, err = dateRanges.HasDataAtDate(tt2.Add(time.Hour * 24))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if has {
 		t.Error("should not have data")
 	}
 }
@@ -1280,10 +1307,52 @@ func TestSetHasDataFromCandles(t *testing.T) {
 	if !i.Start.Equal(k.Candles[0].Time) {
 		t.Errorf("received '%v' expected '%v'", i.Start.Time, k.Candles[0].Time)
 	}
-	if i.HasDataAtDate(k.Candles[0].Time) {
+
+	has, err := i.HasDataAtDate(k.Candles[0].Time)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if has {
 		t.Errorf("received '%v' expected '%v'", false, true)
 	}
-	if !i.HasDataAtDate(k.Candles[len(k.Candles)-1].Time) {
+
+	has, err = i.HasDataAtDate(k.Candles[len(k.Candles)-1].Time)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !has {
 		t.Errorf("received '%v' expected '%v'", true, false)
+	}
+}
+
+func TestEqualSource(t *testing.T) {
+	t.Parallel()
+	var one, two *Item
+	err := one.EqualSource(two)
+	if !errors.Is(err, common.ErrNilPointer) {
+		t.Errorf("received '%v' expected '%v'", err, common.ErrNilPointer)
+	}
+	one = &Item{}
+	err = one.EqualSource(two)
+	if !errors.Is(err, common.ErrNilPointer) {
+		t.Errorf("received '%v' expected '%v'", err, common.ErrNilPointer)
+	}
+	two = &Item{}
+	err = one.EqualSource(two)
+	if !errors.Is(err, nil) {
+		t.Errorf("received '%v' expected '%v'", err, nil)
+	}
+
+	one.Exchange = "hello"
+	err = one.EqualSource(two)
+	if !errors.Is(err, ErrItemNotEqual) {
+		t.Errorf("received '%v' expected '%v'", err, ErrItemNotEqual)
+	}
+
+	two.Exchange = "hello"
+	two.UnderlyingPair = currency.NewPair(currency.BTC, currency.USDT)
+	err = one.EqualSource(two)
+	if !errors.Is(err, ErrItemUnderlyingNotEqual) {
+		t.Errorf("received '%v' expected '%v'", err, ErrItemUnderlyingNotEqual)
 	}
 }

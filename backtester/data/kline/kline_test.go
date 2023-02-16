@@ -7,8 +7,6 @@ import (
 
 	"github.com/shopspring/decimal"
 	"github.com/thrasher-corp/gocryptotrader/backtester/data"
-	"github.com/thrasher-corp/gocryptotrader/backtester/eventtypes/event"
-	"github.com/thrasher-corp/gocryptotrader/backtester/eventtypes/kline"
 	gctcommon "github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
@@ -17,10 +15,7 @@ import (
 
 const testExchange = "binance"
 
-var (
-	elite = decimal.NewFromInt(1337)
-	pair  = currency.NewPair(currency.BTC, currency.USDT)
-)
+var pair = currency.NewPair(currency.BTC, currency.USDT)
 
 func TestNewDataFromKline(t *testing.T) {
 	t.Parallel()
@@ -68,6 +63,12 @@ func TestNewDataFromKline(t *testing.T) {
 	}
 
 	dummy.Candles = []gctkline.Candle{{Time: start.Add(-time.Duration(gctkline.OneDay)).UTC()}}
+	_, err = NewDataFromKline(dummy, start, end)
+	if !errors.Is(err, gctkline.ErrInvalidTimePeriod) {
+		t.Fatalf("received: %v, expected: %v", err, gctkline.ErrInvalidTimePeriod)
+	}
+
+	dummy.Candles = []gctkline.Candle{{Time: start.UTC()}}
 	data, err := NewDataFromKline(dummy, start, end)
 	if !errors.Is(err, nil) {
 		t.Fatalf("received: %v, expected: %v", err, nil)
@@ -102,8 +103,8 @@ func TestHasDataAtTime(t *testing.T) {
 		t.Errorf("received: %v, expected: %v", err, gctcommon.ErrNilPointer)
 	}
 
-	start := time.Date(2020, 1, 0, 0, 0, 0, 0, time.UTC)
-	end := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	start := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC)
 
 	dummy := &gctkline.Item{
 		Exchange: testExchange,
@@ -157,302 +158,254 @@ func TestHasDataAtTime(t *testing.T) {
 
 func TestAppend(t *testing.T) {
 	t.Parallel()
-	a := asset.Spot
-	p := currency.NewPair(currency.BTC, currency.USDT)
-	tt1 := time.Date(2020, 1, 0, 0, 0, 0, 0, time.UTC)
-	tt2 := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
-	d := DataFromKline{
-		Base: &data.Base{},
-		Item: &gctkline.Item{
-			Exchange: testExchange,
-			Asset:    a,
-			Pair:     p,
-			Interval: gctkline.OneDay,
-		},
-		RangeHolder: &gctkline.IntervalRangeHolder{},
-	}
-	item := gctkline.Item{
-		Interval: gctkline.OneDay,
-		Candles: []gctkline.Candle{
-			{
-				Time:   tt1,
-				Open:   1337,
-				High:   1337,
-				Low:    1337,
-				Close:  1337,
-				Volume: 1337,
-			},
-			{
-				Time:   tt2,
-				Open:   1337,
-				High:   1337,
-				Low:    1337,
-				Close:  1337,
-				Volume: 1337,
-			},
-		},
-	}
-	err := d.AppendResults(&item)
-	if !errors.Is(err, gctkline.ErrItemNotEqual) {
-		t.Errorf("received: %v, expected: %v", err, gctkline.ErrItemNotEqual)
-	}
 
-	item.Exchange = testExchange
-	item.Pair = p
-	item.Asset = a
-
-	err = d.AppendResults(&item)
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
-	}
-
-	err = d.AppendResults(&item)
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
-	}
-
-	err = d.AppendResults(nil)
+	var dataKline *DataFromKline
+	err := dataKline.AppendResults(nil)
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
 		t.Errorf("received: %v, expected: %v", err, gctcommon.ErrNilPointer)
 	}
-}
 
-func TestStreamOpen(t *testing.T) {
-	t.Parallel()
-	exch := testExchange
-	a := asset.Spot
-	p := currency.NewPair(currency.BTC, currency.USDT)
-	d := DataFromKline{
-		Base: &data.Base{},
-	}
-	bad, err := d.StreamOpen()
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
-	}
-	if len(bad) > 0 {
-		t.Error("expected no stream")
-	}
-	err = d.SetStream([]data.Event{
-		&kline.Kline{
-			Base: &event.Base{
-				Exchange:     exch,
-				Time:         time.Now(),
-				Interval:     gctkline.OneDay,
-				CurrencyPair: p,
-				AssetType:    a,
+	start := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2020, 1, 4, 0, 0, 0, 0, time.UTC)
+	dummy := &gctkline.Item{
+		Exchange: testExchange,
+		Pair:     pair,
+		Asset:    asset.Spot,
+		Interval: gctkline.OneDay,
+		Candles: []gctkline.Candle{
+			{
+				Time:   start,
+				Open:   1337,
+				High:   1337,
+				Low:    1337,
+				Close:  1337,
+				Volume: 1337,
 			},
-			Open:   elite,
-			High:   elite,
-			Low:    elite,
-			Close:  elite,
-			Volume: elite,
+			{
+				Time:   start.Add(gctkline.OneDay.Duration()),
+				Open:   1337,
+				High:   1337,
+				Low:    1337,
+				Close:  1337,
+				Volume: 1337,
+			},
+		},
+	}
+
+	dataKline, err = NewDataFromKline(dummy, start, end)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received: %v, expected: %v", err, nil)
+	}
+
+	err = dataKline.AppendResults(nil)
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Fatalf("received: %v, expected: %v", err, gctcommon.ErrNilPointer)
+	}
+
+	err = dataKline.AppendResults(&gctkline.Item{})
+	if !errors.Is(err, gctkline.ErrItemNotEqual) {
+		t.Fatalf("received: %v, expected: %v", err, gctkline.ErrItemNotEqual)
+	}
+
+	err = dataKline.AppendResults(&gctkline.Item{Exchange: testExchange, Pair: pair, Asset: asset.Spot})
+	if !errors.Is(err, errNoCandleData) {
+		t.Fatalf("received: %v, expected: %v", err, errNoCandleData)
+	}
+
+	err = dataKline.AppendResults(dummy)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received: %v, expected: %v", err, nil)
+	}
+
+	err = dataKline.AppendResults(&gctkline.Item{
+		Exchange: testExchange,
+		Pair:     pair,
+		Asset:    asset.Spot,
+		Interval: gctkline.OneDay,
+		Candles: []gctkline.Candle{
+			{
+				Time:   time.Date(2020, 1, 3, 0, 0, 0, 0, time.UTC),
+				Open:   1337,
+				High:   1337,
+				Low:    1337,
+				Close:  1337,
+				Volume: 1337,
+			},
+			{
+				Time:   time.Date(2020, 1, 4, 0, 0, 0, 0, time.UTC),
+				Open:   1337,
+				High:   1337,
+				Low:    1337,
+				Close:  1337,
+				Volume: 1337,
+			},
 		},
 	})
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
-	_, err = d.Next()
+
+	stream, err := dataKline.GetStream()
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
-	open, err := d.StreamOpen()
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
-	}
-	if len(open) == 0 {
-		t.Error("expected open")
+
+	if len(stream) != 4 {
+		t.Fatalf("received: %v, expected: %v", len(stream), 4)
 	}
 }
 
-func TestStreamVolume(t *testing.T) {
+func TestStream_OpenLowHighCloseVolume(t *testing.T) {
 	t.Parallel()
-	exch := testExchange
-	a := asset.Spot
-	p := currency.NewPair(currency.BTC, currency.USDT)
-	d := DataFromKline{
-		Base: &data.Base{},
+	var dataKline *DataFromKline
+	_, err := dataKline.StreamOpen()
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Errorf("received: %v, expected: %v", err, gctcommon.ErrNilPointer)
 	}
-	bad, err := d.StreamVol()
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+
+	_, err = dataKline.StreamHigh()
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Errorf("received: %v, expected: %v", err, gctcommon.ErrNilPointer)
 	}
-	if len(bad) > 0 {
-		t.Error("expected no stream")
+
+	_, err = dataKline.StreamLow()
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Errorf("received: %v, expected: %v", err, gctcommon.ErrNilPointer)
 	}
-	err = d.SetStream([]data.Event{
-		&kline.Kline{
-			Base: &event.Base{
-				Exchange:     exch,
-				Time:         time.Now(),
-				Interval:     gctkline.OneDay,
-				CurrencyPair: p,
-				AssetType:    a,
+
+	_, err = dataKline.StreamClose()
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Errorf("received: %v, expected: %v", err, gctcommon.ErrNilPointer)
+	}
+
+	_, err = dataKline.StreamVol()
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Errorf("received: %v, expected: %v", err, gctcommon.ErrNilPointer)
+	}
+
+	start := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2020, 1, 4, 0, 0, 0, 0, time.UTC)
+	dummy := &gctkline.Item{
+		Exchange: testExchange,
+		Pair:     pair,
+		Asset:    asset.Spot,
+		Interval: gctkline.OneDay,
+		Candles: []gctkline.Candle{
+			{
+				Time:   start,
+				Open:   1,
+				High:   2,
+				Low:    3,
+				Close:  4,
+				Volume: 5,
 			},
-			Open:   elite,
-			High:   elite,
-			Low:    elite,
-			Close:  elite,
-			Volume: elite,
+			{
+				Time:   start.Add(gctkline.OneDay.Duration()),
+				Open:   1,
+				High:   2,
+				Low:    3,
+				Close:  4,
+				Volume: 5,
+			},
 		},
-	})
+	}
+
+	dataKline, err = NewDataFromKline(dummy, start, end)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received: %v, expected: %v", err, nil)
+	}
+	event, err := dataKline.Next()
 	if !errors.Is(err, nil) {
 		t.Errorf("received: %v, expected: %v", err, nil)
 	}
-	_, err = d.Next()
+	if !event.GetTime().Equal(start) {
+		t.Errorf("received: %v, expected: %v", event.GetTime(), start)
+	}
+	open, err := dataKline.StreamOpen()
 	if !errors.Is(err, nil) {
 		t.Errorf("received: %v, expected: %v", err, nil)
 	}
-	vol, err := d.StreamVol()
+	if len(open) != 1 {
+		t.Fatalf("received: %v, expected: %v", len(open), 1)
+	}
+	if !open[0].Equal(decimal.NewFromInt(1)) {
+		t.Errorf("received: %v, expected: %v", open[0], 1)
+	}
+
+	high, err := dataKline.StreamHigh()
 	if !errors.Is(err, nil) {
 		t.Errorf("received: %v, expected: %v", err, nil)
 	}
-	if len(vol) == 0 {
-		t.Error("expected volume")
+	if len(high) != 1 {
+		t.Fatalf("received: %v, expected: %v", len(high), 1)
+	}
+	if !high[0].Equal(decimal.NewFromInt(2)) {
+		t.Errorf("received: %v, expected: %v", high[0], 2)
+	}
+
+	low, err := dataKline.StreamLow()
+	if !errors.Is(err, nil) {
+		t.Errorf("received: %v, expected: %v", err, nil)
+	}
+	if len(low) != 1 {
+		t.Fatalf("received: %v, expected: %v", len(low), 1)
+	}
+	if !low[0].Equal(decimal.NewFromInt(3)) {
+		t.Errorf("received: %v, expected: %v", low[0], 3)
+	}
+
+	close, err := dataKline.StreamClose()
+	if !errors.Is(err, nil) {
+		t.Errorf("received: %v, expected: %v", err, nil)
+	}
+	if len(close) != 1 {
+		t.Fatalf("received: %v, expected: %v", len(close), 1)
+	}
+	if !close[0].Equal(decimal.NewFromInt(4)) {
+		t.Errorf("received: %v, expected: %v", close[0], 4)
+	}
+
+	volume, err := dataKline.StreamVol()
+	if !errors.Is(err, nil) {
+		t.Errorf("received: %v, expected: %v", err, nil)
+	}
+	if len(volume) != 1 {
+		t.Fatalf("received: %v, expected: %v", len(volume), 1)
+	}
+	if !volume[0].Equal(decimal.NewFromInt(5)) {
+		t.Errorf("received: %v, expected: %v", open[0], 5)
 	}
 }
 
-func TestStreamClose(t *testing.T) {
+func TestValidate(t *testing.T) {
 	t.Parallel()
-	exch := testExchange
-	a := asset.Spot
-	p := currency.NewPair(currency.BTC, currency.USDT)
-	d := DataFromKline{
-		Base: &data.Base{},
+
+	var dataKline *DataFromKline
+	err := dataKline.validate()
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Errorf("received: %v, expected: %v", err, gctcommon.ErrNilPointer)
 	}
-	bad, err := d.StreamClose()
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
-	}
-	if len(bad) > 0 {
-		t.Error("expected no stream")
+	dataKline = &DataFromKline{}
+	err = dataKline.validate()
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Errorf("received: %v, expected: %v", err, gctcommon.ErrNilPointer)
 	}
 
-	err = d.SetStream([]data.Event{
-		&kline.Kline{
-			Base: &event.Base{
-				Exchange:     exch,
-				Time:         time.Now(),
-				Interval:     gctkline.OneDay,
-				CurrencyPair: p,
-				AssetType:    a,
-			},
-			Open:   elite,
-			High:   elite,
-			Low:    elite,
-			Close:  elite,
-			Volume: elite,
-		},
-	})
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
-	}
-	_, err = d.Next()
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
-	}
-	cl, err := d.StreamClose()
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
-	}
-	if len(cl) == 0 {
-		t.Error("expected close")
-	}
-}
-
-func TestStreamHigh(t *testing.T) {
-	t.Parallel()
-	exch := testExchange
-	a := asset.Spot
-	p := currency.NewPair(currency.BTC, currency.USDT)
-	d := DataFromKline{
-		Base: &data.Base{},
-	}
-	bad, err := d.StreamHigh()
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
-	}
-	if len(bad) > 0 {
-		t.Error("expected no stream")
+	dataKline.Base = &data.Base{}
+	err = dataKline.validate()
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Errorf("received: %v, expected: %v", err, gctcommon.ErrNilPointer)
 	}
 
-	err = d.SetStream([]data.Event{
-		&kline.Kline{
-			Base: &event.Base{
-				Exchange:     exch,
-				Time:         time.Now(),
-				Interval:     gctkline.OneDay,
-				CurrencyPair: p,
-				AssetType:    a,
-			},
-			Open:   elite,
-			High:   elite,
-			Low:    elite,
-			Close:  elite,
-			Volume: elite,
-		},
-	})
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
-	}
-	_, err = d.Next()
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
-	}
-	high, err := d.StreamHigh()
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
-	}
-	if len(high) == 0 {
-		t.Error("expected high")
-	}
-}
-
-func TestStreamLow(t *testing.T) {
-	t.Parallel()
-	exch := testExchange
-	a := asset.Spot
-	p := currency.NewPair(currency.BTC, currency.USDT)
-	d := DataFromKline{
-		Base:        &data.Base{},
-		RangeHolder: &gctkline.IntervalRangeHolder{},
-	}
-	bad, err := d.StreamLow()
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
-	}
-	if len(bad) > 0 {
-		t.Error("expected no stream")
+	dataKline.Item = &gctkline.Item{}
+	err = dataKline.validate()
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Errorf("received: %v, expected: %v", err, gctcommon.ErrNilPointer)
 	}
 
-	err = d.SetStream([]data.Event{
-		&kline.Kline{
-			Base: &event.Base{
-				Exchange:     exch,
-				Time:         time.Now(),
-				Interval:     gctkline.OneDay,
-				CurrencyPair: p,
-				AssetType:    a,
-			},
-			Open:   elite,
-			High:   elite,
-			Low:    elite,
-			Close:  elite,
-			Volume: elite,
-		},
-	})
+	dataKline.RangeHolder = &gctkline.IntervalRangeHolder{}
+	err = dataKline.validate()
 	if !errors.Is(err, nil) {
 		t.Errorf("received: %v, expected: %v", err, nil)
-	}
-	_, err = d.Next()
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
-	}
-
-	low, err := d.StreamLow()
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
-	}
-	if len(low) == 0 {
-		t.Error("expected low")
 	}
 }
