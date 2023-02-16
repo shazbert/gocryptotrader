@@ -106,12 +106,10 @@ func (bt *BackTest) SetupFromConfig(cfg *config.Config, templatePath, output str
 		SellSide: sellRule,
 	}
 
-	funds, err := funding.SetupFundingManager(
-		bt.exchangeManager,
+	funds, err := funding.NewFundingManager(bt.exchangeManager,
 		cfg.FundingSettings.UseExchangeLevelFunding,
 		cfg.StrategySettings.DisableUSDTracking,
-		bt.verbose,
-	)
+		bt.verbose)
 	if err != nil {
 		return err
 	}
@@ -709,7 +707,6 @@ func (bt *BackTest) loadData(cfg *config.Config, exch gctexchange.IBotExchange, 
 	}
 
 	log.Infof(common.Setup, "Loading data for %v %v %v...\n", exch.GetName(), a, fPair)
-	resp := kline.NewDataFromKline()
 	underlyingPair := currency.EMPTYPAIR
 	if a.IsFutures() {
 		// returning the collateral currency along with using the
@@ -721,11 +718,12 @@ func (bt *BackTest) loadData(cfg *config.Config, exch gctexchange.IBotExchange, 
 		var curr currency.Code
 		curr, _, err = exch.GetCollateralCurrencyForContract(a, fPair)
 		if err != nil {
-			return resp, err
+			return nil, err
 		}
 		underlyingPair = currency.NewPair(fPair.Base, curr)
 	}
 
+	var resp *kline.DataFromKline
 	switch {
 	case cfg.DataSettings.CSVData != nil:
 		if cfg.DataSettings.Interval <= 0 {
@@ -735,7 +733,7 @@ func (bt *BackTest) loadData(cfg *config.Config, exch gctexchange.IBotExchange, 
 			dataType,
 			cfg.DataSettings.CSVData.FullPath,
 			strings.ToLower(exch.GetName()),
-			cfg.DataSettings.Interval.Duration(),
+			cfg.DataSettings.Interval,
 			fPair,
 			a,
 			isUSDTrackingPair)
@@ -864,10 +862,9 @@ func loadDatabaseData(cfg *config.Config, name string, fPair currency.Pair, a as
 		return nil, errIntervalUnset
 	}
 
-	return database.LoadData(
-		cfg.DataSettings.DatabaseData.StartDate,
+	return database.LoadData(cfg.DataSettings.DatabaseData.StartDate,
 		cfg.DataSettings.DatabaseData.EndDate,
-		cfg.DataSettings.Interval.Duration(),
+		cfg.DataSettings.Interval,
 		strings.ToLower(name),
 		dataType,
 		fPair,

@@ -2,6 +2,7 @@ package funding
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -23,9 +24,11 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/log"
 )
 
-// SetupFundingManager creates the funding holder. It carries knowledge about levels of funding
-// across all execution handlers and enables fund transfers
-func SetupFundingManager(exchManager *engine.ExchangeManager, usingExchangeLevelFunding, disableUSDTracking, verbose bool) (*FundManager, error) {
+var errNoCandleData = errors.New("no candle data")
+
+// NewFundingManager creates the funding holder. It carries knowledge about
+// levels of funding across all execution handlers and enables fund transfers.
+func NewFundingManager(exchManager *engine.ExchangeManager, usingExchangeLevelFunding, disableUSDTracking, verbose bool) (*FundManager, error) {
 	if exchManager == nil {
 		return nil, errExchangeManagerRequired
 	}
@@ -162,7 +165,7 @@ func (f *FundManager) AddUSDTrackingData(k *kline.DataFromKline) error {
 		}
 		if f.items[i].asset.IsFutures() && k.Item.Asset.IsFutures() {
 			if f.items[i].isCollateral {
-				err := f.setUSDCandles(k, f.items[i])
+				err := f.items[i].setUSDCandles(k)
 				if err != nil {
 					return err
 				}
@@ -188,7 +191,7 @@ func (f *FundManager) AddUSDTrackingData(k *kline.DataFromKline) error {
 				if f.items[i].pairedWith != nil && !f.items[i].currency.Equal(basePairedWith) {
 					continue
 				}
-				err := f.setUSDCandles(k, f.items[i])
+				err := f.items[i].setUSDCandles(k)
 				if err != nil {
 					return err
 				}
@@ -202,34 +205,47 @@ func (f *FundManager) AddUSDTrackingData(k *kline.DataFromKline) error {
 	return fmt.Errorf("%w %v %v %v", errCannotMatchTrackingToItem, k.Item.Exchange, k.Item.Asset, k.Item.Pair)
 }
 
-// setUSDCandles sets usd tracking candles
-// usd stablecoins do not always match in value,
-// this is a simplified implementation that can allow
-// USD tracking for many currencies across many exchanges
-func (f *FundManager) setUSDCandles(k *kline.DataFromKline, i *Item) error {
-	usdCandles := gctkline.Item{
+// setUSDCandles sets USD tracking candles, USD stablecoins do not always match
+// in value, this is a simplified implementation that can allow USD tracking for
+// many currencies across many exchanges.
+func (i *Item) setUSDCandles(k *kline.DataFromKline) error {
+	if i == nil {
+		return fmt.Errorf("%w for %T", gctcommon.ErrNilPointer, i)
+	}
+
+	if k == nil {
+		return fmt.Errorf("%w for %T", gctcommon.ErrNilPointer, k)
+	}
+
+	if len(k.Item.Candles) == 0 {
+		return fmt.Errorf("cannot set USD candles %w", errNoCandleData)
+	}
+
+	usdCandles := make([]gctkline.Candle, len(k.Item.Candles))
+	for x := range k.Item.Candles {
+		usdCandles[x].Time = k.Item.Candles[x].Time
+		usdCandles[x].Open = 1
+		usdCandles[x].High = 1
+		usdCandles[x].Low = 1
+		usdCandles[x].Close = 1
+	}
+
+	start := usdCandles[0].Time
+	end := usdCandles[len(usdCandles)-1].Time.Add(time.Duration(k.Item.Interval))
+	var err error
+	i.trackingCandles, err = kline.NewDataFromKline(&gctkline.Item{
 		Exchange: k.Item.Exchange,
-		Pair:     currency.Pair{Delimiter: k.Item.Pair.Delimiter, Base: i.currency, Quote: currency.USD},
+		Pair: currency.Pair{
+			Delimiter: k.Item.Pair.Delimiter, Base: i.currency, Quote: currency.USD,
+		},
 		Asset:    k.Item.Asset,
 		Interval: k.Item.Interval,
-		Candles:  make([]gctkline.Candle, len(k.Item.Candles)),
+		Candles:  usdCandles,
+	}, start, end)
+	if err != nil {
+		return fmt.Errorf("cannot set USD candles %w", err)
 	}
-	for x := range usdCandles.Candles {
-		usdCandles.Candles[x] = gctkline.Candle{
-			Time:  k.Item.Candles[x].Time,
-			Open:  1,
-			High:  1,
-			Low:   1,
-			Close: 1,
-		}
-	}
-	cpy := *k
-	cpy.Item = &usdCandles
-	cpy.Base = &data.Base{}
-	if err := cpy.Load(); err != nil {
-		return err
-	}
-	i.trackingCandles = &cpy
+
 	return nil
 }
 
@@ -307,8 +323,7 @@ func (f *FundManager) GenerateReport() (*Report, error) {
 			AppendedViaAPI: f.items[x].appendedViaAPI,
 		}
 
-		if !f.disableUSDTracking &&
-			f.items[x].trackingCandles != nil {
+		if !f.disableUSDTracking && f.items[x].trackingCandles != nil {
 			usdStream, err := f.items[x].trackingCandles.GetStream()
 			if err != nil {
 				return nil, err

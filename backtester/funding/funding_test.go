@@ -32,9 +32,13 @@ var (
 	pair     = currency.NewPair(base, quote)
 )
 
-func TestSetupFundingManager(t *testing.T) {
+func TestNewFundingManager(t *testing.T) {
 	t.Parallel()
-	f, err := SetupFundingManager(&engine.ExchangeManager{}, true, false, false)
+	_, err := NewFundingManager(nil, true, false, false)
+	if !errors.Is(err, errExchangeManagerRequired) {
+		t.Errorf("received '%v' expected '%v'", err, errExchangeManagerRequired)
+	}
+	f, err := NewFundingManager(&engine.ExchangeManager{}, true, false, false)
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
@@ -44,7 +48,7 @@ func TestSetupFundingManager(t *testing.T) {
 	if f.disableUSDTracking {
 		t.Errorf("expected '%v received '%v'", false, true)
 	}
-	f, err = SetupFundingManager(&engine.ExchangeManager{}, false, true, true)
+	f, err = NewFundingManager(&engine.ExchangeManager{}, false, true, true)
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
@@ -61,7 +65,7 @@ func TestSetupFundingManager(t *testing.T) {
 
 func TestReset(t *testing.T) {
 	t.Parallel()
-	f, err := SetupFundingManager(&engine.ExchangeManager{}, true, false, false)
+	f, err := NewFundingManager(&engine.ExchangeManager{}, true, false, false)
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
@@ -87,7 +91,7 @@ func TestReset(t *testing.T) {
 
 func TestIsUsingExchangeLevelFunding(t *testing.T) {
 	t.Parallel()
-	f, err := SetupFundingManager(&engine.ExchangeManager{}, true, false, false)
+	f, err := NewFundingManager(&engine.ExchangeManager{}, true, false, false)
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
@@ -98,10 +102,7 @@ func TestIsUsingExchangeLevelFunding(t *testing.T) {
 
 func TestTransfer(t *testing.T) {
 	t.Parallel()
-	f := FundManager{
-		usingExchangeLevelFunding: false,
-		items:                     nil,
-	}
+	f := FundManager{}
 	err := f.Transfer(decimal.Zero, nil, nil, false)
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
 		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
@@ -289,9 +290,8 @@ func TestAddPair(t *testing.T) {
 
 func TestGetFundingForEvent(t *testing.T) {
 	t.Parallel()
-	e := &fakeEvent{}
 	f := FundManager{}
-	_, err := f.GetFundingForEvent(e)
+	_, err := f.GetFundingForEvent(&fakeEvent{})
 	if !errors.Is(err, ErrFundsNotFound) {
 		t.Errorf("received '%v' expected '%v'", err, ErrFundsNotFound)
 	}
@@ -311,7 +311,7 @@ func TestGetFundingForEvent(t *testing.T) {
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
-	_, err = f.GetFundingForEvent(e)
+	_, err = f.GetFundingForEvent(&fakeEvent{})
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
@@ -424,13 +424,13 @@ func TestGenerateReport(t *testing.T) {
 			},
 		},
 	}
-	err = dfk.Load()
-	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
-	}
+	// err = dfk.Load()
+	// if !errors.Is(err, nil) {
+	// 	t.Errorf("received '%v' expected '%v'", err, nil)
+	// }
 	err = f.AddUSDTrackingData(dfk)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	f.items[0].trackingCandles = dfk
 	err = f.CreateSnapshot(dfk.Item.Candles[0].Time)
@@ -472,10 +472,10 @@ func TestCreateSnapshot(t *testing.T) {
 			},
 		},
 	}
-	err = dfk.Load()
-	if !errors.Is(err, data.ErrInvalidEventSupplied) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
-	}
+	// err = dfk.Load()
+	// if !errors.Is(err, data.ErrInvalidEventSupplied) {
+	// 	t.Errorf("received '%v' expected '%v'", err, nil)
+	// }
 
 	f.items = append(f.items, &Item{
 		exchange:        "test",
@@ -495,13 +495,15 @@ func TestCreateSnapshot(t *testing.T) {
 
 func TestAddUSDTrackingData(t *testing.T) {
 	t.Parallel()
-	f := FundManager{}
+
+	var f *FundManager
 	err := f.AddUSDTrackingData(nil)
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
 		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
 	}
 
-	err = f.AddUSDTrackingData(kline.NewDataFromKline())
+	f = &FundManager{}
+	err = f.AddUSDTrackingData(nil)
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
 		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
 	}
@@ -516,10 +518,10 @@ func TestAddUSDTrackingData(t *testing.T) {
 			},
 		},
 	}
-	err = dfk.Load()
-	if !errors.Is(err, data.ErrInvalidEventSupplied) {
-		t.Errorf("received '%v' expected '%v'", err, data.ErrInvalidEventSupplied)
-	}
+	// err = dfk.Load()
+	// if !errors.Is(err, data.ErrInvalidEventSupplied) {
+	// 	t.Errorf("received '%v' expected '%v'", err, data.ErrInvalidEventSupplied)
+	// }
 	quoteItem, err := CreateItem(exchName, a, pair.Quote, elite, decimal.Zero)
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
@@ -555,10 +557,10 @@ func TestAddUSDTrackingData(t *testing.T) {
 			},
 		},
 	}
-	err = dfk.Load()
-	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
-	}
+	// err = dfk.Load()
+	// if !errors.Is(err, nil) {
+	// 	t.Errorf("received '%v' expected '%v'", err, nil)
+	// }
 	err = f.AddUSDTrackingData(dfk)
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
@@ -987,7 +989,11 @@ func TestUpdateAllCollateral(t *testing.T) {
 		t.Errorf("received '%v', expected  '%v'", err, gctcommon.ErrNotYetImplemented)
 	}
 
-	f.items[0].trackingCandles = kline.NewDataFromKline()
+	f.items[0].trackingCandles, err = kline.NewDataFromKline(nil, time.Time{}, time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	err = f.items[0].trackingCandles.SetStream([]data.Event{
 		&fakeEvent{},
 	})
