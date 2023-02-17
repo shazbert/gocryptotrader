@@ -61,12 +61,12 @@ func (s *Strategy) OnSimultaneousSignals(d []data.Handler, f funding.IFundingTra
 	if p == nil {
 		return nil, fmt.Errorf("%w missing portfolio handler", gctcommon.ErrNilPointer)
 	}
-	var response []signal.Event
 	sortedSignals, err := sortSignals(d)
 	if err != nil {
 		return nil, err
 	}
 
+	var response []signal.Event
 	for i := range sortedSignals {
 		var latestSpot, latestFuture data.Event
 		latestSpot, err = sortedSignals[i].spotSignal.Latest()
@@ -82,12 +82,12 @@ func (s *Strategy) OnSimultaneousSignals(d []data.Handler, f funding.IFundingTra
 		if err != nil {
 			return nil, err
 		}
-		var spotSignal, futuresSignal signal.Signal
-		spotSignal, err = s.GetBaseData(sortedSignals[i].spotSignal)
+		var spotSignal, futuresSignal *signal.Signal
+		spotSignal, err = s.NewSignal(sortedSignals[i].spotSignal)
 		if err != nil {
 			return nil, err
 		}
-		futuresSignal, err = s.GetBaseData(sortedSignals[i].futureSignal)
+		futuresSignal, err = s.NewSignal(sortedSignals[i].futureSignal)
 		if err != nil {
 			return nil, err
 		}
@@ -101,10 +101,10 @@ func (s *Strategy) OnSimultaneousSignals(d []data.Handler, f funding.IFundingTra
 		if len(pos) > 0 && pos[len(pos)-1].Status == order.Open {
 			futuresSignal.AppendReasonf("Unrealised PNL: %v %v", pos[len(pos)-1].UnrealisedPNL, pos[len(pos)-1].CollateralCurrency)
 		}
-		if f.HasExchangeBeenLiquidated(&spotSignal) || f.HasExchangeBeenLiquidated(&futuresSignal) {
+		if f.HasExchangeBeenLiquidated(spotSignal) || f.HasExchangeBeenLiquidated(futuresSignal) {
 			spotSignal.AppendReason("cannot transact, has been liquidated")
 			futuresSignal.AppendReason("cannot transact, has been liquidated")
-			response = append(response, &spotSignal, &futuresSignal)
+			response = append(response, spotSignal, futuresSignal)
 			continue
 		}
 		var isLastEvent bool
@@ -113,7 +113,7 @@ func (s *Strategy) OnSimultaneousSignals(d []data.Handler, f funding.IFundingTra
 		if err != nil {
 			return nil, err
 		}
-		signals, err = s.createSignals(pos, &spotSignal, &futuresSignal, diffBetweenFuturesSpot, isLastEvent)
+		signals, err = s.createSignals(pos, spotSignal, futuresSignal, diffBetweenFuturesSpot, isLastEvent)
 		if err != nil {
 			return nil, err
 		}

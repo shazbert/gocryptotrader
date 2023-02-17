@@ -39,7 +39,7 @@ func (s *Strategy) OnSignal(d data.Handler, _ funding.IFundingTransferer, _ port
 	if d == nil {
 		return nil, common.ErrNilEvent
 	}
-	es, err := s.GetBaseData(d)
+	sig, err := s.NewSignal(d)
 	if err != nil {
 		return nil, err
 	}
@@ -53,15 +53,15 @@ func (s *Strategy) OnSignal(d data.Handler, _ funding.IFundingTransferer, _ port
 		return nil, err
 	}
 	if !hasDataAtTime {
-		es.SetDirection(order.MissingData)
-		es.AppendReasonf("missing data at %v, cannot perform any actions", latest.GetTime())
-		return &es, nil
+		sig.SetDirection(order.MissingData)
+		sig.AppendReasonf("missing data at %v, cannot perform any actions", latest.GetTime())
+		return sig, nil
 	}
 
-	es.SetPrice(latest.GetClosePrice())
-	es.SetDirection(order.Buy)
-	es.AppendReason("DCA purchases on every iteration")
-	return &es, nil
+	sig.SetPrice(latest.GetClosePrice())
+	sig.SetDirection(order.Buy)
+	sig.AppendReason("DCA purchases on every iteration")
+	return sig, nil
 }
 
 // SupportsSimultaneousProcessing highlights whether the strategy can handle multiple currency calculation

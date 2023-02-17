@@ -260,10 +260,9 @@ func TestGetPairReader(t *testing.T) {
 	p := &SpotPair{
 		base: &Item{exchange: "hello"},
 	}
-	var expectedError error
 	ip, err := p.GetPairReader()
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
 	if ip != p {
 		t.Error("expected the same thing")

@@ -79,6 +79,7 @@ func (bt *BackTest) SetupFromConfig(cfg *config.Config, templatePath, output str
 	if cfg.DataSettings.DatabaseData != nil {
 		bt.databaseManager, err = engine.SetupDatabaseConnectionManager(&cfg.DataSettings.DatabaseData.Config)
 		if err != nil {
+			fmt.Println("db?")
 			return err
 		}
 	}
@@ -111,8 +112,11 @@ func (bt *BackTest) SetupFromConfig(cfg *config.Config, templatePath, output str
 		cfg.StrategySettings.DisableUSDTracking,
 		bt.verbose)
 	if err != nil {
+		fmt.Println("funding manager?")
 		return err
 	}
+
+	fmt.Println("RBUH")
 
 	if cfg.FundingSettings.UseExchangeLevelFunding && !(cfg.DataSettings.LiveData != nil && cfg.DataSettings.LiveData.RealOrders) {
 		for i := range cfg.FundingSettings.ExchangeLevelFunding {
@@ -183,10 +187,6 @@ func (bt *BackTest) SetupFromConfig(cfg *config.Config, templatePath, output str
 		exchBase.CurrencyPairs.Pairs[cfg.CurrencySettings[i].Asset] = exchangeAsset
 	}
 
-	portfolioRisk := &risk.Risk{
-		CurrencySettings: make(map[string]map[asset.Item]map[*currency.Item]map[*currency.Item]*risk.CurrencySettings),
-	}
-
 	bt.Funding = funds
 	var trackFuturesPositions bool
 	if cfg.DataSettings.LiveData != nil {
@@ -197,8 +197,7 @@ func (bt *BackTest) SetupFromConfig(cfg *config.Config, templatePath, output str
 		}
 	}
 
-	bt.orderManager, err = engine.SetupOrderManager(
-		bt.exchangeManager,
+	bt.orderManager, err = engine.SetupOrderManager(bt.exchangeManager,
 		&engine.CommunicationManager{},
 		&sync.WaitGroup{},
 		verbose,
@@ -211,6 +210,11 @@ func (bt *BackTest) SetupFromConfig(cfg *config.Config, templatePath, output str
 	err = bt.orderManager.Start()
 	if err != nil {
 		return err
+	}
+
+	// TODO: Create New function for this.
+	portfolioRisk := &risk.Risk{
+		CurrencySettings: make(map[string]map[asset.Item]map[*currency.Item]map[*currency.Item]*risk.CurrencySettings),
 	}
 
 	for i := range cfg.CurrencySettings {
@@ -726,11 +730,7 @@ func (bt *BackTest) loadData(cfg *config.Config, exch gctexchange.IBotExchange, 
 	var resp *kline.DataFromKline
 	switch {
 	case cfg.DataSettings.CSVData != nil:
-		if cfg.DataSettings.Interval <= 0 {
-			return nil, errIntervalUnset
-		}
-		resp, err = csv.LoadData(
-			dataType,
+		resp, err = csv.LoadData(dataType,
 			cfg.DataSettings.CSVData.FullPath,
 			strings.ToLower(exch.GetName()),
 			cfg.DataSettings.Interval,
@@ -739,25 +739,6 @@ func (bt *BackTest) loadData(cfg *config.Config, exch gctexchange.IBotExchange, 
 			isUSDTrackingPair)
 		if err != nil {
 			return nil, fmt.Errorf("%v. Please check your GoCryptoTrader configuration", err)
-		}
-		resp.Item.RemoveDuplicates()
-		resp.Item.SortCandlesByTimestamp(false)
-		resp.RangeHolder, err = gctkline.CalculateCandleDateRanges(
-			resp.Item.Candles[0].Time,
-			resp.Item.Candles[len(resp.Item.Candles)-1].Time.Add(cfg.DataSettings.Interval.Duration()),
-			cfg.DataSettings.Interval,
-			0,
-		)
-		if err != nil {
-			return nil, err
-		}
-		err = resp.RangeHolder.SetHasDataFromCandles(resp.Item.Candles)
-		if err != nil {
-			return nil, err
-		}
-		summary := resp.RangeHolder.DataSummary(false)
-		if len(summary) > 0 {
-			log.Warnf(common.Setup, "%v", summary)
 		}
 	case cfg.DataSettings.DatabaseData != nil:
 		if cfg.DataSettings.DatabaseData.InclusiveEndDate {
@@ -843,10 +824,10 @@ func (bt *BackTest) loadData(cfg *config.Config, exch gctexchange.IBotExchange, 
 	}
 
 	resp.Item.UnderlyingPair = underlyingPair
-	err = resp.Load()
-	if err != nil {
-		return nil, err
-	}
+	// err = resp.Load()
+	// if err != nil {
+	// 	return nil, err
+	// }
 	err = bt.Reports.SetKlineData(resp.Item)
 	if err != nil {
 		return nil, err

@@ -185,28 +185,26 @@ func TestSortSignals(t *testing.T) {
 func TestCreateSignals(t *testing.T) {
 	t.Parallel()
 	s := Strategy{}
-	var expectedError = gctcommon.ErrNilPointer
 	_, err := s.createSignals(nil, nil, nil, decimal.Zero, false)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v", err, expectedError)
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Errorf("received '%v' expected '%v", err, gctcommon.ErrNilPointer)
 	}
 
 	spotSignal := &signal.Signal{
 		Base: &event.Base{AssetType: asset.Spot},
 	}
 	_, err = s.createSignals(nil, spotSignal, nil, decimal.Zero, false)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v", err, expectedError)
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Errorf("received '%v' expected '%v", err, gctcommon.ErrNilPointer)
 	}
 
 	// targeting first case
-	expectedError = nil
 	futuresSignal := &signal.Signal{
 		Base: &event.Base{AssetType: asset.Futures},
 	}
 	resp, err := s.createSignals(nil, spotSignal, futuresSignal, decimal.Zero, false)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Errorf("received '%v' expected '%v", err, nil)
 	}
 	if len(resp) != 1 {
 		t.Errorf("received '%v' expected '%v", len(resp), 1)
@@ -222,8 +220,8 @@ func TestCreateSignals(t *testing.T) {
 		},
 	}
 	resp, err = s.createSignals(pos, spotSignal, futuresSignal, decimal.Zero, false)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Errorf("received '%v' expected '%v", err, nil)
 	}
 	if len(resp) != 2 {
 		t.Errorf("received '%v' expected '%v", len(resp), 2)
@@ -243,8 +241,8 @@ func TestCreateSignals(t *testing.T) {
 
 	// targeting third case
 	resp, err = s.createSignals(pos, spotSignal, futuresSignal, decimal.Zero, true)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Errorf("received '%v' expected '%v", err, nil)
 	}
 	if len(resp) != 2 {
 		t.Errorf("received '%v' expected '%v", len(resp), 2)
@@ -265,8 +263,8 @@ func TestCreateSignals(t *testing.T) {
 	// targeting first case after a cash and carry is completed, have a new one opened
 	pos[0].Status = gctorder.Closed
 	resp, err = s.createSignals(pos, spotSignal, futuresSignal, decimal.NewFromInt(1337), true)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Errorf("received '%v' expected '%v", err, nil)
 	}
 	if len(resp) != 1 {
 		t.Errorf("received '%v' expected '%v", len(resp), 1)
@@ -290,8 +288,8 @@ func TestCreateSignals(t *testing.T) {
 	// targeting default case
 	pos[0].Status = gctorder.UnknownStatus
 	resp, err = s.createSignals(pos, spotSignal, futuresSignal, decimal.NewFromInt(1337), true)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Errorf("received '%v' expected '%v", err, nil)
 	}
 	if len(resp) != 2 {
 		t.Errorf("received '%v' expected '%v", len(resp), 2)

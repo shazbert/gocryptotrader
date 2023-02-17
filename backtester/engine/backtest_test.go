@@ -49,28 +49,31 @@ import (
 
 const testExchange = "binanceus"
 
-var leet = decimal.NewFromInt(1337)
+var (
+	leet = decimal.NewFromInt(1337)
+	cp   = currency.NewPair(currency.BTC, currency.USDT)
+)
 
 func TestSetupFromConfig(t *testing.T) {
 	t.Parallel()
 	bt, err := NewBacktester()
 	if !errors.Is(err, nil) {
-		t.Errorf("received %v, expected %v", err, nil)
+		t.Fatalf("received %v, expected %v", err, nil)
 	}
 	err = bt.SetupFromConfig(nil, "", "", false)
 	if !errors.Is(err, errNilConfig) {
-		t.Errorf("received %v, expected %v", err, errNilConfig)
+		t.Fatalf("received %v, expected %v", err, errNilConfig)
 	}
 	cfg := &config.Config{}
 	err = bt.SetupFromConfig(cfg, "", "", false)
 	if !errors.Is(err, gctkline.ErrInvalidInterval) {
-		t.Errorf("received: %v, expected: %v", err, gctkline.ErrInvalidInterval)
+		t.Fatalf("received: %v, expected: %v", err, gctkline.ErrInvalidInterval)
 	}
 
 	cfg.DataSettings.Interval = gctkline.OneMonth
 	err = bt.SetupFromConfig(cfg, "", "", false)
 	if !errors.Is(err, base.ErrStrategyNotFound) {
-		t.Errorf("received: %v, expected: %v", err, base.ErrStrategyNotFound)
+		t.Fatalf("received: %v, expected: %v", err, base.ErrStrategyNotFound)
 	}
 
 	const testExchange = "bybit"
@@ -91,7 +94,7 @@ func TestSetupFromConfig(t *testing.T) {
 	}
 	err = bt.SetupFromConfig(cfg, "", "", false)
 	if !errors.Is(err, base.ErrStrategyNotFound) {
-		t.Errorf("received: %v, expected: %v", err, base.ErrStrategyNotFound)
+		t.Fatalf("received: %v, expected: %v", err, base.ErrStrategyNotFound)
 	}
 
 	cfg.StrategySettings = config.StrategySettings{
@@ -109,22 +112,22 @@ func TestSetupFromConfig(t *testing.T) {
 	cfg.DataSettings.DataType = common.CandleStr
 	err = bt.SetupFromConfig(cfg, "", "", false)
 	if !errors.Is(err, gctcommon.ErrDateUnset) {
-		t.Errorf("received: %v, expected: %v", err, gctcommon.ErrDateUnset)
+		t.Fatalf("received: %v, expected: %v", err, gctcommon.ErrDateUnset)
 	}
 	cfg.DataSettings.Interval = gctkline.OneMin
 	cfg.CurrencySettings[0].MakerFee = &decimal.Zero
 	cfg.CurrencySettings[0].TakerFee = &decimal.Zero
 	err = bt.SetupFromConfig(cfg, "", "", false)
 	if !errors.Is(err, gctcommon.ErrDateUnset) {
-		t.Errorf("received: %v, expected: %v", err, gctcommon.ErrDateUnset)
+		t.Fatalf("received: %v, expected: %v", err, gctcommon.ErrDateUnset)
 	}
 
-	cfg.DataSettings.APIData.StartDate = time.Now().Truncate(gctkline.OneMin.Duration()).Add(-gctkline.OneMin.Duration())
-	cfg.DataSettings.APIData.EndDate = cfg.DataSettings.APIData.StartDate.Add(gctkline.OneMin.Duration())
+	cfg.DataSettings.APIData.StartDate = time.Now().Truncate(gctkline.OneMin.Duration()).Add(-gctkline.OneMin.Duration()).UTC()
+	cfg.DataSettings.APIData.EndDate = cfg.DataSettings.APIData.StartDate.Add(gctkline.OneMin.Duration()).UTC()
 	cfg.DataSettings.APIData.InclusiveEndDate = true
 	err = bt.SetupFromConfig(cfg, "", "", false)
 	if !errors.Is(err, gctcommon.ErrNotYetImplemented) {
-		t.Errorf("received: %v, expected: %v", err, gctcommon.ErrNotYetImplemented)
+		t.Fatalf("received: %v, expected: %v", err, gctcommon.ErrNotYetImplemented)
 	}
 	cfg.FundingSettings.UseExchangeLevelFunding = true
 	cfg.FundingSettings.ExchangeLevelFunding = []config.ExchangeLevelFunding{
@@ -145,7 +148,7 @@ func TestSetupFromConfig(t *testing.T) {
 	}
 	err = bt.SetupFromConfig(cfg, "", "", false)
 	if !errors.Is(err, gctcommon.ErrNotYetImplemented) {
-		t.Errorf("received: %v, expected: %v", err, gctcommon.ErrNotYetImplemented)
+		t.Fatalf("received: %v, expected: %v", err, gctcommon.ErrNotYetImplemented)
 	}
 }
 
@@ -387,7 +390,7 @@ func TestLoadDataLive(t *testing.T) {
 	}
 	err = bt.LiveDataHandler.Start()
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
 	b := exch.GetBase()
 	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
@@ -399,26 +402,26 @@ func TestLoadDataLive(t *testing.T) {
 		RequestFormat: &currency.PairFormat{Uppercase: true}}
 	_, err = bt.loadData(cfg, exch, cp, asset.Spot, false)
 	if !errors.Is(err, gctkline.ErrCannotConstructInterval) {
-		t.Errorf("received: %v, expected: %v", err, gctkline.ErrCannotConstructInterval)
+		t.Fatalf("received: %v, expected: %v", err, gctkline.ErrCannotConstructInterval)
 	}
 
 	cfg.DataSettings.Interval = gctkline.OneMin
 	_, err = bt.loadData(cfg, exch, cp, asset.Spot, false)
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
 
 	err = bt.Stop()
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
 }
 
 func TestReset(t *testing.T) {
 	t.Parallel()
-	f, err := funding.SetupFundingManager(&engine.ExchangeManager{}, true, false, false)
+	f, err := funding.NewFundingManager(&engine.ExchangeManager{}, true, false, false)
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
 	bt := &BackTest{
 		shutdown:   make(chan struct{}),
@@ -433,7 +436,7 @@ func TestReset(t *testing.T) {
 	}
 	err = bt.Reset()
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	if bt.Funding.IsUsingExchangeLevelFunding() {
 		t.Error("expected false")
@@ -442,55 +445,48 @@ func TestReset(t *testing.T) {
 	bt = nil
 	err = bt.Reset()
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
-		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+		t.Fatalf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
 	}
 }
 
 func TestFullCycle(t *testing.T) {
 	t.Parallel()
-	ex := testExchange
-	cp := currency.NewPair(currency.BTC, currency.USDT)
-	a := asset.Spot
-	tt := time.Now()
 
 	stats := &statistics.Statistic{}
 	stats.ExchangeAssetPairStatistics = make(map[string]map[asset.Item]map[*currency.Item]map[*currency.Item]*statistics.CurrencyPairStatistic)
-	stats.ExchangeAssetPairStatistics[ex] = make(map[asset.Item]map[*currency.Item]map[*currency.Item]*statistics.CurrencyPairStatistic)
-	stats.ExchangeAssetPairStatistics[ex][a] = make(map[*currency.Item]map[*currency.Item]*statistics.CurrencyPairStatistic)
-	stats.ExchangeAssetPairStatistics[ex][a][cp.Base.Item] = make(map[*currency.Item]*statistics.CurrencyPairStatistic)
+	stats.ExchangeAssetPairStatistics[testExchange] = make(map[asset.Item]map[*currency.Item]map[*currency.Item]*statistics.CurrencyPairStatistic)
+	stats.ExchangeAssetPairStatistics[testExchange][asset.Spot] = make(map[*currency.Item]map[*currency.Item]*statistics.CurrencyPairStatistic)
+	stats.ExchangeAssetPairStatistics[testExchange][asset.Spot][cp.Base.Item] = make(map[*currency.Item]*statistics.CurrencyPairStatistic)
 
-	port, err := portfolio.Setup(&size.Size{
-		BuySide:  exchange.MinMax{},
-		SellSide: exchange.MinMax{},
-	}, &risk.Risk{}, decimal.Zero)
+	port, err := portfolio.Setup(&size.Size{}, &risk.Risk{}, decimal.Zero)
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
 	fx := &binance.Binance{}
 	fx.Name = testExchange
-	err = port.SetCurrencySettingsMap(&exchange.Settings{Exchange: fx, Asset: a, Pair: cp})
+	err = port.SetCurrencySettingsMap(&exchange.Settings{Exchange: fx, Asset: asset.Spot, Pair: cp})
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
-	f, err := funding.SetupFundingManager(&engine.ExchangeManager{}, false, true, false)
+	f, err := funding.NewFundingManager(&engine.ExchangeManager{}, false, true, false)
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
-	b, err := funding.CreateItem(ex, a, cp.Base, decimal.Zero, decimal.Zero)
+	b, err := funding.CreateItem(testExchange, asset.Spot, cp.Base, decimal.Zero, decimal.Zero)
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
-	quote, err := funding.CreateItem(ex, a, cp.Quote, decimal.NewFromInt(1337), decimal.Zero)
+	quote, err := funding.CreateItem(testExchange, asset.Spot, cp.Quote, leet, decimal.Zero)
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
 	pair, err := funding.CreatePair(b, quote)
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
 	err = f.AddPair(pair)
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
 	bt := BackTest{
 		DataHolder:               &data.HandlerHolder{},
@@ -506,53 +502,33 @@ func TestFullCycle(t *testing.T) {
 	}
 
 	bt.DataHolder = data.NewHandlerHolder()
-	k := &kline.DataFromKline{
-		Item: &gctkline.Item{
-			Exchange: ex,
-			Pair:     cp,
-			Asset:    a,
-			Interval: gctkline.FifteenMin,
-			Candles: []gctkline.Candle{{
-				Time:   tt,
-				Open:   1337,
-				High:   1337,
-				Low:    1337,
-				Close:  1337,
-				Volume: 1337,
-			}},
-		},
-		Base: &data.Base{},
-		RangeHolder: &gctkline.IntervalRangeHolder{
-			Start: gctkline.CreateIntervalTime(tt),
-			End:   gctkline.CreateIntervalTime(tt.Add(gctkline.FifteenMin.Duration())),
-			Ranges: []gctkline.IntervalRange{
-				{
-					Start: gctkline.CreateIntervalTime(tt),
-					End:   gctkline.CreateIntervalTime(tt.Add(gctkline.FifteenMin.Duration())),
-					Intervals: []gctkline.IntervalData{
-						{
-							Start:   gctkline.CreateIntervalTime(tt),
-							End:     gctkline.CreateIntervalTime(tt.Add(gctkline.FifteenMin.Duration())),
-							HasData: true,
-						},
-					},
-				},
-			},
+
+	dStart := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	dEnd := time.Date(2020, 1, 1, 1, 30, 0, 0, time.UTC)
+	dummy := &gctkline.Item{
+		Exchange: testExchange,
+		Pair:     cp,
+		Asset:    asset.Spot,
+		Interval: gctkline.FifteenMin,
+		Candles: []gctkline.Candle{
+			{Time: dStart, Open: 1337, High: 1337, Low: 1337, Close: 1337, Volume: 1337},
 		},
 	}
-	err = k.Load()
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+
+	k, err := kline.NewDataFromKline(dummy, dStart, dEnd)
+	if err != nil {
+		t.Fatal(err)
 	}
-	err = bt.DataHolder.SetDataForCurrency(ex, a, cp, k)
+
+	err = bt.DataHolder.SetDataForCurrency(testExchange, asset.Spot, cp, k)
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
 
 	bt.MetaData.DateLoaded = time.Now()
 	err = bt.Run()
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
 }
 
@@ -565,68 +541,63 @@ func TestStop(t *testing.T) {
 	}
 	err := bt.Stop()
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
 	tt := bt.MetaData.DateEnded
 
 	err = bt.Stop()
 	if !errors.Is(err, errAlreadyRan) {
-		t.Errorf("received: %v, expected: %v", err, errAlreadyRan)
+		t.Fatalf("received: %v, expected: %v", err, errAlreadyRan)
 	}
 	if !tt.Equal(bt.MetaData.DateEnded) {
-		t.Errorf("received '%v' expected '%v'", bt.MetaData.DateEnded, tt)
+		t.Fatalf("received '%v' expected '%v'", bt.MetaData.DateEnded, tt)
 	}
 
 	bt = nil
 	err = bt.Stop()
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
-		t.Errorf("received: %v, expected: %v", err, gctcommon.ErrNilPointer)
+		t.Fatalf("received: %v, expected: %v", err, gctcommon.ErrNilPointer)
 	}
 }
 
 func TestFullCycleMulti(t *testing.T) {
 	t.Parallel()
-	ex := testExchange
-	cp := currency.NewPair(currency.BTC, currency.USDT)
-	a := asset.Spot
-	tt := time.Now()
-
 	stats := &statistics.Statistic{}
 	stats.ExchangeAssetPairStatistics = make(map[string]map[asset.Item]map[*currency.Item]map[*currency.Item]*statistics.CurrencyPairStatistic)
-	stats.ExchangeAssetPairStatistics[ex] = make(map[asset.Item]map[*currency.Item]map[*currency.Item]*statistics.CurrencyPairStatistic)
-	stats.ExchangeAssetPairStatistics[ex][a] = make(map[*currency.Item]map[*currency.Item]*statistics.CurrencyPairStatistic)
-	stats.ExchangeAssetPairStatistics[ex][a][cp.Base.Item] = make(map[*currency.Item]*statistics.CurrencyPairStatistic)
+	stats.ExchangeAssetPairStatistics[testExchange] = make(map[asset.Item]map[*currency.Item]map[*currency.Item]*statistics.CurrencyPairStatistic)
+	stats.ExchangeAssetPairStatistics[testExchange][asset.Spot] = make(map[*currency.Item]map[*currency.Item]*statistics.CurrencyPairStatistic)
+	stats.ExchangeAssetPairStatistics[testExchange][asset.Spot][cp.Base.Item] = make(map[*currency.Item]*statistics.CurrencyPairStatistic)
 
 	port, err := portfolio.Setup(&size.Size{
 		BuySide:  exchange.MinMax{},
 		SellSide: exchange.MinMax{},
 	}, &risk.Risk{}, decimal.Zero)
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
-	err = port.SetCurrencySettingsMap(&exchange.Settings{Exchange: &binance.Binance{}, Asset: a, Pair: cp})
+	err = port.SetCurrencySettingsMap(&exchange.Settings{Exchange: &binance.Binance{}, Asset: asset.Spot, Pair: cp})
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
-	f, err := funding.SetupFundingManager(&engine.ExchangeManager{}, false, true, false)
+	f, err := funding.NewFundingManager(&engine.ExchangeManager{}, false, true, false)
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
-	b, err := funding.CreateItem(ex, a, cp.Base, decimal.Zero, decimal.Zero)
+	b, err := funding.CreateItem(testExchange, asset.Spot, cp.Base, decimal.Zero, decimal.Zero)
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
-	quote, err := funding.CreateItem(ex, a, cp.Quote, decimal.NewFromInt(1337), decimal.Zero)
+	quote, err := funding.CreateItem(testExchange, asset.Spot, cp.Quote, leet, decimal.Zero)
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
 	pair, err := funding.CreatePair(b, quote)
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
 	err = f.AddPair(pair)
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
 	bt := BackTest{
 		DataHolder:               &data.HandlerHolder{},
@@ -642,63 +613,42 @@ func TestFullCycleMulti(t *testing.T) {
 
 	bt.Strategy, err = strategies.LoadStrategyByName(dollarcostaverage.Name, true)
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
 
 	bt.DataHolder = data.NewHandlerHolder()
-	k := &kline.DataFromKline{
-		Item: &gctkline.Item{
-			Exchange: ex,
-			Pair:     cp,
-			Asset:    a,
-			Interval: gctkline.FifteenMin,
-			Candles: []gctkline.Candle{{
-				Time:   tt,
-				Open:   1337,
-				High:   1337,
-				Low:    1337,
-				Close:  1337,
-				Volume: 1337,
-			}},
+
+	dStart := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	dEnd := time.Date(2020, 1, 1, 1, 30, 0, 0, time.UTC)
+	dummy := &gctkline.Item{
+		Exchange: testExchange,
+		Pair:     cp,
+		Asset:    asset.Spot,
+		Interval: gctkline.FifteenMin,
+		Candles: []gctkline.Candle{
+			{Time: dStart, Open: 1337, High: 1337, Low: 1337, Close: 1337, Volume: 1337},
 		},
-		Base: &data.Base{},
-		RangeHolder: &gctkline.IntervalRangeHolder{
-			Start: gctkline.CreateIntervalTime(tt),
-			End:   gctkline.CreateIntervalTime(tt.Add(gctkline.FifteenMin.Duration())),
-			Ranges: []gctkline.IntervalRange{
-				{
-					Start: gctkline.CreateIntervalTime(tt),
-					End:   gctkline.CreateIntervalTime(tt.Add(gctkline.FifteenMin.Duration())),
-					Intervals: []gctkline.IntervalData{
-						{
-							Start:   gctkline.CreateIntervalTime(tt),
-							End:     gctkline.CreateIntervalTime(tt.Add(gctkline.FifteenMin.Duration())),
-							HasData: true,
-						},
-					},
-				},
-			},
-		},
-	}
-	err = k.Load()
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
 	}
 
-	err = bt.DataHolder.SetDataForCurrency(ex, a, cp, k)
+	k, err := kline.NewDataFromKline(dummy, dStart, dEnd)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = bt.DataHolder.SetDataForCurrency(testExchange, asset.Spot, cp, k)
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
 
 	err = bt.Run()
 	if !errors.Is(err, errNotSetup) {
-		t.Errorf("received: %v, expected: %v", err, errNotSetup)
+		t.Fatalf("received: %v, expected: %v", err, errNotSetup)
 	}
 
 	bt.MetaData.DateLoaded = time.Now()
 	err = bt.Run()
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
 }
 
@@ -722,26 +672,22 @@ func (p portfolioOverride) CreateLiquidationOrdersForExchange(ev data.Event, _ f
 
 func TestTriggerLiquidationsForExchange(t *testing.T) {
 	t.Parallel()
-	bt := BackTest{
-		shutdown: make(chan struct{}),
-	}
-	expectedError := common.ErrNilEvent
+	bt := BackTest{shutdown: make(chan struct{})}
 	err := bt.triggerLiquidationsForExchange(nil, nil)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, common.ErrNilEvent) {
+		t.Fatalf("received '%v' expected '%v'", err, common.ErrNilEvent)
 	}
 
 	cp := currency.NewPair(currency.BTC, currency.USDT)
 	a := asset.USDTMarginedFutures
-	expectedError = gctcommon.ErrNilPointer
 	ev := &evkline.Kline{
 		Base: &event.Base{Exchange: testExchange,
 			AssetType:    a,
 			CurrencyPair: cp},
 	}
 	err = bt.triggerLiquidationsForExchange(ev, nil)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Fatalf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
 	}
 
 	bt.Portfolio = &portfolioOverride{}
@@ -751,7 +697,7 @@ func TestTriggerLiquidationsForExchange(t *testing.T) {
 	err = d.SetStream([]data.Event{&evkline.Kline{
 		Base: &event.Base{
 			Exchange:     testExchange,
-			Time:         time.Now(),
+			Time:         time.Now().Truncate(gctkline.OneDay.Duration()),
 			Interval:     gctkline.OneDay,
 			CurrencyPair: cp,
 			AssetType:    a,
@@ -763,11 +709,11 @@ func TestTriggerLiquidationsForExchange(t *testing.T) {
 		Volume: leet,
 	}})
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
 	_, err = d.Next()
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received: %v, expected: %v", err, nil)
 	}
 	da := &kline.DataFromKline{
 		Item: &gctkline.Item{
@@ -779,24 +725,22 @@ func TestTriggerLiquidationsForExchange(t *testing.T) {
 		RangeHolder: &gctkline.IntervalRangeHolder{},
 	}
 	bt.Statistic = &statistics.Statistic{}
-	expectedError = nil
-
 	bt.EventQueue = &eventholder.Holder{}
 	bt.Funding = &funding.FundManager{}
 	err = bt.DataHolder.SetDataForCurrency(testExchange, a, cp, da)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	err = bt.Statistic.SetEventForOffset(ev)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	pnl.Exchange = ev.Exchange
 	pnl.Asset = ev.AssetType
 	pnl.Pair = ev.CurrencyPair
 	err = bt.triggerLiquidationsForExchange(ev, pnl)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	ev2 := bt.EventQueue.NextEvent()
 	ev2o, ok := ev2.(order.Event)
@@ -816,10 +760,9 @@ func TestUpdateStatsForDataEvent(t *testing.T) {
 		Portfolio: &fakeFolio{},
 		shutdown:  make(chan struct{}),
 	}
-	expectedError := common.ErrNilEvent
 	err := bt.updateStatsForDataEvent(nil, nil)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, common.ErrNilEvent) {
+		t.Fatalf("received '%v' expected '%v'", err, common.ErrNilEvent)
 	}
 
 	cp := currency.NewPair(currency.BTC, currency.USDT)
@@ -832,27 +775,26 @@ func TestUpdateStatsForDataEvent(t *testing.T) {
 		},
 	}
 
-	expectedError = gctcommon.ErrNilPointer
 	err = bt.updateStatsForDataEvent(ev, nil)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Fatalf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
 	}
-	expectedError = nil
-	f, err := funding.SetupFundingManager(&engine.ExchangeManager{}, false, true, false)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+
+	f, err := funding.NewFundingManager(&engine.ExchangeManager{}, false, true, false)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	b, err := funding.CreateItem(testExchange, a, cp.Base, decimal.Zero, decimal.Zero)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
-	quote, err := funding.CreateItem(testExchange, a, cp.Quote, decimal.NewFromInt(1337), decimal.Zero)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	quote, err := funding.CreateItem(testExchange, a, cp.Quote, leet, decimal.Zero)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	pair, err := funding.CreateCollateral(b, quote)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	bt.Funding = f
 	exch := &binance.Binance{}
@@ -879,19 +821,18 @@ func TestUpdateStatsForDataEvent(t *testing.T) {
 		},
 	}
 	_, err = bt.Portfolio.TrackFuturesOrder(fl, pair)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 
 	err = bt.updateStatsForDataEvent(ev, pair)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 }
 
 func TestProcessSignalEvent(t *testing.T) {
 	t.Parallel()
-	var expectedError error
 	bt := &BackTest{
 		Statistic:  &fakeStats{},
 		Funding:    &funding.FundManager{},
@@ -908,28 +849,28 @@ func TestProcessSignalEvent(t *testing.T) {
 			CurrencyPair: cp},
 	}
 	err := bt.Statistic.SetEventForOffset(de)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	ev := &signal.Signal{
 		Base: de.Base,
 	}
 
-	f, err := funding.SetupFundingManager(&engine.ExchangeManager{}, false, true, false)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	f, err := funding.NewFundingManager(&engine.ExchangeManager{}, false, true, false)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	b, err := funding.CreateItem(testExchange, a, cp.Base, decimal.Zero, decimal.Zero)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
-	quote, err := funding.CreateItem(testExchange, a, cp.Quote, decimal.NewFromInt(1337), decimal.Zero)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	quote, err := funding.CreateItem(testExchange, a, cp.Quote, leet, decimal.Zero)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	pair, err := funding.CreateCollateral(b, quote)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	bt.Funding = f
 	exch := &binance.Binance{}
@@ -941,21 +882,20 @@ func TestProcessSignalEvent(t *testing.T) {
 	})
 	ev.Direction = gctorder.Short
 	err = bt.Statistic.SetEventForOffset(ev)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	err = bt.processSignalEvent(ev, pair)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 }
 
 func TestProcessOrderEvent(t *testing.T) {
 	t.Parallel()
-	var expectedError error
 	pt, err := portfolio.Setup(&size.Size{}, &risk.Risk{}, decimal.Zero)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	bt := &BackTest{
 		Statistic:  &statistics.Statistic{},
@@ -974,28 +914,27 @@ func TestProcessOrderEvent(t *testing.T) {
 			CurrencyPair: cp},
 	}
 	err = bt.Statistic.SetEventForOffset(de)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
-	}
-	ev := &order.Order{
-		Base: de.Base,
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 
-	f, err := funding.SetupFundingManager(&engine.ExchangeManager{}, false, true, false)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	ev := &order.Order{Base: de.Base}
+
+	f, err := funding.NewFundingManager(&engine.ExchangeManager{}, false, true, false)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	b, err := funding.CreateItem(testExchange, a, cp.Base, decimal.Zero, decimal.Zero)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
-	quote, err := funding.CreateItem(testExchange, a, cp.Quote, decimal.NewFromInt(1337), decimal.Zero)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	quote, err := funding.CreateItem(testExchange, a, cp.Quote, leet, decimal.Zero)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	pair, err := funding.CreateCollateral(b, quote)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	bt.Funding = f
 	exch := &binance.Binance{}
@@ -1006,7 +945,7 @@ func TestProcessOrderEvent(t *testing.T) {
 		Asset:    a,
 	})
 	if !errors.Is(err, gctcommon.ErrNotYetImplemented) {
-		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNotYetImplemented)
+		t.Fatalf("received '%v' expected '%v'", err, gctcommon.ErrNotYetImplemented)
 	}
 
 	bt.Exchange.SetExchangeAssetCurrencySettings(a, cp, &exchange.Settings{
@@ -1016,57 +955,34 @@ func TestProcessOrderEvent(t *testing.T) {
 	})
 	ev.Direction = gctorder.Short
 	err = bt.Statistic.SetEventForOffset(ev)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
-	}
-	tt := time.Now()
-	bt.DataHolder = data.NewHandlerHolder()
-	k := &kline.DataFromKline{
-		Item: &gctkline.Item{
-			Exchange: testExchange,
-			Pair:     cp,
-			Asset:    a,
-			Interval: gctkline.FifteenMin,
-			Candles: []gctkline.Candle{{
-				Time:   tt,
-				Open:   1337,
-				High:   1337,
-				Low:    1337,
-				Close:  1337,
-				Volume: 1337,
-			}},
-		},
-		Base: &data.Base{},
-		RangeHolder: &gctkline.IntervalRangeHolder{
-			Start: gctkline.CreateIntervalTime(tt),
-			End:   gctkline.CreateIntervalTime(tt.Add(gctkline.FifteenMin.Duration())),
-			Ranges: []gctkline.IntervalRange{
-				{
-					Start: gctkline.CreateIntervalTime(tt),
-					End:   gctkline.CreateIntervalTime(tt.Add(gctkline.FifteenMin.Duration())),
-					Intervals: []gctkline.IntervalData{
-						{
-							Start:   gctkline.CreateIntervalTime(tt),
-							End:     gctkline.CreateIntervalTime(tt.Add(gctkline.FifteenMin.Duration())),
-							HasData: true,
-						},
-					},
-				},
-			},
-		},
-	}
-	err = k.Load()
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
+	}
+
+	dStart := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	dEnd := time.Date(2020, 1, 1, 1, 30, 0, 0, time.UTC)
+	dummy := &gctkline.Item{
+		Exchange: testExchange,
+		Pair:     cp,
+		Asset:    asset.Spot,
+		Interval: gctkline.FifteenMin,
+		Candles: []gctkline.Candle{
+			{Time: dStart, Open: 1337, High: 1337, Low: 1337, Close: 1337, Volume: 1337},
+		},
+	}
+
+	k, err := kline.NewDataFromKline(dummy, dStart, dEnd)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	err = bt.DataHolder.SetDataForCurrency(testExchange, a, cp, k)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	err = bt.processOrderEvent(ev, pair)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	ev2 := bt.EventQueue.NextEvent()
 	if _, ok := ev2.(fill.Event); !ok {
@@ -1085,7 +1001,6 @@ func TestProcessFillEvent(t *testing.T) {
 		DataHolder: &data.HandlerHolder{},
 		shutdown:   make(chan struct{}),
 	}
-	cp := currency.NewPair(currency.BTC, currency.USDT)
 	a := asset.Futures
 	tt := time.Now()
 	de := &evkline.Kline{
@@ -1098,7 +1013,7 @@ func TestProcessFillEvent(t *testing.T) {
 	}
 	err := bt.Statistic.SetEventForOffset(de)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	ev := &fill.Fill{
 		Base: de.Base,
@@ -1112,15 +1027,15 @@ func TestProcessFillEvent(t *testing.T) {
 	em.Add(exch)
 	b, err := funding.CreateItem(testExchange, a, cp.Base, decimal.Zero, decimal.Zero)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
-	quote, err := funding.CreateItem(testExchange, a, cp.Quote, decimal.NewFromInt(1337), decimal.Zero)
+	quote, err := funding.CreateItem(testExchange, a, cp.Quote, leet, decimal.Zero)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	pair, err := funding.CreateCollateral(b, quote)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 
 	bt.Exchange.SetExchangeAssetCurrencySettings(a, cp, &exchange.Settings{
@@ -1131,61 +1046,39 @@ func TestProcessFillEvent(t *testing.T) {
 	ev.Direction = gctorder.Short
 	err = bt.Statistic.SetEventForOffset(ev)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	bt.DataHolder = data.NewHandlerHolder()
-	k := &kline.DataFromKline{
-		Item: &gctkline.Item{
-			Exchange: testExchange,
-			Pair:     cp,
-			Asset:    a,
-			Interval: gctkline.FifteenMin,
-			Candles: []gctkline.Candle{{
-				Time:   tt,
-				Open:   1337,
-				High:   1337,
-				Low:    1337,
-				Close:  1337,
-				Volume: 1337,
-			}},
-		},
-		Base: &data.Base{},
-		RangeHolder: &gctkline.IntervalRangeHolder{
-			Start: gctkline.CreateIntervalTime(tt),
-			End:   gctkline.CreateIntervalTime(tt.Add(gctkline.FifteenMin.Duration())),
-			Ranges: []gctkline.IntervalRange{
-				{
-					Start: gctkline.CreateIntervalTime(tt),
-					End:   gctkline.CreateIntervalTime(tt.Add(gctkline.FifteenMin.Duration())),
-					Intervals: []gctkline.IntervalData{
-						{
-							Start:   gctkline.CreateIntervalTime(tt),
-							End:     gctkline.CreateIntervalTime(tt.Add(gctkline.FifteenMin.Duration())),
-							HasData: true,
-						},
-					},
-				},
-			},
+
+	dStart := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	dEnd := time.Date(2020, 1, 1, 1, 30, 0, 0, time.UTC)
+	dummy := &gctkline.Item{
+		Exchange: testExchange,
+		Pair:     cp,
+		Asset:    asset.Spot,
+		Interval: gctkline.FifteenMin,
+		Candles: []gctkline.Candle{
+			{Time: dStart, Open: 1337, High: 1337, Low: 1337, Close: 1337, Volume: 1337},
 		},
 	}
-	err = k.Load()
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+
+	k, err := kline.NewDataFromKline(dummy, dStart, dEnd)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	err = bt.DataHolder.SetDataForCurrency(testExchange, a, cp, k)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	err = bt.processFillEvent(ev, pair)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 }
 
 func TestProcessFuturesFillEvent(t *testing.T) {
 	t.Parallel()
-	var expectedError error
 	bt := &BackTest{
 		Statistic:  &fakeStats{},
 		Funding:    &funding.FundManager{},
@@ -1195,7 +1088,6 @@ func TestProcessFuturesFillEvent(t *testing.T) {
 		DataHolder: &data.HandlerHolder{},
 		shutdown:   make(chan struct{}),
 	}
-	cp := currency.NewPair(currency.BTC, currency.USDT)
 	a := asset.Futures
 	de := &evkline.Kline{
 		Base: &event.Base{
@@ -1204,12 +1096,10 @@ func TestProcessFuturesFillEvent(t *testing.T) {
 			CurrencyPair: cp},
 	}
 	err := bt.Statistic.SetEventForOffset(de)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
-	ev := &fill.Fill{
-		Base: de.Base,
-	}
+	ev := &fill.Fill{Base: de.Base}
 	em := engine.SetupExchangeManager()
 	exch, err := em.NewExchangeByName(testExchange)
 	if err != nil {
@@ -1218,16 +1108,16 @@ func TestProcessFuturesFillEvent(t *testing.T) {
 	exch.SetDefaults()
 	em.Add(exch)
 	b, err := funding.CreateItem(testExchange, a, cp.Base, decimal.Zero, decimal.Zero)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
-	quote, err := funding.CreateItem(testExchange, a, cp.Quote, decimal.NewFromInt(1337), decimal.Zero)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	quote, err := funding.CreateItem(testExchange, a, cp.Quote, leet, decimal.Zero)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	pair, err := funding.CreateCollateral(b, quote)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 
 	bt.exchangeManager = em
@@ -1238,49 +1128,28 @@ func TestProcessFuturesFillEvent(t *testing.T) {
 	})
 	ev.Direction = gctorder.Short
 	err = bt.Statistic.SetEventForOffset(ev)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
-	}
-	tt := time.Now().UTC().Truncate(gctkline.FifteenMin.Duration())
-	bt.DataHolder = data.NewHandlerHolder()
-	k := &kline.DataFromKline{
-		Item: &gctkline.Item{
-			Exchange: testExchange,
-			Pair:     cp,
-			Asset:    a,
-			Interval: gctkline.FifteenMin,
-			Candles: []gctkline.Candle{{
-				Time:   tt,
-				Open:   1337,
-				High:   1337,
-				Low:    1337,
-				Close:  1337,
-				Volume: 1337,
-			}},
-		},
-		Base: &data.Base{},
-		RangeHolder: &gctkline.IntervalRangeHolder{
-			Start: gctkline.CreateIntervalTime(tt),
-			End:   gctkline.CreateIntervalTime(tt.Add(gctkline.FifteenMin.Duration())),
-			Ranges: []gctkline.IntervalRange{
-				{
-					Start: gctkline.CreateIntervalTime(tt),
-					End:   gctkline.CreateIntervalTime(tt.Add(gctkline.FifteenMin.Duration())),
-					Intervals: []gctkline.IntervalData{
-						{
-							Start:   gctkline.CreateIntervalTime(tt),
-							End:     gctkline.CreateIntervalTime(tt.Add(gctkline.FifteenMin.Duration())),
-							HasData: true,
-						},
-					},
-				},
-			},
-		},
-	}
-	err = k.Load()
 	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
+	bt.DataHolder = data.NewHandlerHolder()
+
+	dStart := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	dEnd := time.Date(2020, 1, 1, 1, 30, 0, 0, time.UTC)
+	dummy := &gctkline.Item{
+		Exchange: testExchange,
+		Pair:     cp,
+		Asset:    asset.Spot,
+		Interval: gctkline.FifteenMin,
+		Candles: []gctkline.Candle{
+			{Time: dStart, Open: 1337, High: 1337, Low: 1337, Close: 1337, Volume: 1337},
+		},
+	}
+
+	k, err := kline.NewDataFromKline(dummy, dStart, dEnd)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	ev.Order = &gctorder.Detail{
 		Exchange:  testExchange,
 		AssetType: ev.AssetType,
@@ -1293,11 +1162,11 @@ func TestProcessFuturesFillEvent(t *testing.T) {
 	}
 	err = bt.DataHolder.SetDataForCurrency(testExchange, a, cp, k)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	err = bt.processFuturesFillEvent(ev, pair)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 }
 
@@ -1305,7 +1174,7 @@ func TestCloseAllPositions(t *testing.T) {
 	t.Parallel()
 	bt, err := NewBacktester()
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	pt := &portfolio.Portfolio{}
 	bt.Portfolio = pt
@@ -1313,7 +1182,7 @@ func TestCloseAllPositions(t *testing.T) {
 
 	err = bt.CloseAllPositions()
 	if !errors.Is(err, errLiveOnly) {
-		t.Errorf("received '%v' expected '%v'", err, errLiveOnly)
+		t.Fatalf("received '%v' expected '%v'", err, errLiveOnly)
 	}
 
 	bt.shutdown = make(chan struct{})
@@ -1324,14 +1193,14 @@ func TestCloseAllPositions(t *testing.T) {
 	bt.LiveDataHandler = dc
 	err = bt.CloseAllPositions()
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
-		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+		t.Fatalf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
 	}
 
 	bt.shutdown = make(chan struct{})
 	bt.Strategy = &binancecashandcarry.Strategy{}
 	err = bt.CloseAllPositions()
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
-		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+		t.Fatalf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
 	}
 
 	bt.shutdown = make(chan struct{})
@@ -1375,7 +1244,7 @@ func TestCloseAllPositions(t *testing.T) {
 	})
 	err = bt.CloseAllPositions()
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 }
 
@@ -1383,11 +1252,11 @@ func TestRunLive(t *testing.T) {
 	t.Parallel()
 	bt, err := NewBacktester()
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	err = bt.RunLive()
 	if !errors.Is(err, errLiveOnly) {
-		t.Errorf("received '%v' expected '%v'", err, errLiveOnly)
+		t.Fatalf("received '%v' expected '%v'", err, errLiveOnly)
 	}
 
 	bt.Funding = &funding.FundManager{}
@@ -1405,7 +1274,7 @@ func TestRunLive(t *testing.T) {
 	bt.LiveDataHandler = dc
 	err = bt.RunLive()
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	close(bt.shutdown)
 	bt.wg.Wait()
@@ -1452,7 +1321,7 @@ func TestRunLive(t *testing.T) {
 	}
 	err = dc.AppendDataSource(setup)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	bt.Reports = &report.Data{}
 	bt.Funding = &fakeFunding{}
@@ -1460,7 +1329,7 @@ func TestRunLive(t *testing.T) {
 	dc.started = 0
 	err = bt.RunLive()
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 }
 
@@ -1468,7 +1337,7 @@ func TestLiveLoop(t *testing.T) {
 	t.Parallel()
 	bt, err := NewBacktester()
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	bt.Reports = &fakeReport{}
 	bt.Funding = &fakeFunding{}
@@ -1487,7 +1356,7 @@ func TestLiveLoop(t *testing.T) {
 	go func() {
 		err = bt.liveCheck()
 		if !errors.Is(err, nil) {
-			t.Errorf("received '%v' expected '%v'", err, nil)
+			t.Fatalf("received '%v' expected '%v'", err, nil)
 		}
 		wg.Done()
 	}()
@@ -1502,7 +1371,7 @@ func TestLiveLoop(t *testing.T) {
 		defer wg.Done()
 		err = bt.liveCheck()
 		if !errors.Is(err, nil) {
-			t.Errorf("received '%v' expected '%v'", err, nil)
+			t.Fatalf("received '%v' expected '%v'", err, nil)
 		}
 	}()
 	dc.shutdownErr <- true
@@ -1516,7 +1385,7 @@ func TestLiveLoop(t *testing.T) {
 		defer wg.Done()
 		err = bt.liveCheck()
 		if !errors.Is(err, nil) {
-			t.Errorf("received '%v' expected '%v'", err, nil)
+			t.Fatalf("received '%v' expected '%v'", err, nil)
 		}
 	}()
 	dc.shutdown <- true
@@ -1529,7 +1398,7 @@ func TestLiveLoop(t *testing.T) {
 		defer wg.Done()
 		err = bt.liveCheck()
 		if !errors.Is(err, nil) {
-			t.Errorf("received '%v' expected '%v'", err, nil)
+			t.Fatalf("received '%v' expected '%v'", err, nil)
 		}
 	}()
 	close(bt.shutdown)
@@ -1540,7 +1409,7 @@ func TestSetExchangeCredentials(t *testing.T) {
 	t.Parallel()
 	err := setExchangeCredentials(nil, nil)
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
-		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+		t.Fatalf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
 	}
 	cfg := &config.Config{}
 	f := &binanceus.Binanceus{}
@@ -1548,7 +1417,7 @@ func TestSetExchangeCredentials(t *testing.T) {
 	b := f.GetBase()
 	err = setExchangeCredentials(cfg, b)
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
-		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+		t.Fatalf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
 	}
 
 	ld := &config.LiveData{}
@@ -1557,25 +1426,25 @@ func TestSetExchangeCredentials(t *testing.T) {
 	}
 	err = setExchangeCredentials(cfg, b)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 
 	ld.RealOrders = true
 	err = setExchangeCredentials(cfg, b)
 	if !errors.Is(err, errIntervalUnset) {
-		t.Errorf("received '%v' expected '%v'", err, errIntervalUnset)
+		t.Fatalf("received '%v' expected '%v'", err, errIntervalUnset)
 	}
 
 	cfg.DataSettings.Interval = gctkline.OneMin
 	err = setExchangeCredentials(cfg, b)
 	if !errors.Is(err, errNoCredsNoLive) {
-		t.Errorf("received '%v' expected '%v'", err, errNoCredsNoLive)
+		t.Fatalf("received '%v' expected '%v'", err, errNoCredsNoLive)
 	}
 
 	cfg.DataSettings.LiveData.ExchangeCredentials = []config.Credentials{{}}
 	err = setExchangeCredentials(cfg, b)
 	if !errors.Is(err, gctexchange.ErrCredentialsAreEmpty) {
-		t.Errorf("received '%v' expected '%v'", err, gctexchange.ErrCredentialsAreEmpty)
+		t.Fatalf("received '%v' expected '%v'", err, gctexchange.ErrCredentialsAreEmpty)
 	}
 
 	// requires valid credentials here to get complete coverage
@@ -1589,7 +1458,7 @@ func TestSetExchangeCredentials(t *testing.T) {
 	}}
 	err = setExchangeCredentials(cfg, b)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 }
 
@@ -1597,19 +1466,19 @@ func TestGetFees(t *testing.T) {
 	t.Parallel()
 	_, _, err := getFees(context.Background(), nil, currency.EMPTYPAIR)
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
-		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+		t.Fatalf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
 	}
 
 	f := &binance.Binance{}
 	f.SetDefaults()
 	_, _, err = getFees(context.Background(), f, currency.EMPTYPAIR)
 	if !errors.Is(err, currency.ErrCurrencyPairEmpty) {
-		t.Errorf("received '%v' expected '%v'", err, currency.ErrCurrencyPairEmpty)
+		t.Fatalf("received '%v' expected '%v'", err, currency.ErrCurrencyPairEmpty)
 	}
 
 	maker, taker, err := getFees(context.Background(), f, currency.NewPair(currency.BTC, currency.USDT))
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, currency.ErrCurrencyPairEmpty)
+		t.Fatalf("received '%v' expected '%v'", err, currency.ErrCurrencyPairEmpty)
 	}
 	if maker.IsZero() || taker.IsZero() {
 		t.Error("expected maker and taker fees")
@@ -1623,28 +1492,28 @@ func TestGenerateSummary(t *testing.T) {
 	}
 	sum, err := bt.GenerateSummary()
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	if !sum.MetaData.ID.IsNil() {
-		t.Errorf("received '%v' expected '%v'", sum.MetaData.ID, "")
+		t.Fatalf("received '%v' expected '%v'", sum.MetaData.ID, "")
 	}
 	id, err := uuid.NewV4()
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	bt.MetaData.ID = id
 	sum, err = bt.GenerateSummary()
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	if sum.MetaData.ID != id {
-		t.Errorf("received '%v' expected '%v'", sum.MetaData.ID, id)
+		t.Fatalf("received '%v' expected '%v'", sum.MetaData.ID, id)
 	}
 
 	bt = nil
 	_, err = bt.GenerateSummary()
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
-		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+		t.Fatalf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
 	}
 }
 
@@ -1655,24 +1524,24 @@ func TestSetupMetaData(t *testing.T) {
 	}
 	err := bt.SetupMetaData()
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	if bt.MetaData.ID.IsNil() {
-		t.Errorf("received '%v' expected '%v'", bt.MetaData.ID, "an ID")
+		t.Fatalf("received '%v' expected '%v'", bt.MetaData.ID, "an ID")
 	}
 	firstID := bt.MetaData.ID
 	err = bt.SetupMetaData()
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	if bt.MetaData.ID != firstID {
-		t.Errorf("received '%v' expected '%v'", bt.MetaData.ID, firstID)
+		t.Fatalf("received '%v' expected '%v'", bt.MetaData.ID, firstID)
 	}
 
 	bt = nil
 	err = bt.SetupMetaData()
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
-		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+		t.Fatalf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
 	}
 }
 
@@ -1682,26 +1551,26 @@ func TestIsRunning(t *testing.T) {
 		shutdown: make(chan struct{}),
 	}
 	if bt.IsRunning() {
-		t.Errorf("received '%v' expected '%v'", true, false)
+		t.Fatalf("received '%v' expected '%v'", true, false)
 	}
 
 	bt.m.Lock()
 	bt.MetaData.DateStarted = time.Now()
 	bt.m.Unlock()
 	if !bt.IsRunning() {
-		t.Errorf("received '%v' expected '%v'", false, true)
+		t.Fatalf("received '%v' expected '%v'", false, true)
 	}
 
 	bt.m.Lock()
 	bt.MetaData.Closed = true
 	bt.m.Unlock()
 	if bt.IsRunning() {
-		t.Errorf("received '%v' expected '%v'", true, false)
+		t.Fatalf("received '%v' expected '%v'", true, false)
 	}
 
 	bt = nil
 	if bt.IsRunning() {
-		t.Errorf("received '%v' expected '%v'", true, false)
+		t.Fatalf("received '%v' expected '%v'", true, false)
 	}
 }
 
@@ -1711,26 +1580,26 @@ func TestHasRan(t *testing.T) {
 		shutdown: make(chan struct{}),
 	}
 	if bt.HasRan() {
-		t.Errorf("received '%v' expected '%v'", true, false)
+		t.Fatalf("received '%v' expected '%v'", true, false)
 	}
 
 	bt.m.Lock()
 	bt.MetaData.DateStarted = time.Now()
 	bt.m.Unlock()
 	if bt.HasRan() {
-		t.Errorf("received '%v' expected '%v'", false, true)
+		t.Fatalf("received '%v' expected '%v'", false, true)
 	}
 
 	bt.m.Lock()
 	bt.MetaData.Closed = true
 	bt.m.Unlock()
 	if !bt.HasRan() {
-		t.Errorf("received '%v' expected '%v'", true, false)
+		t.Fatalf("received '%v' expected '%v'", true, false)
 	}
 
 	bt = nil
 	if bt.HasRan() {
-		t.Errorf("received '%v' expected '%v'", true, false)
+		t.Fatalf("received '%v' expected '%v'", true, false)
 	}
 }
 
@@ -1740,33 +1609,33 @@ func TestEqual(t *testing.T) {
 	bt2 := &BackTest{}
 	bt3 := &BackTest{}
 	if !bt.Equal(bt2) {
-		t.Errorf("received '%v' expected '%v'", false, true)
+		t.Fatalf("received '%v' expected '%v'", false, true)
 	}
 
 	err := bt.SetupMetaData()
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	bt2.MetaData = bt.MetaData
 	if !bt.Equal(bt2) {
-		t.Errorf("received '%v' expected '%v'", false, true)
+		t.Fatalf("received '%v' expected '%v'", false, true)
 	}
 
 	if bt.Equal(nil) {
-		t.Errorf("received '%v' expected '%v'", true, false)
+		t.Fatalf("received '%v' expected '%v'", true, false)
 	}
 
 	err = bt3.SetupMetaData()
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	if bt.Equal(bt3) {
-		t.Errorf("received '%v' expected '%v'", true, false)
+		t.Fatalf("received '%v' expected '%v'", true, false)
 	}
 
 	bt = nil
 	if bt.Equal(bt2) {
-		t.Errorf("received '%v' expected '%v'", true, false)
+		t.Fatalf("received '%v' expected '%v'", true, false)
 	}
 }
 
@@ -1774,31 +1643,31 @@ func TestMatchesID(t *testing.T) {
 	t.Parallel()
 	bt := &BackTest{}
 	if bt.MatchesID(uuid.Nil) {
-		t.Errorf("received '%v' expected '%v'", true, false)
+		t.Fatalf("received '%v' expected '%v'", true, false)
 	}
 
 	err := bt.SetupMetaData()
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 
 	if bt.MatchesID(uuid.Nil) {
-		t.Errorf("received '%v' expected '%v'", true, false)
+		t.Fatalf("received '%v' expected '%v'", true, false)
 	}
 
 	if !bt.MatchesID(bt.MetaData.ID) {
-		t.Errorf("received '%v' expected '%v'", false, true)
+		t.Fatalf("received '%v' expected '%v'", false, true)
 	}
 
 	id := bt.MetaData.ID
 	bt.MetaData.ID = uuid.Nil
 	if bt.MatchesID(id) {
-		t.Errorf("received '%v' expected '%v'", true, false)
+		t.Fatalf("received '%v' expected '%v'", true, false)
 	}
 
 	bt = nil
 	if bt.MatchesID(id) {
-		t.Errorf("received '%v' expected '%v'", true, false)
+		t.Fatalf("received '%v' expected '%v'", true, false)
 	}
 }
 
@@ -1816,11 +1685,11 @@ func TestExecuteStrategy(t *testing.T) {
 	}
 	err := bt.ExecuteStrategy(false)
 	if !errors.Is(err, errNotSetup) {
-		t.Errorf("received '%v' expected '%v'", err, errNotSetup)
+		t.Fatalf("received '%v' expected '%v'", err, errNotSetup)
 	}
 	id, err := uuid.NewV4()
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	bt.m.Lock()
 	bt.MetaData.ID = id
@@ -1829,17 +1698,17 @@ func TestExecuteStrategy(t *testing.T) {
 	bt.m.Unlock()
 	err = bt.ExecuteStrategy(false)
 	if !errors.Is(err, errTaskIsRunning) {
-		t.Errorf("received '%v' expected '%v'", err, errTaskIsRunning)
+		t.Fatalf("received '%v' expected '%v'", err, errTaskIsRunning)
 	}
 
 	err = bt.Stop()
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 
 	err = bt.ExecuteStrategy(true)
 	if !errors.Is(err, errAlreadyRan) {
-		t.Errorf("received '%v' expected '%v'", err, errAlreadyRan)
+		t.Fatalf("received '%v' expected '%v'", err, errAlreadyRan)
 	}
 
 	bt.m.Lock()
@@ -1851,7 +1720,7 @@ func TestExecuteStrategy(t *testing.T) {
 
 	err = bt.ExecuteStrategy(true)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 
 	bt.m.Lock()
@@ -1874,18 +1743,18 @@ func TestExecuteStrategy(t *testing.T) {
 	bt.m.Unlock()
 	err = bt.ExecuteStrategy(true)
 	if !errors.Is(err, errCannotHandleRequest) {
-		t.Errorf("received '%v' expected '%v'", err, errCannotHandleRequest)
+		t.Fatalf("received '%v' expected '%v'", err, errCannotHandleRequest)
 	}
 
 	err = bt.ExecuteStrategy(false)
 	if !errors.Is(err, errLiveOnly) {
-		t.Errorf("received '%v' expected '%v'", err, errLiveOnly)
+		t.Fatalf("received '%v' expected '%v'", err, errLiveOnly)
 	}
 
 	bt = nil
 	err = bt.ExecuteStrategy(false)
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
-		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+		t.Fatalf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
 	}
 }
 
@@ -1893,35 +1762,35 @@ func TestNewBacktesterFromConfigs(t *testing.T) {
 	t.Parallel()
 	_, err := NewBacktesterFromConfigs(nil, nil)
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
-		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+		t.Fatalf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
 	}
 
 	strat1 := filepath.Join("..", "config", "strategyexamples", "dca-api-candles.strat")
 	cfg, err := config.ReadStrategyConfigFromFile(strat1)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	dc, err := config.GenerateDefaultConfig()
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 
 	_, err = NewBacktesterFromConfigs(cfg, nil)
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
-		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+		t.Fatalf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
 	}
 
 	_, err = NewBacktesterFromConfigs(nil, dc)
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
-		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+		t.Fatalf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
 	}
 
 	bt, err := NewBacktesterFromConfigs(cfg, dc)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	if bt.MetaData.DateLoaded.IsZero() {
-		t.Errorf("received '%v' expected '%v'", bt.MetaData.DateLoaded, "a date")
+		t.Fatalf("received '%v' expected '%v'", bt.MetaData.DateLoaded, "a date")
 	}
 }
 
@@ -1939,7 +1808,7 @@ func TestProcessSingleDataEvent(t *testing.T) {
 
 	err := bt.processSingleDataEvent(nil, nil)
 	if !errors.Is(err, common.ErrNilEvent) {
-		t.Errorf("received '%v' expected '%v'", err, common.ErrNilEvent)
+		t.Fatalf("received '%v' expected '%v'", err, common.ErrNilEvent)
 	}
 	cp := currency.NewPair(currency.BTC, currency.USDT)
 	a := asset.Spot
@@ -1954,73 +1823,51 @@ func TestProcessSingleDataEvent(t *testing.T) {
 	}
 	err = bt.processSingleDataEvent(ev, nil)
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
-		t.Errorf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
+		t.Fatalf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
 	}
 
-	f, err := funding.SetupFundingManager(&engine.ExchangeManager{}, false, true, false)
+	f, err := funding.NewFundingManager(&engine.ExchangeManager{}, false, true, false)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	b, err := funding.CreateItem(testExchange, a, cp.Base, decimal.Zero, decimal.Zero)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
-	quote, err := funding.CreateItem(testExchange, a, cp.Quote, decimal.NewFromInt(1337), decimal.Zero)
+	quote, err := funding.CreateItem(testExchange, a, cp.Quote, leet, decimal.Zero)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	collateral, err := funding.CreateCollateral(b, quote)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 
 	bt.Funding = f
-	tt := time.Now().UTC()
 	bt.DataHolder = data.NewHandlerHolder()
-	k := &kline.DataFromKline{
-		Item: &gctkline.Item{
-			Exchange: testExchange,
-			Pair:     cp,
-			Asset:    a,
-			Interval: gctkline.FifteenMin,
-			Candles: []gctkline.Candle{{
-				Time:   tt,
-				Open:   1337,
-				High:   1337,
-				Low:    1337,
-				Close:  1337,
-				Volume: 1337,
-			}},
-		},
-		Base: &data.Base{},
-		RangeHolder: &gctkline.IntervalRangeHolder{
-			Start: gctkline.CreateIntervalTime(tt),
-			End:   gctkline.CreateIntervalTime(tt.Add(gctkline.FifteenMin.Duration())),
-			Ranges: []gctkline.IntervalRange{
-				{
-					Start: gctkline.CreateIntervalTime(tt),
-					End:   gctkline.CreateIntervalTime(tt.Add(gctkline.FifteenMin.Duration())),
-					Intervals: []gctkline.IntervalData{
-						{
-							Start:   gctkline.CreateIntervalTime(tt),
-							End:     gctkline.CreateIntervalTime(tt.Add(gctkline.FifteenMin.Duration())),
-							HasData: true,
-						},
-					},
-				},
-			},
+
+	dStart := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	dEnd := time.Date(2020, 1, 1, 1, 30, 0, 0, time.UTC)
+	dummy := &gctkline.Item{
+		Exchange: testExchange,
+		Pair:     cp,
+		Asset:    asset.Spot,
+		Interval: gctkline.FifteenMin,
+		Candles: []gctkline.Candle{
+			{Time: dStart, Open: 1337, High: 1337, Low: 1337, Close: 1337, Volume: 1337},
 		},
 	}
-	err = k.Load()
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+
+	k, err := kline.NewDataFromKline(dummy, dStart, dEnd)
+	if err != nil {
+		t.Fatal(err)
 	}
 	err = bt.DataHolder.SetDataForCurrency(testExchange, a, cp, k)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	err = bt.processSingleDataEvent(ev, collateral)
 	if !errors.Is(err, nil) {
-		t.Errorf("received '%v' expected '%v'", err, nil)
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 }

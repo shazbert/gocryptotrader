@@ -13,6 +13,8 @@ func (s *Signal) IsSignal() bool {
 }
 
 // SetDirection sets the direction
+// TODO: Add reason to param to make sure that the reason gets set every time a
+// direction is imputted.
 func (s *Signal) SetDirection(st order.Side) {
 	s.Direction = st
 }

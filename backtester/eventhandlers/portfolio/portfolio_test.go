@@ -1055,10 +1055,9 @@ func TestGetHoldingsForTime(t *testing.T) {
 func TestGetPositions(t *testing.T) {
 	t.Parallel()
 	p := &Portfolio{}
-	var expectedError = common.ErrNilEvent
 	_, err := p.GetPositions(nil)
-	if !errors.Is(err, expectedError) {
-		t.Fatalf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, common.ErrNilEvent) {
+		t.Fatalf("received '%v' expected '%v'", err, common.ErrNilEvent)
 	}
 	ev := &fill.Fill{
 		Base: &event.Base{
@@ -1073,20 +1072,18 @@ func TestGetPositions(t *testing.T) {
 	if !errors.Is(err, gctcommon.ErrNotYetImplemented) {
 		t.Errorf("received: %v, expected: %v", err, gctcommon.ErrNotYetImplemented)
 	}
-	expectedError = errNoPortfolioSettings
 	_, err = p.GetPositions(ev)
-	if !errors.Is(err, expectedError) {
-		t.Fatalf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, errNoPortfolioSettings) {
+		t.Fatalf("received '%v' expected '%v'", err, errNoPortfolioSettings)
 	}
 }
 
 func TestGetLatestPNLForEvent(t *testing.T) {
 	t.Parallel()
 	p := &Portfolio{}
-	var expectedError = common.ErrNilEvent
 	_, err := p.GetLatestPNLForEvent(nil)
-	if !errors.Is(err, expectedError) {
-		t.Fatalf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, common.ErrNilEvent) {
+		t.Fatalf("received '%v' expected '%v'", err, common.ErrNilEvent)
 	}
 	ev := &fill.Fill{
 		Base: &event.Base{
@@ -1101,10 +1098,9 @@ func TestGetLatestPNLForEvent(t *testing.T) {
 	if !errors.Is(err, gctcommon.ErrNotYetImplemented) {
 		t.Errorf("received: %v, expected: %v", err, gctcommon.ErrNotYetImplemented)
 	}
-	expectedError = errNoPortfolioSettings
 	_, err = p.GetLatestPNLForEvent(ev)
-	if !errors.Is(err, expectedError) {
-		t.Fatalf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, errNoPortfolioSettings) {
+		t.Fatalf("received '%v' expected '%v'", err, errNoPortfolioSettings)
 	}
 
 	mpt, err := gctorder.SetupMultiPositionTracker(&gctorder.MultiPositionTrackerSetup{
@@ -1127,7 +1123,7 @@ func TestGetLatestPNLForEvent(t *testing.T) {
 	p.exchangeAssetPairPortfolioSettings[testExchange][ev.AssetType] = make(map[*currency.Item]map[*currency.Item]*Settings)
 	p.exchangeAssetPairPortfolioSettings[testExchange][ev.AssetType][ev.Pair().Base.Item] = make(map[*currency.Item]*Settings)
 	p.exchangeAssetPairPortfolioSettings[testExchange][ev.AssetType][ev.Pair().Base.Item][ev.Pair().Quote.Item] = s
-	expectedError = nil
+
 	err = s.FuturesTracker.TrackNewOrder(&gctorder.Detail{
 		Exchange:  ev.GetExchange(),
 		AssetType: ev.AssetType,
@@ -1138,12 +1134,12 @@ func TestGetLatestPNLForEvent(t *testing.T) {
 		Date:      time.Now(),
 		Side:      gctorder.Buy,
 	})
-	if !errors.Is(err, expectedError) {
-		t.Fatalf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	latest, err := p.GetLatestPNLForEvent(ev)
-	if !errors.Is(err, expectedError) {
-		t.Fatalf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	if latest == nil {
 		t.Error("unexpected")
@@ -1334,69 +1330,62 @@ func TestGetDirection(t *testing.T) {
 
 func TestCannotPurchase(t *testing.T) {
 	t.Parallel()
-	var expectedError = common.ErrNilEvent
 	_, err := cannotPurchase(nil, nil)
-	if !errors.Is(err, expectedError) {
-		t.Fatalf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, common.ErrNilEvent) {
+		t.Fatalf("received '%v' expected '%v'", err, common.ErrNilEvent)
 	}
 
 	s := &signal.Signal{
 		Base: &event.Base{},
 	}
-	expectedError = gctcommon.ErrNilPointer
 	_, err = cannotPurchase(s, nil)
-	if !errors.Is(err, expectedError) {
-		t.Fatalf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Fatalf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
 	}
 
 	o := &order.Order{
 		Base: &event.Base{},
 	}
 	s.Direction = gctorder.Buy
-	expectedError = nil
 	result, err := cannotPurchase(s, o)
-	if !errors.Is(err, expectedError) {
-		t.Fatalf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	if result.Direction != gctorder.CouldNotBuy {
 		t.Errorf("received '%v' expected '%v'", result.Direction, gctorder.CouldNotBuy)
 	}
 
 	s.Direction = gctorder.Sell
-	expectedError = nil
 	result, err = cannotPurchase(s, o)
-	if !errors.Is(err, expectedError) {
-		t.Fatalf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	if result.Direction != gctorder.CouldNotSell {
 		t.Errorf("received '%v' expected '%v'", result.Direction, gctorder.CouldNotSell)
 	}
 
 	s.Direction = gctorder.Short
-	expectedError = nil
 	result, err = cannotPurchase(s, o)
-	if !errors.Is(err, expectedError) {
-		t.Fatalf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	if result.Direction != gctorder.CouldNotShort {
 		t.Errorf("received '%v' expected '%v'", result.Direction, gctorder.CouldNotShort)
 	}
 
 	s.Direction = gctorder.Long
-	expectedError = nil
 	result, err = cannotPurchase(s, o)
-	if !errors.Is(err, expectedError) {
-		t.Fatalf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	if result.Direction != gctorder.CouldNotLong {
 		t.Errorf("received '%v' expected '%v'", result.Direction, gctorder.CouldNotLong)
 	}
 
 	s.Direction = gctorder.UnknownSide
-	expectedError = nil
 	result, err = cannotPurchase(s, o)
-	if !errors.Is(err, expectedError) {
-		t.Fatalf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	if result.Direction != gctorder.DoNothing {
 		t.Errorf("received '%v' expected '%v'", result.Direction, gctorder.DoNothing)
@@ -1407,34 +1396,27 @@ func TestCreateLiquidationOrdersForExchange(t *testing.T) {
 	t.Parallel()
 
 	p := &Portfolio{}
-	var expectedError = common.ErrNilEvent
 	_, err := p.CreateLiquidationOrdersForExchange(nil, nil)
-	if !errors.Is(err, expectedError) {
-		t.Fatalf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, common.ErrNilEvent) {
+		t.Fatalf("received '%v' expected '%v'", err, common.ErrNilEvent)
 	}
 
 	b := &event.Base{}
-
-	ev := &kline.Kline{
-		Base: b,
-	}
-	expectedError = gctcommon.ErrNilPointer
+	ev := &kline.Kline{Base: b}
 	_, err = p.CreateLiquidationOrdersForExchange(ev, nil)
-	if !errors.Is(err, expectedError) {
-		t.Fatalf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Fatalf("received '%v' expected '%v'", err, gctcommon.ErrNilPointer)
 	}
 
 	funds := &funding.FundManager{}
-	expectedError = config.ErrExchangeNotFound
 	_, err = p.CreateLiquidationOrdersForExchange(ev, funds)
-	if !errors.Is(err, expectedError) {
-		t.Fatalf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, config.ErrExchangeNotFound) {
+		t.Fatalf("received '%v' expected '%v'", err, config.ErrExchangeNotFound)
 	}
 
 	ff := &binance.Binance{}
 	ff.Name = testExchange
 	cp := currency.NewPair(currency.BTC, currency.USDT)
-	expectedError = nil
 	err = p.SetCurrencySettingsMap(&exchange.Settings{Exchange: ff, Asset: asset.Futures, Pair: cp})
 	if !errors.Is(err, gctcommon.ErrNotYetImplemented) {
 		t.Errorf("received: %v, expected: %v", err, gctcommon.ErrNotYetImplemented)
@@ -1445,8 +1427,8 @@ func TestCreateLiquidationOrdersForExchange(t *testing.T) {
 	}
 	ev.Exchange = ff.Name
 	_, err = p.CreateLiquidationOrdersForExchange(ev, funds)
-	if !errors.Is(err, expectedError) {
-		t.Fatalf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 
 	_, err = p.getSettings(ff.Name, asset.Futures, cp)
@@ -1481,8 +1463,8 @@ func TestCreateLiquidationOrdersForExchange(t *testing.T) {
 	}
 
 	err = settings.FuturesTracker.TrackNewOrder(od)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v', expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Errorf("received '%v', expected '%v'", err, nil)
 	}
 	p.exchangeAssetPairPortfolioSettings = make(map[string]map[asset.Item]map[*currency.Item]map[*currency.Item]*Settings)
 	p.exchangeAssetPairPortfolioSettings[testExchange] = make(map[asset.Item]map[*currency.Item]map[*currency.Item]*Settings)
@@ -1494,26 +1476,26 @@ func TestCreateLiquidationOrdersForExchange(t *testing.T) {
 	ev.AssetType = asset.Futures
 	ev.CurrencyPair = cp
 	_, err = p.CreateLiquidationOrdersForExchange(ev, funds)
-	if !errors.Is(err, expectedError) {
-		t.Fatalf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 
 	// spot order
 	item, err := funding.CreateItem(ff.Name, asset.Spot, currency.BTC, decimal.Zero, decimal.Zero)
-	if !errors.Is(err, expectedError) {
-		t.Fatalf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	err = funds.AddItem(item)
-	if !errors.Is(err, expectedError) {
-		t.Fatalf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	err = item.IncreaseAvailable(leet)
-	if !errors.Is(err, expectedError) {
-		t.Fatalf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	orders, err := p.CreateLiquidationOrdersForExchange(ev, funds)
-	if !errors.Is(err, expectedError) {
-		t.Fatalf("received '%v' expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
 	if len(orders) != 0 {
 		t.Errorf("expected two orders generated, received '%v'", len(orders))
@@ -1536,48 +1518,41 @@ func TestGetPositionStatus(t *testing.T) {
 func TestCheckLiquidationStatus(t *testing.T) {
 	t.Parallel()
 	p := &Portfolio{}
-	var expectedError = common.ErrNilEvent
 	err := p.CheckLiquidationStatus(nil, nil, nil)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v', expected '%v'", err, expectedError)
+	if !errors.Is(err, common.ErrNilEvent) {
+		t.Errorf("received '%v', expected '%v'", err, common.ErrNilEvent)
 	}
 
-	ev := &kline.Kline{
-		Base: &event.Base{},
-	}
-	expectedError = gctcommon.ErrNilPointer
+	ev := &kline.Kline{Base: &event.Base{}}
 	err = p.CheckLiquidationStatus(ev, nil, nil)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v', expected '%v'", err, expectedError)
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Errorf("received '%v', expected '%v'", err, gctcommon.ErrNilPointer)
 	}
 
 	item := asset.Futures
 	pair := currency.NewPair(currency.BTC, currency.USDT)
-	expectedError = nil
 	contract, err := funding.CreateItem(testExchange, item, pair.Base, decimal.NewFromInt(100), decimal.Zero)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Errorf("received '%v' expected '%v", err, nil)
 	}
 	collateral, err := funding.CreateItem(testExchange, item, pair.Quote, decimal.NewFromInt(100), decimal.Zero)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Errorf("received '%v' expected '%v", err, nil)
 	}
 	collat, err := funding.CreateCollateral(contract, collateral)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v' expected '%v", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Errorf("received '%v' expected '%v", err, nil)
 	}
 
-	expectedError = gctcommon.ErrNilPointer
 	err = p.CheckLiquidationStatus(ev, collat, nil)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v', expected '%v'", err, expectedError)
+	if !errors.Is(err, gctcommon.ErrNilPointer) {
+		t.Errorf("received '%v', expected '%v'", err, gctcommon.ErrNilPointer)
 	}
 
 	pnl := &PNLSummary{}
-	expectedError = gctorder.ErrNotFuturesAsset
 	err = p.CheckLiquidationStatus(ev, collat, pnl)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v', expected '%v'", err, expectedError)
+	if !errors.Is(err, gctorder.ErrNotFuturesAsset) {
+		t.Errorf("received '%v', expected '%v'", err, gctorder.ErrNotFuturesAsset)
 	}
 
 	pnl.Asset = asset.Futures
@@ -1586,7 +1561,6 @@ func TestCheckLiquidationStatus(t *testing.T) {
 	ev.CurrencyPair = pair
 	exch := &binance.Binance{}
 	exch.Name = ev.Exchange
-	expectedError = nil
 	err = p.SetCurrencySettingsMap(&exchange.Settings{Exchange: exch, Asset: asset.Futures, Pair: pair})
 	if !errors.Is(err, gctcommon.ErrNotYetImplemented) {
 		t.Errorf("received '%v', expected '%v'", err, gctcommon.ErrNotYetImplemented)
@@ -1621,8 +1595,8 @@ func TestCheckLiquidationStatus(t *testing.T) {
 	}
 
 	err = settings.FuturesTracker.TrackNewOrder(od)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v', expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Errorf("received '%v', expected '%v'", err, nil)
 	}
 	p.exchangeAssetPairPortfolioSettings = make(map[string]map[asset.Item]map[*currency.Item]map[*currency.Item]*Settings)
 	p.exchangeAssetPairPortfolioSettings[testExchange] = make(map[asset.Item]map[*currency.Item]map[*currency.Item]*Settings)
@@ -1630,8 +1604,8 @@ func TestCheckLiquidationStatus(t *testing.T) {
 	p.exchangeAssetPairPortfolioSettings[testExchange][ev.AssetType][pair.Base.Item] = make(map[*currency.Item]*Settings)
 	p.exchangeAssetPairPortfolioSettings[testExchange][ev.AssetType][pair.Base.Item][pair.Quote.Item] = settings
 	err = p.CheckLiquidationStatus(ev, collat, pnl)
-	if !errors.Is(err, expectedError) {
-		t.Errorf("received '%v', expected '%v'", err, expectedError)
+	if !errors.Is(err, nil) {
+		t.Errorf("received '%v', expected '%v'", err, nil)
 	}
 }
 

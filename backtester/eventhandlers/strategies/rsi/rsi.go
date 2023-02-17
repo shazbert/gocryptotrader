@@ -51,7 +51,8 @@ func (s *Strategy) OnSignal(d data.Handler, _ funding.IFundingTransferer, _ port
 	if d == nil {
 		return nil, common.ErrNilEvent
 	}
-	es, err := s.GetBaseData(d)
+
+	sig, err := s.NewSignal(d)
 	if err != nil {
 		return nil, err
 	}
@@ -61,46 +62,46 @@ func (s *Strategy) OnSignal(d data.Handler, _ funding.IFundingTransferer, _ port
 		return nil, err
 	}
 
-	es.SetPrice(latest.GetClosePrice())
-
+	sig.SetPrice(latest.GetClosePrice())
 	if offset := latest.GetOffset(); offset <= s.rsiPeriod.IntPart() {
-		es.AppendReason("Not enough data for signal generation")
-		es.SetDirection(order.DoNothing)
-		return &es, nil
+		sig.AppendReason("Not enough data for signal generation")
+		sig.SetDirection(order.DoNothing)
+		return sig, nil
 	}
 
 	dataRange, err := d.StreamClose()
 	if err != nil {
 		return nil, err
 	}
-	var massagedData []float64
-	massagedData, err = s.massageMissingData(dataRange, es.GetTime())
+
+	massagedData, err := s.massageMissingData(dataRange, sig.GetTime())
 	if err != nil {
 		return nil, err
 	}
+
 	rsi := indicators.RSI(massagedData, int(s.rsiPeriod.IntPart()))
 	latestRSIValue := decimal.NewFromFloat(rsi[len(rsi)-1])
 	hasDataAtTime, err := d.HasDataAtTime(latest.GetTime())
 	if err != nil {
 		return nil, err
 	}
+
 	if !hasDataAtTime {
-		es.SetDirection(order.MissingData)
-		es.AppendReasonf("missing data at %v, cannot perform any actions. RSI %v", latest.GetTime(), latestRSIValue)
-		return &es, nil
+		sig.SetDirection(order.MissingData)
+		sig.AppendReasonf("missing data at %v, cannot perform any actions. RSI %v", latest.GetTime(), latestRSIValue)
+		return sig, nil
 	}
 
 	switch {
 	case latestRSIValue.GreaterThanOrEqual(s.rsiHigh):
-		es.SetDirection(order.Sell)
+		sig.SetDirection(order.Sell)
 	case latestRSIValue.LessThanOrEqual(s.rsiLow):
-		es.SetDirection(order.Buy)
+		sig.SetDirection(order.Buy)
 	default:
-		es.SetDirection(order.DoNothing)
+		sig.SetDirection(order.DoNothing)
 	}
-	es.AppendReasonf("RSI at %v", latestRSIValue)
-
-	return &es, nil
+	sig.AppendReasonf("RSI at %v", latestRSIValue)
+	return sig, nil
 }
 
 // SupportsSimultaneousProcessing highlights whether the strategy can handle multiple currency calculation

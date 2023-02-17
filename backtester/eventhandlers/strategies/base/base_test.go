@@ -2,65 +2,55 @@ package base
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
-	"github.com/shopspring/decimal"
 	"github.com/thrasher-corp/gocryptotrader/backtester/common"
-	"github.com/thrasher-corp/gocryptotrader/backtester/data"
 	datakline "github.com/thrasher-corp/gocryptotrader/backtester/data/kline"
-	"github.com/thrasher-corp/gocryptotrader/backtester/eventtypes/event"
-	"github.com/thrasher-corp/gocryptotrader/backtester/eventtypes/kline"
 	gctcommon "github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	gctkline "github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 )
 
-func TestGetBase(t *testing.T) {
+func TestNewSignal(t *testing.T) {
 	t.Parallel()
 	s := Strategy{}
-	_, err := s.GetBaseData(nil)
+	_, err := s.NewSignal(nil)
 	if !errors.Is(err, gctcommon.ErrNilPointer) {
 		t.Errorf("received: %v, expected: %v", err, gctcommon.ErrNilPointer)
 	}
 
-	_, err = s.GetBaseData(datakline.NewDataFromKline())
+	dStart := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	dEnd := time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC)
+	dummy := &gctkline.Item{
+		Exchange: "binance",
+		Pair:     currency.NewPair(currency.BTC, currency.USDT),
+		Asset:    asset.Spot,
+		Interval: gctkline.OneDay,
+		Candles: []gctkline.Candle{
+			{Time: dStart, Open: 1337, High: 1337, Low: 1337, Close: 1337, Volume: 1337},
+		},
+	}
+
+	da, err := datakline.NewDataFromKline(dummy, dStart, dEnd)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := s.NewSignal(da)
 	if !errors.Is(err, common.ErrNilEvent) {
 		t.Errorf("received: %v, expected: %v", err, common.ErrNilEvent)
 	}
-	tt := time.Now()
-	exch := "binance"
-	a := asset.Spot
-	p := currency.NewPair(currency.BTC, currency.USDT)
-	d := &data.Base{}
-	err = d.SetStream([]data.Event{&kline.Kline{
-		Base: &event.Base{
-			Exchange:     exch,
-			Time:         tt,
-			Interval:     gctkline.OneDay,
-			CurrencyPair: p,
-			AssetType:    a,
-		},
-		Open:   decimal.NewFromInt(1337),
-		Close:  decimal.NewFromInt(1337),
-		Low:    decimal.NewFromInt(1337),
-		High:   decimal.NewFromInt(1337),
-		Volume: decimal.NewFromInt(1337),
-	}})
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
-	}
 
-	_, err = d.Next()
+	fmt.Println(resp)
+
+	_, err = da.Next()
 	if !errors.Is(err, nil) {
 		t.Errorf("received: %v, expected: %v", err, nil)
 	}
-	_, err = s.GetBaseData(&datakline.DataFromKline{
-		Item:        &gctkline.Item{},
-		Base:        d,
-		RangeHolder: &gctkline.IntervalRangeHolder{},
-	})
+	_, err = s.NewSignal(da)
 	if !errors.Is(err, nil) {
 		t.Errorf("received: %v, expected: %v", err, nil)
 	}

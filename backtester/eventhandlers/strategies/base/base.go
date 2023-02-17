@@ -13,19 +13,20 @@ type Strategy struct {
 	useSimultaneousProcessing bool
 }
 
-// GetBaseData returns the non-interface version of the Handler
-func (s *Strategy) GetBaseData(d data.Handler) (signal.Signal, error) {
+// NewSignal returns an empty signal to attach reasons, direction at a strategy
+// level for decisional processing and review.
+func (s *Strategy) NewSignal(d data.Handler) (*signal.Signal, error) {
 	if d == nil {
-		return signal.Signal{}, gctcommon.ErrNilPointer
+		return nil, gctcommon.ErrNilPointer
 	}
 	latest, err := d.Latest()
 	if err != nil {
-		return signal.Signal{}, err
+		return nil, err
 	}
 	if latest == nil {
-		return signal.Signal{}, common.ErrNilEvent
+		return nil, common.ErrNilEvent
 	}
-	return signal.Signal{
+	return &signal.Signal{
 		Base:       latest.GetBase(),
 		ClosePrice: latest.GetClosePrice(),
 		HighPrice:  latest.GetHighPrice(),

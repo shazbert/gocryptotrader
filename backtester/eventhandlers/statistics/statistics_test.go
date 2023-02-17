@@ -731,7 +731,7 @@ func TestCalculateTheResults(t *testing.T) {
 	s.ExchangeAssetPairStatistics[exch][a][p2.Base.Item][p2.Quote.Item].Events[1].Holdings.QuoteInitialFunds = eleet
 	s.ExchangeAssetPairStatistics[exch][a][p2.Base.Item][p2.Quote.Item].Events[1].Holdings.TotalValue = eleeet
 
-	funds, err := funding.SetupFundingManager(&engine.ExchangeManager{}, false, false, false)
+	funds, err := funding.NewFundingManager(&engine.ExchangeManager{}, false, false, false)
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}
@@ -778,7 +778,7 @@ func TestCalculateTheResults(t *testing.T) {
 		t.Errorf("received '%v' expected '%v'", err, errMissingSnapshots)
 	}
 
-	funds, err = funding.SetupFundingManager(&engine.ExchangeManager{}, false, true, false)
+	funds, err = funding.NewFundingManager(&engine.ExchangeManager{}, false, true, false)
 	if !errors.Is(err, nil) {
 		t.Errorf("received '%v' expected '%v'", err, nil)
 	}

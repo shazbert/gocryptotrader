@@ -13,7 +13,6 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/backtester/eventhandlers/strategies/base"
 	"github.com/thrasher-corp/gocryptotrader/backtester/eventtypes/event"
 	eventkline "github.com/thrasher-corp/gocryptotrader/backtester/eventtypes/kline"
-	"github.com/thrasher-corp/gocryptotrader/backtester/eventtypes/signal"
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	gctkline "github.com/thrasher-corp/gocryptotrader/exchanges/kline"
@@ -89,86 +88,40 @@ func TestOnSignal(t *testing.T) {
 	if !errors.Is(err, common.ErrNilEvent) {
 		t.Errorf("received: %v, expected: %v", err, common.ErrNilEvent)
 	}
-	dStart := time.Date(2020, 1, 0, 0, 0, 0, 0, time.UTC)
-	dEnd := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
-	exch := "binance"
-	a := asset.Spot
-	p := currency.NewPair(currency.BTC, currency.USDT)
-	d := &data.Base{}
-	err = d.SetStream([]data.Event{&eventkline.Kline{
-		Base: &event.Base{
-			Offset:       3,
-			Exchange:     exch,
-			Time:         dStart,
-			Interval:     gctkline.OneDay,
-			CurrencyPair: p,
-			AssetType:    a,
+
+	dStart := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	dEnd := time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC)
+	dummy := &gctkline.Item{
+		Exchange: "binance",
+		Pair:     currency.NewPair(currency.BTC, currency.USDT),
+		Asset:    asset.Spot,
+		Interval: gctkline.OneDay,
+		Candles: []gctkline.Candle{
+			{Time: dStart, Open: 1337, High: 1337, Low: 1337, Close: 1337, Volume: 1337},
 		},
-		Open:   decimal.NewFromInt(1337),
-		Close:  decimal.NewFromInt(1337),
-		Low:    decimal.NewFromInt(1337),
-		High:   decimal.NewFromInt(1337),
-		Volume: decimal.NewFromInt(1337),
-	}})
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
 	}
-	_, err = d.Next()
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
+
+	da, err := kline.NewDataFromKline(dummy, dStart, dEnd)
+	if err != nil {
+		t.Fatal(err)
 	}
-	da := &kline.DataFromKline{
-		Item:        &gctkline.Item{},
-		Base:        d,
-		RangeHolder: &gctkline.IntervalRangeHolder{},
+
+	_, err = da.Next()
+	if err != nil {
+		t.Fatal(err)
 	}
-	var resp signal.Event
+
 	_, err = s.OnSignal(da, nil, nil)
 	if !errors.Is(err, base.ErrTooMuchBadData) {
 		t.Fatalf("expected: %v, received %v", base.ErrTooMuchBadData, err)
 	}
 
 	s.rsiPeriod = decimal.NewFromInt(1)
-	_, err = s.OnSignal(da, nil, nil)
+	resp, err := s.OnSignal(da, nil, nil)
 	if !errors.Is(err, nil) {
 		t.Errorf("received: %v, expected: %v", err, nil)
 	}
 
-	da.Item = &gctkline.Item{
-		Exchange: exch,
-		Pair:     p,
-		Asset:    a,
-		Interval: gctkline.OneDay,
-		Candles: []gctkline.Candle{
-			{
-				Time:   dStart,
-				Open:   1337,
-				High:   1337,
-				Low:    1337,
-				Close:  1337,
-				Volume: 1337,
-			},
-		},
-	}
-	err = da.Load()
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
-	}
-
-	ranger, err := gctkline.CalculateCandleDateRanges(dStart, dEnd, gctkline.OneDay, 100000)
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
-	}
-	da.RangeHolder = ranger
-	err = da.RangeHolder.SetHasDataFromCandles(da.Item.Candles)
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
-	}
-
-	resp, err = s.OnSignal(da, nil, nil)
-	if !errors.Is(err, nil) {
-		t.Errorf("received: %v, expected: %v", err, nil)
-	}
 	if resp.GetDirection() != order.DoNothing {
 		t.Error("expected do nothing")
 	}

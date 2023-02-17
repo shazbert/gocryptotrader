@@ -70,22 +70,6 @@ type mfiFundEvent struct {
 	funds funding.IFundReader
 }
 
-// ByPrice used for sorting orders by order date
-type byMFI []mfiFundEvent
-
-func (b byMFI) Len() int           { return len(b) }
-func (b byMFI) Less(i, j int) bool { return b[i].mfi.LessThan(b[j].mfi) }
-func (b byMFI) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
-
-// sortOrdersByPrice the caller function to sort orders
-func sortByMFI(o *[]mfiFundEvent, reverse bool) {
-	if reverse {
-		sort.Sort(sort.Reverse(byMFI(*o)))
-	} else {
-		sort.Sort(byMFI(*o))
-	}
-}
-
 // OnSimultaneousSignals analyses multiple data points simultaneously, allowing flexibility
 // in allowing a strategy to only place an order for X currency if Y currency's price is Z
 func (s *Strategy) OnSimultaneousSignals(d []data.Handler, f funding.IFundingTransferer, _ portfolio.Handler) ([]signal.Event, error) {
@@ -98,7 +82,7 @@ func (s *Strategy) OnSimultaneousSignals(d []data.Handler, f funding.IFundingTra
 		if d == nil {
 			return nil, common.ErrNilEvent
 		}
-		es, err := s.GetBaseData(d[i])
+		sig, err := s.NewSignal(d[i])
 		if err != nil {
 			return nil, err
 		}
@@ -106,13 +90,13 @@ func (s *Strategy) OnSimultaneousSignals(d []data.Handler, f funding.IFundingTra
 		if err != nil {
 			return nil, err
 		}
-		es.SetPrice(latest.GetClosePrice())
+		sig.SetPrice(latest.GetClosePrice())
 		offset := latest.GetOffset()
 
 		if offset <= s.mfiPeriod.IntPart() {
-			es.AppendReason("Not enough data for signal generation")
-			es.SetDirection(order.DoNothing)
-			resp = append(resp, &es)
+			sig.AppendReason("Not enough data for signal generation")
+			sig.SetDirection(order.DoNothing)
+			resp = append(resp, sig)
 			continue
 		}
 
@@ -133,19 +117,19 @@ func (s *Strategy) OnSimultaneousSignals(d []data.Handler, f funding.IFundingTra
 			lowData[i] = history[i].GetLowPrice()
 		}
 		var massagedCloseData, massagedVolumeData, massagedHighData, massagedLowData []float64
-		massagedCloseData, err = s.massageMissingData(closeData, es.GetTime())
+		massagedCloseData, err = s.massageMissingData(closeData, sig.GetTime())
 		if err != nil {
 			return nil, err
 		}
-		massagedVolumeData, err = s.massageMissingData(volumeData, es.GetTime())
+		massagedVolumeData, err = s.massageMissingData(volumeData, sig.GetTime())
 		if err != nil {
 			return nil, err
 		}
-		massagedHighData, err = s.massageMissingData(highData, es.GetTime())
+		massagedHighData, err = s.massageMissingData(highData, sig.GetTime())
 		if err != nil {
 			return nil, err
 		}
-		massagedLowData, err = s.massageMissingData(lowData, es.GetTime())
+		massagedLowData, err = s.massageMissingData(lowData, sig.GetTime())
 		if err != nil {
 			return nil, err
 		}
@@ -156,21 +140,21 @@ func (s *Strategy) OnSimultaneousSignals(d []data.Handler, f funding.IFundingTra
 			return nil, err
 		}
 		if !hasDataAtTime {
-			es.SetDirection(order.MissingData)
-			es.AppendReasonf("missing data at %v, cannot perform any actions. MFI %v", latest.GetTime(), latestMFI)
-			resp = append(resp, &es)
+			sig.SetDirection(order.MissingData)
+			sig.AppendReasonf("missing data at %v, cannot perform any actions. MFI %v", latest.GetTime(), latestMFI)
+			resp = append(resp, sig)
 			continue
 		}
 
-		es.SetDirection(order.DoNothing)
-		es.AppendReasonf("MFI at %v", latestMFI)
+		sig.SetDirection(order.DoNothing)
+		sig.AppendReasonf("MFI at %v", latestMFI)
 
-		funds, err := f.GetFundingForEvent(&es)
+		funds, err := f.GetFundingForEvent(sig)
 		if err != nil {
 			return nil, err
 		}
 		mfiFundEvents = append(mfiFundEvents, mfiFundEvent{
-			event: &es,
+			event: sig,
 			mfi:   latestMFI,
 			funds: funds.FundReader(),
 		})
@@ -179,34 +163,34 @@ func (s *Strategy) OnSimultaneousSignals(d []data.Handler, f funding.IFundingTra
 	return s.selectTopAndBottomPerformers(mfiFundEvents, resp)
 }
 
-func (s *Strategy) selectTopAndBottomPerformers(mfiFundEvents []mfiFundEvent, resp []signal.Event) ([]signal.Event, error) {
-	if len(mfiFundEvents) == 0 {
+func (s *Strategy) selectTopAndBottomPerformers(events []mfiFundEvent, resp []signal.Event) ([]signal.Event, error) {
+	if len(events) == 0 {
 		return resp, nil
 	}
-	sortByMFI(&mfiFundEvents, true)
+	sort.Slice(events, func(i int, j int) bool { return events[i].mfi.LessThan(events[j].mfi) })
 	buyingOrSelling := false
-	for i := range mfiFundEvents {
-		if i < 2 && mfiFundEvents[i].mfi.GreaterThanOrEqual(s.mfiHigh) {
-			mfiFundEvents[i].event.SetDirection(order.Sell)
+	for i := range events {
+		if i < 2 && events[i].mfi.GreaterThanOrEqual(s.mfiHigh) {
+			events[i].event.SetDirection(order.Sell)
 			buyingOrSelling = true
 		} else if i >= 2 {
 			break
 		}
 	}
-	sortByMFI(&mfiFundEvents, false)
-	for i := range mfiFundEvents {
-		if i < 2 && mfiFundEvents[i].mfi.LessThanOrEqual(s.mfiLow) {
-			mfiFundEvents[i].event.SetDirection(order.Buy)
+	sort.Slice(events, func(i int, j int) bool { return events[i].mfi.GreaterThan(events[j].mfi) })
+	for i := range events {
+		if i < 2 && events[i].mfi.LessThanOrEqual(s.mfiLow) {
+			events[i].event.SetDirection(order.Buy)
 			buyingOrSelling = true
 		} else if i >= 2 {
 			break
 		}
 	}
-	for i := range mfiFundEvents {
-		if buyingOrSelling && mfiFundEvents[i].event.GetDirection() == order.DoNothing {
-			mfiFundEvents[i].event.AppendReason("MFI was not in the top or bottom two ranks")
+	for i := range events {
+		if buyingOrSelling && events[i].event.GetDirection() == order.DoNothing {
+			events[i].event.AppendReason("MFI was not in the top or bottom two ranks")
 		}
-		resp = append(resp, mfiFundEvents[i].event)
+		resp = append(resp, events[i].event)
 	}
 	return resp, nil
 }

@@ -59,24 +59,12 @@ func (s *CustomStrategy) OnSimultaneousSignals(d []data.Handler, f funding.IFund
 }
 
 func (s *CustomStrategy) createSignal(d data.Handler) (*signal.Signal, error) {
-	es, err := s.GetBaseData(d)
+	sig, err := s.NewSignal(d)
 	if err != nil {
 		return nil, err
 	}
-
-	sig := &signal.Signal{
-		Base:       es.Base,
-		OpenPrice:  es.OpenPrice,
-		HighPrice:  es.HighPrice,
-		LowPrice:   es.LowPrice,
-		ClosePrice: es.ClosePrice,
-		Volume:     es.Volume,
-		BuyLimit:   es.BuyLimit,
-		SellLimit:  es.SellLimit,
-		Amount:     es.Amount,
-		Direction:  gctorder.Buy,
-	}
-	sig.AppendReasonf("Signalling purchase of %s", es.Base.Pair())
+	sig.SetDirection(gctorder.Buy)
+	sig.AppendReasonf("Signalling purchase of %s", sig.Base.Pair())
 	return sig, nil
 }
 

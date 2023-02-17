@@ -11,6 +11,7 @@ import (
 
 // Event handler is used for getting trade signal details
 // Example Amount and Price of current candle tick
+// TODO: Add error returns to all these.
 type Event interface {
 	common.Event
 	common.Directioner

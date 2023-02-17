@@ -149,20 +149,19 @@ type FundManager struct {
 
 // Item holds funding data per currency item
 type Item struct {
-	exchange          string
-	asset             asset.Item
-	currency          currency.Code
-	initialFunds      decimal.Decimal
-	available         decimal.Decimal
-	reserved          decimal.Decimal
-	transferFee       decimal.Decimal
-	pairedWith        *Item
-	trackingCandles   *kline.DataFromKline
-	snapshot          map[int64]ItemSnapshot
-	isCollateral      bool
-	isLiquidated      bool
-	appendedViaAPI    bool
-	collateralCandles map[currency.Code]kline.DataFromKline
+	exchange        string
+	asset           asset.Item
+	currency        currency.Code
+	initialFunds    decimal.Decimal
+	available       decimal.Decimal
+	reserved        decimal.Decimal
+	transferFee     decimal.Decimal
+	pairedWith      *Item
+	trackingCandles *kline.DataFromKline
+	snapshot        map[int64]ItemSnapshot
+	isCollateral    bool
+	isLiquidated    bool
+	appendedViaAPI  bool
 }
 
 // SpotPair holds two currencies that are associated with each other

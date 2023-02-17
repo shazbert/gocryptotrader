@@ -402,8 +402,8 @@ func TestSetStream(t *testing.T) {
 	}
 
 	err = b.SetStream(validEvents)
-	if !errors.Is(err, errEventsAlreadySet) {
-		t.Fatalf("received '%v' expected '%v'", err, errEventsAlreadySet)
+	if !errors.Is(err, ErrEventsAlreadySet) {
+		t.Fatalf("received '%v' expected '%v'", err, ErrEventsAlreadySet)
 	}
 
 	b = nil

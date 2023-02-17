@@ -5,9 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofrs/uuid"
 	"github.com/shopspring/decimal"
-	"github.com/thrasher-corp/gocryptotrader/backtester/data"
 	"github.com/thrasher-corp/gocryptotrader/backtester/data/kline"
 	"github.com/thrasher-corp/gocryptotrader/backtester/funding"
 	"github.com/thrasher-corp/gocryptotrader/common"
@@ -23,11 +21,11 @@ func TestCalculateFundingStatistics(t *testing.T) {
 	if !errors.Is(err, common.ErrNilPointer) {
 		t.Errorf("received %v expected %v", err, common.ErrNilPointer)
 	}
-	f, err := funding.SetupFundingManager(&engine.ExchangeManager{}, true, true, false)
+	f, err := funding.NewFundingManager(&engine.ExchangeManager{}, true, true, false)
 	if !errors.Is(err, nil) {
 		t.Errorf("received %v expected %v", err, nil)
 	}
-	item, err := funding.CreateItem("binance", asset.Spot, currency.BTC, decimal.NewFromInt(1337), decimal.Zero)
+	item, err := funding.CreateItem(testExchange, asset.Spot, currency.BTC, decimal.NewFromInt(1337), decimal.Zero)
 	if !errors.Is(err, nil) {
 		t.Errorf("received %v expected %v", err, nil)
 	}
@@ -36,7 +34,7 @@ func TestCalculateFundingStatistics(t *testing.T) {
 		t.Errorf("received %v expected %v", err, nil)
 	}
 
-	item2, err := funding.CreateItem("binance", asset.Spot, currency.USD, decimal.NewFromInt(1337), decimal.Zero)
+	item2, err := funding.CreateItem(testExchange, asset.Spot, currency.USD, decimal.NewFromInt(1337), decimal.Zero)
 	if !errors.Is(err, nil) {
 		t.Errorf("received %v expected %v", err, nil)
 	}
@@ -50,28 +48,24 @@ func TestCalculateFundingStatistics(t *testing.T) {
 		t.Errorf("received %v expected %v", err, common.ErrNilPointer)
 	}
 
-	usdKline := gctkline.Item{
-		Exchange: "binance",
+	dStart := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	dEnd := time.Date(2020, 1, 1, 3, 0, 0, 0, time.UTC)
+	usdKline := &gctkline.Item{
+		Exchange: testExchange,
 		Pair:     currency.NewPair(currency.BTC, currency.USD),
 		Asset:    asset.Spot,
 		Interval: gctkline.OneHour,
 		Candles: []gctkline.Candle{
-			{
-				Time: time.Now().Add(-time.Hour),
-			},
-			{
-				Time: time.Now(),
-			},
+			{Time: dStart, Open: 1337, High: 1337, Low: 1337, Close: 1337, Volume: 1337},
+			{Time: dStart.Add(gctkline.OneHour.Duration()), Open: 1337, High: 1337, Low: 1337, Close: 1337, Volume: 1337},
 		},
 	}
-	dfk := &kline.DataFromKline{
-		Base: &data.Base{},
-		Item: &usdKline,
+
+	dfk, err := kline.NewDataFromKline(usdKline, dStart, dEnd)
+	if err != nil {
+		t.Fatal(err)
 	}
-	err = dfk.Load()
-	if !errors.Is(err, nil) {
-		t.Errorf("received %v expected %v", err, nil)
-	}
+
 	err = f.AddUSDTrackingData(dfk)
 	if !errors.Is(err, funding.ErrUSDTrackingDisabled) {
 		t.Errorf("received %v expected %v", err, funding.ErrUSDTrackingDisabled)
@@ -83,7 +77,7 @@ func TestCalculateFundingStatistics(t *testing.T) {
 		t.Errorf("received %v expected %v", err, errNoRelevantStatsFound)
 	}
 
-	f, err = funding.SetupFundingManager(&engine.ExchangeManager{}, true, false, false)
+	f, err = funding.NewFundingManager(&engine.ExchangeManager{}, true, false, false)
 	if !errors.Is(err, nil) {
 		t.Errorf("received %v expected %v", err, nil)
 	}
@@ -99,10 +93,10 @@ func TestCalculateFundingStatistics(t *testing.T) {
 	if !errors.Is(err, nil) {
 		t.Errorf("received %v expected %v", err, nil)
 	}
-	cs["binance"] = make(map[asset.Item]map[*currency.Item]map[*currency.Item]*CurrencyPairStatistic)
-	cs["binance"][asset.Spot] = make(map[*currency.Item]map[*currency.Item]*CurrencyPairStatistic)
-	cs["binance"][asset.Spot][currency.LTC.Item] = make(map[*currency.Item]*CurrencyPairStatistic)
-	cs["binance"][asset.Spot][currency.LTC.Item][currency.USD.Item] = &CurrencyPairStatistic{}
+	cs[testExchange] = make(map[asset.Item]map[*currency.Item]map[*currency.Item]*CurrencyPairStatistic)
+	cs[testExchange][asset.Spot] = make(map[*currency.Item]map[*currency.Item]*CurrencyPairStatistic)
+	cs[testExchange][asset.Spot][currency.LTC.Item] = make(map[*currency.Item]*CurrencyPairStatistic)
+	cs[testExchange][asset.Spot][currency.LTC.Item][currency.USD.Item] = &CurrencyPairStatistic{}
 	_, err = CalculateFundingStatistics(f, cs, decimal.Zero, gctkline.OneHour)
 	if !errors.Is(err, errMissingSnapshots) {
 		t.Errorf("received %v expected %v", err, errMissingSnapshots)
@@ -115,8 +109,8 @@ func TestCalculateFundingStatistics(t *testing.T) {
 	if !errors.Is(err, nil) {
 		t.Errorf("received %v expected %v", err, nil)
 	}
-	cs["binance"][asset.Spot][currency.BTC.Item] = make(map[*currency.Item]*CurrencyPairStatistic)
-	cs["binance"][asset.Spot][currency.BTC.Item][currency.USDT.Item] = &CurrencyPairStatistic{}
+	cs[testExchange][asset.Spot][currency.BTC.Item] = make(map[*currency.Item]*CurrencyPairStatistic)
+	cs[testExchange][asset.Spot][currency.BTC.Item][currency.USDT.Item] = &CurrencyPairStatistic{}
 
 	_, err = CalculateFundingStatistics(f, cs, decimal.Zero, gctkline.OneHour)
 	if !errors.Is(err, nil) {
@@ -170,31 +164,25 @@ func TestCalculateIndividualFundingStatistics(t *testing.T) {
 	if !errors.Is(err, errMissingSnapshots) {
 		t.Errorf("received %v expected %v", err, errMissingSnapshots)
 	}
-	cp := currency.NewPair(currency.BTC, currency.USD)
-	ri.USDPairCandle = &kline.DataFromKline{
-		Base: &data.Base{},
-		Item: &gctkline.Item{
-			Exchange:       testExchange,
-			Pair:           cp,
-			UnderlyingPair: cp,
-			Asset:          asset.Spot,
-			Interval:       gctkline.OneHour,
-			Candles: []gctkline.Candle{
-				{
-					Time: time.Now().Add(-time.Hour),
-				},
-				{
-					Time: time.Now(),
-				},
-			},
-			SourceJobID:     uuid.UUID{},
-			ValidationJobID: uuid.UUID{},
+
+	dStart := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	dEnd := time.Date(2020, 1, 1, 2, 0, 0, 0, time.UTC)
+	usdKline := &gctkline.Item{
+		Exchange:       testExchange,
+		Pair:           currency.NewPair(currency.BTC, currency.USD),
+		UnderlyingPair: currency.NewPair(currency.BTC, currency.USD),
+		Asset:          asset.Spot,
+		Interval:       gctkline.OneHour,
+		Candles: []gctkline.Candle{
+			{Time: dStart, Open: 1337, High: 1337, Low: 1337, Close: 1337, Volume: 1337},
 		},
 	}
-	err = ri.USDPairCandle.Load()
-	if !errors.Is(err, nil) {
-		t.Errorf("received %v expected %v", err, nil)
+
+	ri.USDPairCandle, err = kline.NewDataFromKline(usdKline, dStart, dEnd)
+	if err != nil {
+		t.Fatal(err)
 	}
+
 	_, err = CalculateIndividualFundingStatistics(false, ri, rs)
 	if !errors.Is(err, nil) {
 		t.Errorf("received %v expected %v", err, nil)
@@ -220,7 +208,7 @@ func TestFundingStatisticsPrintResults(t *testing.T) {
 		t.Errorf("received %v expected %v", err, common.ErrNilPointer)
 	}
 
-	funds, err := funding.SetupFundingManager(&engine.ExchangeManager{}, true, true, false)
+	funds, err := funding.NewFundingManager(&engine.ExchangeManager{}, true, true, false)
 	if !errors.Is(err, nil) {
 		t.Errorf("received %v expected %v", err, nil)
 	}

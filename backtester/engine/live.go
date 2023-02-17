@@ -303,16 +303,21 @@ func (d *dataChecker) AppendDataSource(dataSource *liveDataSourceSetup) error {
 			return fmt.Errorf("%w %v %v %v", errDataSourceExists, exchName, dataSource.asset, dataSource.pair)
 		}
 	}
-	k := kline.NewDataFromKline()
-	k.Item = &gctkline.Item{
+
+	start := time.Now().Truncate(dataSource.interval.Duration()).UTC()
+	end := start.Add(dataSource.interval.Duration())
+	k, err := kline.NewDataFromKline(&gctkline.Item{
 		Exchange:       exchName,
 		Pair:           dataSource.pair,
 		UnderlyingPair: dataSource.underlyingPair,
 		Asset:          dataSource.asset,
 		Interval:       dataSource.interval,
+	}, start, end)
+	if err != nil {
+		return err
 	}
 
-	err := k.SetLive(true)
+	err = k.SetLive(true)
 	if err != nil {
 		return err
 	}

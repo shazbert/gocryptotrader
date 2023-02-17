@@ -11,12 +11,15 @@ import (
 )
 
 var (
+	// ErrEventsAlreadySet defines an error when the events have already been
+	// set.
+	ErrEventsAlreadySet = errors.New("events have already been set")
+
 	errExchangeNameUnset             = errors.New("exchange name is unset")
 	errHandlerIsNil                  = errors.New("data handler is nil")
 	errDataHandlerAlreadySet         = errors.New("data handler should only be set once")
 	errOffsetShifted                 = errors.New("offset has shifted beyond events slice")
 	errEventsNotTimeAligned          = errors.New("events not time aligned")
-	errEventsAlreadySet              = errors.New("events have already been set")
 	errLatestEventHasNotBeenSet      = errors.New("latest e has not been set")
 	errDataFeedTypeHasAlreadyBeenSet = errors.New("data feed type has already been set")
 	errDuplicateEvent                = errors.New("duplicate event")
@@ -219,7 +222,7 @@ func (b *Base) SetStream(events []Event) error {
 	defer b.m.Unlock()
 
 	if len(b.stream) > 0 {
-		return errEventsAlreadySet
+		return ErrEventsAlreadySet
 	}
 
 	bucket := make([]Event, len(events)) // separates incoming slice from b.stream
