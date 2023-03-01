@@ -56,22 +56,22 @@ var (
 
 func TestSetupFromConfig(t *testing.T) {
 	t.Parallel()
-	bt, err := NewBacktester()
+	bt, err := NewBacktester(false)
 	if !errors.Is(err, nil) {
 		t.Fatalf("received %v, expected %v", err, nil)
 	}
-	err = bt.SetupFromConfig(nil, "", "", false)
+	err = bt.SetupFromConfig(nil, "", "")
 	if !errors.Is(err, errNilConfig) {
 		t.Fatalf("received %v, expected %v", err, errNilConfig)
 	}
 	cfg := &config.Config{}
-	err = bt.SetupFromConfig(cfg, "", "", false)
+	err = bt.SetupFromConfig(cfg, "", "")
 	if !errors.Is(err, gctkline.ErrInvalidInterval) {
 		t.Fatalf("received: %v, expected: %v", err, gctkline.ErrInvalidInterval)
 	}
 
 	cfg.DataSettings.Interval = gctkline.OneMonth
-	err = bt.SetupFromConfig(cfg, "", "", false)
+	err = bt.SetupFromConfig(cfg, "", "")
 	if !errors.Is(err, base.ErrStrategyNotFound) {
 		t.Fatalf("received: %v, expected: %v", err, base.ErrStrategyNotFound)
 	}
@@ -92,7 +92,7 @@ func TestSetupFromConfig(t *testing.T) {
 			Asset:        asset.USDTMarginedFutures,
 		},
 	}
-	err = bt.SetupFromConfig(cfg, "", "", false)
+	err = bt.SetupFromConfig(cfg, "", "")
 	if !errors.Is(err, base.ErrStrategyNotFound) {
 		t.Fatalf("received: %v, expected: %v", err, base.ErrStrategyNotFound)
 	}
@@ -105,19 +105,19 @@ func TestSetupFromConfig(t *testing.T) {
 	}
 	cfg.DataSettings.APIData = &config.APIData{}
 
-	err = bt.SetupFromConfig(cfg, "", "", false)
+	err = bt.SetupFromConfig(cfg, "", "")
 	if err != nil && !strings.Contains(err.Error(), "unrecognised dataType") {
 		t.Error(err)
 	}
 	cfg.DataSettings.DataType = common.CandleStr
-	err = bt.SetupFromConfig(cfg, "", "", false)
+	err = bt.SetupFromConfig(cfg, "", "")
 	if !errors.Is(err, gctcommon.ErrDateUnset) {
 		t.Fatalf("received: %v, expected: %v", err, gctcommon.ErrDateUnset)
 	}
 	cfg.DataSettings.Interval = gctkline.OneMin
 	cfg.CurrencySettings[0].MakerFee = &decimal.Zero
 	cfg.CurrencySettings[0].TakerFee = &decimal.Zero
-	err = bt.SetupFromConfig(cfg, "", "", false)
+	err = bt.SetupFromConfig(cfg, "", "")
 	if !errors.Is(err, gctcommon.ErrDateUnset) {
 		t.Fatalf("received: %v, expected: %v", err, gctcommon.ErrDateUnset)
 	}
@@ -125,7 +125,7 @@ func TestSetupFromConfig(t *testing.T) {
 	cfg.DataSettings.APIData.StartDate = time.Now().Truncate(gctkline.OneMin.Duration()).Add(-gctkline.OneMin.Duration()).UTC()
 	cfg.DataSettings.APIData.EndDate = cfg.DataSettings.APIData.StartDate.Add(gctkline.OneMin.Duration()).UTC()
 	cfg.DataSettings.APIData.InclusiveEndDate = true
-	err = bt.SetupFromConfig(cfg, "", "", false)
+	err = bt.SetupFromConfig(cfg, "", "")
 	if !errors.Is(err, gctcommon.ErrNotYetImplemented) {
 		t.Fatalf("received: %v, expected: %v", err, gctcommon.ErrNotYetImplemented)
 	}
@@ -146,7 +146,7 @@ func TestSetupFromConfig(t *testing.T) {
 			TransferFee:  leet,
 		},
 	}
-	err = bt.SetupFromConfig(cfg, "", "", false)
+	err = bt.SetupFromConfig(cfg, "", "")
 	if !errors.Is(err, gctcommon.ErrNotYetImplemented) {
 		t.Fatalf("received: %v, expected: %v", err, gctcommon.ErrNotYetImplemented)
 	}
@@ -1172,7 +1172,7 @@ func TestProcessFuturesFillEvent(t *testing.T) {
 
 func TestCloseAllPositions(t *testing.T) {
 	t.Parallel()
-	bt, err := NewBacktester()
+	bt, err := NewBacktester(false)
 	if !errors.Is(err, nil) {
 		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
@@ -1250,7 +1250,7 @@ func TestCloseAllPositions(t *testing.T) {
 
 func TestRunLive(t *testing.T) {
 	t.Parallel()
-	bt, err := NewBacktester()
+	bt, err := NewBacktester(false)
 	if !errors.Is(err, nil) {
 		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
@@ -1335,7 +1335,7 @@ func TestRunLive(t *testing.T) {
 
 func TestLiveLoop(t *testing.T) {
 	t.Parallel()
-	bt, err := NewBacktester()
+	bt, err := NewBacktester(false)
 	if !errors.Is(err, nil) {
 		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}

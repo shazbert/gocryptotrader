@@ -232,6 +232,7 @@ func SQLDataToTrade(dbTrades ...tradesql.Data) ([]Data, error) {
 }
 
 // ConvertTradesToCandles turns trade data into kline.Items
+// TODO: Shift to kline package with tests.
 func ConvertTradesToCandles(interval kline.Interval, trades ...Data) (*kline.Item, error) {
 	if len(trades) == 0 {
 		return nil, ErrNoTradesSupplied
