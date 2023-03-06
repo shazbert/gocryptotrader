@@ -1088,11 +1088,10 @@ func TestProcessFuturesFillEvent(t *testing.T) {
 		DataHolder: &data.HandlerHolder{},
 		shutdown:   make(chan struct{}),
 	}
-	a := asset.Futures
 	de := &evkline.Kline{
 		Base: &event.Base{
 			Exchange:     testExchange,
-			AssetType:    a,
+			AssetType:    asset.Futures,
 			CurrencyPair: cp},
 	}
 	err := bt.Statistic.SetEventForOffset(de)
@@ -1107,11 +1106,11 @@ func TestProcessFuturesFillEvent(t *testing.T) {
 	}
 	exch.SetDefaults()
 	em.Add(exch)
-	b, err := funding.CreateItem(testExchange, a, cp.Base, decimal.Zero, decimal.Zero)
+	b, err := funding.CreateItem(testExchange, asset.Futures, cp.Base, decimal.Zero, decimal.Zero)
 	if !errors.Is(err, nil) {
 		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
-	quote, err := funding.CreateItem(testExchange, a, cp.Quote, leet, decimal.Zero)
+	quote, err := funding.CreateItem(testExchange, asset.Futures, cp.Quote, leet, decimal.Zero)
 	if !errors.Is(err, nil) {
 		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
@@ -1121,10 +1120,10 @@ func TestProcessFuturesFillEvent(t *testing.T) {
 	}
 
 	bt.exchangeManager = em
-	bt.Exchange.SetExchangeAssetCurrencySettings(a, cp, &exchange.Settings{
+	bt.Exchange.SetExchangeAssetCurrencySettings(asset.Futures, cp, &exchange.Settings{
 		Exchange: exch,
 		Pair:     cp,
-		Asset:    a,
+		Asset:    asset.Futures,
 	})
 	ev.Direction = gctorder.Short
 	err = bt.Statistic.SetEventForOffset(ev)
@@ -1160,7 +1159,7 @@ func TestProcessFuturesFillEvent(t *testing.T) {
 		OrderID:   "1",
 		Date:      time.Now(),
 	}
-	err = bt.DataHolder.SetDataForCurrency(testExchange, a, cp, k)
+	err = bt.DataHolder.SetDataForCurrency(testExchange, asset.Futures, cp, k)
 	if !errors.Is(err, nil) {
 		t.Fatalf("received '%v' expected '%v'", err, nil)
 	}
@@ -1674,14 +1673,15 @@ func TestMatchesID(t *testing.T) {
 func TestExecuteStrategy(t *testing.T) {
 	t.Parallel()
 	bt := &BackTest{
-		DataHolder: &fakeDataHolder{},
-		Strategy:   &fakeStrat{},
-		Portfolio:  &fakeFolio{},
-		Statistic:  &fakeStats{},
-		Reports:    &fakeReport{},
-		Funding:    &fakeFunding{},
-		EventQueue: &eventholder.Holder{},
-		shutdown:   make(chan struct{}),
+		DataHolder:               &fakeDataHolder{},
+		Strategy:                 &fakeStrat{},
+		Portfolio:                &fakeFolio{},
+		Statistic:                &fakeStats{},
+		Reports:                  &fakeReport{},
+		Funding:                  &fakeFunding{},
+		EventQueue:               &eventholder.Holder{},
+		shutdown:                 make(chan struct{}),
+		hasProcessedDataAtOffset: make(map[int64]bool),
 	}
 	err := bt.ExecuteStrategy(false)
 	if !errors.Is(err, errNotSetup) {

@@ -151,10 +151,11 @@ func (r *Request) ProcessResponse(timeSeries []Candle) (*Item, error) {
 	// function as it is used for method ConvertCandles on type ExtendedRequest
 	// for SetHasDataFromCandles candle matching.
 	// TODO: Shift burden of proof to the caller e.g. only find duplicates and error.
-	holder.RemoveDuplicates()
-	holder.RemoveOutsideRange(r.Start, r.End)
-	holder.SortCandlesByTimestamp(false)
-	err := holder.addPadding(r.Start, r.End, r.PartialCandle)
+	err := holder.Conform(r.Start, r.End)
+	if err != nil {
+		return nil, err
+	}
+	err = holder.addPadding(r.Start, r.End, r.PartialCandle)
 	if err != nil {
 		return nil, err
 	}

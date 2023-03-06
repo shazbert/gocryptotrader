@@ -156,6 +156,7 @@ func (f *FundManager) AddUSDTrackingData(k *kline.DataFromKline) error {
 	if f.disableUSDTracking {
 		return ErrUSDTrackingDisabled
 	}
+	fmt.Println("INSIDE AddUSDTrackingData")
 	baseSet := false
 	quoteSet := false
 	var basePairedWith currency.Code
@@ -167,6 +168,7 @@ func (f *FundManager) AddUSDTrackingData(k *kline.DataFromKline) error {
 			if f.items[i].isCollateral {
 				err := f.items[i].setUSDCandles(k)
 				if err != nil {
+					fmt.Println("setUSDCandles1")
 					return err
 				}
 			} else {
@@ -193,6 +195,7 @@ func (f *FundManager) AddUSDTrackingData(k *kline.DataFromKline) error {
 				}
 				err := f.items[i].setUSDCandles(k)
 				if err != nil {
+					fmt.Println("setUSDCandles2")
 					return err
 				}
 				quoteSet = true

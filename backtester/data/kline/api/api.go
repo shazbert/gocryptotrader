@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/thrasher-corp/gocryptotrader/backtester/common"
@@ -22,6 +21,7 @@ func LoadData(ctx context.Context, dataType int64, startDate, endDate time.Time,
 	var err error
 	switch dataType {
 	case common.DataCandle:
+		fmt.Println(exch.GetName())
 		candles, err = exch.GetHistoricCandlesExtended(ctx,
 			pair,
 			a,
@@ -78,6 +78,6 @@ func LoadData(ctx context.Context, dataType int64, startDate, endDate time.Time,
 		return nil, fmt.Errorf("could not retrieve data for %v %v %v, %w",
 			exch.GetName(), a, pair, common.ErrInvalidDataType)
 	}
-	candles.Exchange = strings.ToLower(candles.Exchange)
+	// candles.Exchange = strings.ToLower(candles.Exchange)
 	return candles, nil
 }

@@ -92,20 +92,6 @@ func (bt *BackTest) SetupFromConfig(cfg *config.Config, templatePath, output str
 		OutputPath:   output,
 	}
 	bt.Reports = reports
-	buyRule := exchange.MinMax{
-		MinimumSize:  cfg.PortfolioSettings.BuySide.MinimumSize,
-		MaximumSize:  cfg.PortfolioSettings.BuySide.MaximumSize,
-		MaximumTotal: cfg.PortfolioSettings.BuySide.MaximumTotal,
-	}
-	sellRule := exchange.MinMax{
-		MinimumSize:  cfg.PortfolioSettings.SellSide.MinimumSize,
-		MaximumSize:  cfg.PortfolioSettings.SellSide.MaximumSize,
-		MaximumTotal: cfg.PortfolioSettings.SellSide.MaximumTotal,
-	}
-	sizeManager := &size.Size{
-		BuySide:  buyRule,
-		SellSide: sellRule,
-	}
 
 	funds, err := funding.NewFundingManager(bt.exchangeManager,
 		cfg.FundingSettings.UseExchangeLevelFunding,
@@ -369,8 +355,20 @@ func (bt *BackTest) SetupFromConfig(cfg *config.Config, templatePath, output str
 
 	fmt.Println("portfolio and friends")
 
-	var p *portfolio.Portfolio
-	p, err = portfolio.Setup(sizeManager, portfolioRisk, cfg.StatisticSettings.RiskFreeRate)
+	sizeManager := &size.Size{
+		BuySide: exchange.MinMax{
+			MinimumSize:  cfg.PortfolioSettings.BuySide.MinimumSize,
+			MaximumSize:  cfg.PortfolioSettings.BuySide.MaximumSize,
+			MaximumTotal: cfg.PortfolioSettings.BuySide.MaximumTotal,
+		},
+		SellSide: exchange.MinMax{
+			MinimumSize:  cfg.PortfolioSettings.SellSide.MinimumSize,
+			MaximumSize:  cfg.PortfolioSettings.SellSide.MaximumSize,
+			MaximumTotal: cfg.PortfolioSettings.SellSide.MaximumTotal,
+		},
+	}
+
+	p, err := portfolio.Setup(sizeManager, portfolioRisk, cfg.StatisticSettings.RiskFreeRate)
 	if err != nil {
 		return err
 	}
@@ -446,6 +444,7 @@ func (bt *BackTest) SetupFromConfig(cfg *config.Config, templatePath, output str
 		}
 	}
 
+	fmt.Println("setupExchangeSettings")
 	e, err := bt.setupExchangeSettings(cfg)
 	if err != nil {
 		fmt.Println("LOLOLOLOL", err)
@@ -454,6 +453,7 @@ func (bt *BackTest) SetupFromConfig(cfg *config.Config, templatePath, output str
 
 	bt.Exchange = e
 	for i := range e.CurrencySettings {
+		fmt.Println("SetCurrencySettingsMap")
 		err = p.SetCurrencySettingsMap(&e.CurrencySettings[i])
 		if err != nil {
 			return err
@@ -461,6 +461,7 @@ func (bt *BackTest) SetupFromConfig(cfg *config.Config, templatePath, output str
 	}
 	bt.Portfolio = p
 
+	fmt.Println("GetAllFunding")
 	fundingItems, err := funds.GetAllFunding()
 	if err != nil {
 		return err
@@ -493,12 +494,14 @@ func (bt *BackTest) setupExchangeSettings(cfg *config.Config) (*exchange.Exchang
 			cfg.CurrencySettings[i].Quote,
 			cfg.CurrencySettings[i].Asset)
 		if err != nil {
+			fmt.Println("loadExchangePairAssetBase")
 			return nil, err
 		}
 
 		exchangeName := strings.ToLower(exch.GetName())
 		klineData, err := bt.loadData(cfg, exch, pair, a, cfg.CurrencySettings[i].USDTrackingPair)
 		if err != nil {
+			fmt.Println("loadData")
 			return nil, err
 		}
 		if bt.LiveDataHandler == nil {
@@ -506,6 +509,7 @@ func (bt *BackTest) setupExchangeSettings(cfg *config.Config) (*exchange.Exchang
 			if err != nil &&
 				!errors.Is(err, trackingcurrencies.ErrCurrencyDoesNotContainsUSD) &&
 				!errors.Is(err, funding.ErrUSDTrackingDisabled) {
+				fmt.Println("AddUSDTrackingData")
 				return nil, err
 			}
 
@@ -515,6 +519,7 @@ func (bt *BackTest) setupExchangeSettings(cfg *config.Config) (*exchange.Exchang
 
 			err = bt.DataHolder.SetDataForCurrency(exchangeName, a, pair, klineData)
 			if err != nil {
+				fmt.Println("SetDataForCurrency")
 				return nil, err
 			}
 		}
@@ -772,26 +777,26 @@ func (bt *BackTest) loadData(cfg *config.Config, exch gctexchange.IBotExchange, 
 			return nil, fmt.Errorf("unable to retrieve data from GoCryptoTrader database. Error: %v. Please ensure the database is setup correctly and has data before use", err)
 		}
 
-		resp.Item.RemoveDuplicates()
-		resp.Item.SortCandlesByTimestamp(false)
-		resp.RangeHolder, err = gctkline.CalculateCandleDateRanges(
-			cfg.DataSettings.DatabaseData.StartDate,
-			cfg.DataSettings.DatabaseData.EndDate,
-			cfg.DataSettings.Interval,
-			0,
-		)
-		if err != nil {
-			return nil, err
-		}
-		err = resp.RangeHolder.SetHasDataFromCandles(resp.Item.Candles)
-		if err != nil {
-			return nil, err
-		}
+		// resp.Item.RemoveDuplicates()
+		// resp.Item.SortCandlesByTimestamp(false)
+		// resp.RangeHolder, err = gctkline.CalculateCandleDateRanges(
+		// 	cfg.DataSettings.DatabaseData.StartDate,
+		// 	cfg.DataSettings.DatabaseData.EndDate,
+		// 	cfg.DataSettings.Interval,
+		// 	0,
+		// )
+		// if err != nil {
+		// 	return nil, err
+		// }
+		// err = resp.RangeHolder.SetHasDataFromCandles(resp.Item.Candles)
+		// if err != nil {
+		// 	return nil, err
+		// }
 
-		summary := resp.RangeHolder.DataSummary(false)
-		if len(summary) > 0 {
-			log.Warnf(common.Setup, "%v", summary)
-		}
+		// summary := resp.RangeHolder.DataSummary(false)
+		// if len(summary) > 0 {
+		// 	log.Warnf(common.Setup, "%v", summary)
+		// }
 	case cfg.DataSettings.APIData != nil:
 		fmt.Println("BRO API")
 		if cfg.DataSettings.APIData.InclusiveEndDate {
@@ -805,6 +810,7 @@ func (bt *BackTest) loadData(cfg *config.Config, exch gctexchange.IBotExchange, 
 			b.Features.Enabled.Kline.ResultLimit,
 			dataType)
 		if err != nil {
+			fmt.Println("loadAPIData")
 			return resp, err
 		}
 	case cfg.DataSettings.LiveData != nil:

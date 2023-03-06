@@ -190,6 +190,35 @@ func (k *Item) addPadding(start, exclusiveEnd time.Time, purgeOnPartial bool) er
 	return nil
 }
 
+// Conform aligns, strips monotonic clock, forces UTC times, removes duplicates
+// and removes candles that are outside of the start (inclusive) and end
+// (non-inclusive) date.
+// NOTE: This is intermediary before burden-of-proof shift to caller.
+func (k *Item) Conform(start, end time.Time) error {
+	if k == nil {
+		return fmt.Errorf("%T %w", k, common.ErrNilPointer)
+	}
+
+	// TODO: Check then error if any alignment, duplication and conformant
+	// issues.
+	sort.Slice(k.Candles, func(i, j int) bool { return k.Candles[i].Time.Before(k.Candles[j].Time) })
+
+	target := 0
+	var prev time.Time
+	for x := range k.Candles {
+		if k.Candles[x].Time.Equal(start) || (k.Candles[x].Time.After(start) && k.Candles[x].Time.Before(end)) {
+			if !prev.IsZero() && prev.Equal(k.Candles[x].Time) {
+				continue
+			}
+			prev = k.Candles[x].Time
+			k.Candles[x].Time = k.Candles[x].Time.Round(0).UTC()
+			target++
+		}
+	}
+
+	return nil
+}
+
 // RemoveDuplicates removes any duplicate candles. NOTE: Filter-in-place is used
 // in this function for optimization and to keep the slice reference pointer the
 // same, if changed ExtendedRequest ConvertCandles functionality will break.
