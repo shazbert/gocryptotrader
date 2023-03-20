@@ -75,8 +75,8 @@ func (b *BTSE) GetMarketSummary(ctx context.Context, symbol string, spot bool) (
 	return m, b.SendHTTPRequest(ctx, exchange.RestSpot, http.MethodGet, path, &m, spot, queryFunc)
 }
 
-// FetchOrderBook gets orderbook data for a given pair
-func (b *BTSE) FetchOrderBook(ctx context.Context, symbol string, group, limitBids, limitAsks int, spot bool) (*Orderbook, error) {
+// GetOrderbook gets orderbook data for a given pair
+func (b *BTSE) GetOrderbook(ctx context.Context, symbol string, group, limitBids, limitAsks int, spot bool) (*Orderbook, error) {
 	var o Orderbook
 	urlValues := url.Values{}
 	urlValues.Add("symbol", symbol)

@@ -390,34 +390,6 @@ func (g *Gemini) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Item
 		AssetType:    a})
 }
 
-// FetchTicker returns the ticker for a currency pair
-func (g *Gemini) FetchTicker(ctx context.Context, p currency.Pair, assetType asset.Item) (*ticker.Price, error) {
-	fPair, err := g.FormatExchangeCurrency(p, assetType)
-	if err != nil {
-		return nil, err
-	}
-
-	tickerNew, err := ticker.GetTicker(g.Name, fPair, assetType)
-	if err != nil {
-		return g.UpdateTicker(ctx, fPair, assetType)
-	}
-	return tickerNew, nil
-}
-
-// FetchOrderbook returns orderbook base on the currency pair
-func (g *Gemini) FetchOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
-	fPair, err := g.FormatExchangeCurrency(p, assetType)
-	if err != nil {
-		return nil, err
-	}
-
-	ob, err := orderbook.Get(g.Name, fPair, assetType)
-	if err != nil {
-		return g.UpdateOrderbook(ctx, fPair, assetType)
-	}
-	return ob, nil
-}
-
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (g *Gemini) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
 	fPair, err := g.FormatExchangeCurrency(p, assetType)

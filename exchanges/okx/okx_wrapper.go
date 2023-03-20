@@ -431,28 +431,6 @@ func (ok *Okx) UpdateTickers(ctx context.Context, assetType asset.Item) error {
 	return nil
 }
 
-// FetchTicker returns the ticker for a currency pair
-func (ok *Okx) FetchTicker(ctx context.Context, p currency.Pair, assetType asset.Item) (*ticker.Price, error) {
-	formattedPair, err := ok.FormatExchangeCurrency(p, assetType)
-	if err != nil {
-		return nil, err
-	}
-	tickerNew, err := ticker.GetTicker(ok.Name, formattedPair, assetType)
-	if err != nil {
-		return ok.UpdateTicker(ctx, p, assetType)
-	}
-	return tickerNew, nil
-}
-
-// FetchOrderbook returns orderbook base on the currency pair
-func (ok *Okx) FetchOrderbook(ctx context.Context, pair currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
-	ob, err := orderbook.Get(ok.Name, pair, assetType)
-	if err != nil {
-		return ok.UpdateOrderbook(ctx, pair, assetType)
-	}
-	return ob, nil
-}
-
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (ok *Okx) UpdateOrderbook(ctx context.Context, pair currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
 	book := &orderbook.Base{

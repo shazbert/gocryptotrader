@@ -364,34 +364,6 @@ func (b *BTCMarkets) UpdateTicker(ctx context.Context, p currency.Pair, a asset.
 	return ticker.GetTicker(b.Name, p, a)
 }
 
-// FetchTicker returns the ticker for a currency pair
-func (b *BTCMarkets) FetchTicker(ctx context.Context, p currency.Pair, assetType asset.Item) (*ticker.Price, error) {
-	fPair, err := b.FormatExchangeCurrency(p, assetType)
-	if err != nil {
-		return nil, err
-	}
-
-	tickerNew, err := ticker.GetTicker(b.Name, fPair, assetType)
-	if err != nil {
-		return b.UpdateTicker(ctx, p, assetType)
-	}
-	return tickerNew, nil
-}
-
-// FetchOrderbook returns orderbook base on the currency pair
-func (b *BTCMarkets) FetchOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
-	fPair, err := b.FormatExchangeCurrency(p, assetType)
-	if err != nil {
-		return nil, err
-	}
-
-	ob, err := orderbook.Get(b.Name, fPair, assetType)
-	if err != nil {
-		return b.UpdateOrderbook(ctx, p, assetType)
-	}
-	return ob, nil
-}
-
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (b *BTCMarkets) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
 	fpair, err := b.FormatExchangeCurrency(p, assetType)

@@ -243,24 +243,6 @@ func (e *EXMO) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Item) 
 	return ticker.GetTicker(e.Name, p, a)
 }
 
-// FetchTicker returns the ticker for a currency pair
-func (e *EXMO) FetchTicker(ctx context.Context, p currency.Pair, assetType asset.Item) (*ticker.Price, error) {
-	tick, err := ticker.GetTicker(e.Name, p, assetType)
-	if err != nil {
-		return e.UpdateTicker(ctx, p, assetType)
-	}
-	return tick, nil
-}
-
-// FetchOrderbook returns the orderbook for a currency pair
-func (e *EXMO) FetchOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
-	ob, err := orderbook.Get(e.Name, p, assetType)
-	if err != nil {
-		return e.UpdateOrderbook(ctx, p, assetType)
-	}
-	return ob, nil
-}
-
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (e *EXMO) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
 	// TODO: Implement batch update and handling via sync manager.

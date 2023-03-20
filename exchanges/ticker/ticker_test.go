@@ -202,8 +202,8 @@ func TestGetTicker(t *testing.T) {
 func TestFindLast(t *testing.T) {
 	cp := currency.NewPair(currency.BTC, currency.XRP)
 	_, err := FindLast(cp, asset.Spot)
-	if !errors.Is(err, errTickerNotFound) {
-		t.Errorf("received: %v but expected: %v", err, errTickerNotFound)
+	if !errors.Is(err, ErrTickerNotFound) {
+		t.Errorf("received: %v but expected: %v", err, ErrTickerNotFound)
 	}
 
 	err = service.update(&Price{Last: 0, ExchangeName: "testerinos", Pair: cp, AssetType: asset.Spot})

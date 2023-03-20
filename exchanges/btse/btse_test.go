@@ -96,19 +96,19 @@ func TestGetMarketsSummary(t *testing.T) {
 	}
 }
 
-func TestFetchOrderBook(t *testing.T) {
+func TestGetOrderbook(t *testing.T) {
 	t.Parallel()
-	_, err := b.FetchOrderBook(context.Background(), testSPOTPair, 0, 1, 1, true)
+	_, err := b.GetOrderbook(context.Background(), testSPOTPair, 0, 1, 1, true)
 	if err != nil {
 		t.Error(err)
 	}
 
-	_, err = b.FetchOrderBook(context.Background(), testFUTURESPair, 0, 1, 1, false)
+	_, err = b.GetOrderbook(context.Background(), testFUTURESPair, 0, 1, 1, false)
 	if err != nil {
 		t.Error(err)
 	}
 
-	_, err = b.FetchOrderBook(context.Background(), testSPOTPair, 1, 1, 1, true)
+	_, err = b.GetOrderbook(context.Background(), testSPOTPair, 1, 1, 1, true)
 	if err != nil {
 		t.Error(err)
 	}

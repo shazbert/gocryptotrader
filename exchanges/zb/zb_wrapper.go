@@ -296,24 +296,6 @@ func (z *ZB) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Item) (*
 	return ticker.GetTicker(z.Name, p, a)
 }
 
-// FetchTicker returns the ticker for a currency pair
-func (z *ZB) FetchTicker(ctx context.Context, p currency.Pair, assetType asset.Item) (*ticker.Price, error) {
-	tickerNew, err := ticker.GetTicker(z.Name, p, assetType)
-	if err != nil {
-		return z.UpdateTicker(ctx, p, assetType)
-	}
-	return tickerNew, nil
-}
-
-// FetchOrderbook returns orderbook base on the currency pair
-func (z *ZB) FetchOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
-	ob, err := orderbook.Get(z.Name, p, assetType)
-	if err != nil {
-		return z.UpdateOrderbook(ctx, p, assetType)
-	}
-	return ob, nil
-}
-
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (z *ZB) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
 	book := &orderbook.Base{

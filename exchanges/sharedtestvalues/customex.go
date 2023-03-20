@@ -59,7 +59,7 @@ func (c *CustomEx) ValidateCredentials(ctx context.Context, a asset.Item) error 
 }
 
 // FetchTicker is a mock method for CustomEx
-func (c *CustomEx) FetchTicker(ctx context.Context, p currency.Pair, a asset.Item) (*ticker.Price, error) {
+func (c *CustomEx) FetchTicker(bruhctx context.Context, p currency.Pair, a asset.Item) (*ticker.Price, error) {
 	return nil, nil
 }
 
@@ -74,7 +74,7 @@ func (c *CustomEx) UpdateTicker(ctx context.Context, p currency.Pair, a asset.It
 }
 
 // FetchOrderbook is a mock method for CustomEx
-func (c *CustomEx) FetchOrderbook(ctx context.Context, p currency.Pair, a asset.Item) (*orderbook.Base, error) {
+func (c *CustomEx) FetchOrderbook(bruhctx context.Context, p currency.Pair, a asset.Item) (*orderbook.Base, error) {
 	return nil, nil
 }
 

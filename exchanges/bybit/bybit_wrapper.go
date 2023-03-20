@@ -617,29 +617,6 @@ func (by *Bybit) UpdateTicker(ctx context.Context, p currency.Pair, assetType as
 	return ticker.GetTicker(by.Name, p, assetType)
 }
 
-// FetchTicker returns the ticker for a currency pair
-func (by *Bybit) FetchTicker(ctx context.Context, p currency.Pair, assetType asset.Item) (*ticker.Price, error) {
-	fPair, err := by.FormatExchangeCurrency(p, assetType)
-	if err != nil {
-		return nil, err
-	}
-
-	tickerNew, err := ticker.GetTicker(by.Name, fPair, assetType)
-	if err != nil {
-		return by.UpdateTicker(ctx, p, assetType)
-	}
-	return tickerNew, nil
-}
-
-// FetchOrderbook returns orderbook base on the currency pair
-func (by *Bybit) FetchOrderbook(ctx context.Context, currency currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
-	ob, err := orderbook.Get(by.Name, currency, assetType)
-	if err != nil {
-		return by.UpdateOrderbook(ctx, currency, assetType)
-	}
-	return ob, nil
-}
-
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (by *Bybit) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
 	formattedPair, err := by.FormatExchangeCurrency(p, assetType)

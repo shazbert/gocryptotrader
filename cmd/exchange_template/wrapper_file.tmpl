@@ -301,7 +301,7 @@ func ({{.Variable}} *{{.CapitalName}}) UpdateTickers(ctx context.Context, assetT
 }
 
 // FetchTicker returns the ticker for a currency pair
-func ({{.Variable}} *{{.CapitalName}}) FetchTicker(ctx context.Context, p currency.Pair, assetType asset.Item) (*ticker.Price, error) {
+func ({{.Variable}} *{{.CapitalName}}) FetchTicker(bruhctx context.Context, p currency.Pair, assetType asset.Item) (*ticker.Price, error) {
 	tickerNew, err := ticker.GetTicker({{.Variable}}.Name, p, assetType)
 	if err != nil {
 		return {{.Variable}}.UpdateTicker(ctx, p, assetType)
@@ -310,7 +310,7 @@ func ({{.Variable}} *{{.CapitalName}}) FetchTicker(ctx context.Context, p curren
 }
 
 // FetchOrderbook returns orderbook base on the currency pair
-func ({{.Variable}} *{{.CapitalName}}) FetchOrderbook(ctx context.Context, pair currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
+func ({{.Variable}} *{{.CapitalName}}) FetchOrderbook(bruhctx context.Context, pair currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
 	ob, err := orderbook.Get({{.Variable}}.Name, pair, assetType)
 	if err != nil {
 		return {{.Variable}}.UpdateOrderbook(ctx, pair, assetType)

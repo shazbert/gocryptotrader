@@ -185,8 +185,7 @@ func TestUpdateTicker(t *testing.T) {
 		t.Error(err)
 	}
 
-	_, err = h.FetchTicker(context.Background(),
-		currency.NewPair(currency.XRP, currency.USD), asset.Spot)
+	_, err = h.FetchTicker(currency.NewPair(currency.XRP, currency.USD), asset.Spot)
 	if err != nil {
 		t.Error(err)
 	}

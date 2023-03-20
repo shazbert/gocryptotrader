@@ -369,15 +369,6 @@ func (o *OKCoin) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Item
 	return ticker.GetTicker(o.Name, p, a)
 }
 
-// FetchTicker returns the ticker for a currency pair
-func (o *OKCoin) FetchTicker(ctx context.Context, p currency.Pair, assetType asset.Item) (*ticker.Price, error) {
-	tickerData, err := ticker.GetTicker(o.Name, p, assetType)
-	if err != nil {
-		return o.UpdateTicker(ctx, p, assetType)
-	}
-	return tickerData, nil
-}
-
 // GetRecentTrades returns the most recent trades for a currency and asset
 func (o *OKCoin) GetRecentTrades(ctx context.Context, p currency.Pair, assetType asset.Item) ([]trade.Data, error) {
 	var err error
@@ -428,19 +419,6 @@ func (o *OKCoin) GetRecentTrades(ctx context.Context, p currency.Pair, assetType
 // CancelBatchOrders cancels an orders by their corresponding ID numbers
 func (o *OKCoin) CancelBatchOrders(_ context.Context, _ []order.Cancel) (order.CancelBatchResponse, error) {
 	return order.CancelBatchResponse{}, common.ErrNotYetImplemented
-}
-
-// FetchOrderbook returns orderbook base on the currency pair
-func (o *OKCoin) FetchOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
-	fPair, err := o.FormatExchangeCurrency(p, assetType)
-	if err != nil {
-		return nil, err
-	}
-	ob, err := orderbook.Get(o.Name, fPair, assetType)
-	if err != nil {
-		return o.UpdateOrderbook(ctx, fPair, assetType)
-	}
-	return ob, nil
 }
 
 // UpdateOrderbook updates and returns the orderbook for a currency pair

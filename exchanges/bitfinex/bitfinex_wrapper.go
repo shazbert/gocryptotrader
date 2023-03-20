@@ -390,36 +390,6 @@ func (b *Bitfinex) UpdateTicker(ctx context.Context, p currency.Pair, a asset.It
 	return ticker.GetTicker(b.Name, p, a)
 }
 
-// FetchTicker returns the ticker for a currency pair
-func (b *Bitfinex) FetchTicker(ctx context.Context, p currency.Pair, a asset.Item) (*ticker.Price, error) {
-	fPair, err := b.FormatExchangeCurrency(p, a)
-	if err != nil {
-		return nil, err
-	}
-
-	b.appendOptionalDelimiter(&fPair)
-	tick, err := ticker.GetTicker(b.Name, fPair, asset.Spot)
-	if err != nil {
-		return b.UpdateTicker(ctx, fPair, a)
-	}
-	return tick, nil
-}
-
-// FetchOrderbook returns the orderbook for a currency pair
-func (b *Bitfinex) FetchOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
-	fPair, err := b.FormatExchangeCurrency(p, assetType)
-	if err != nil {
-		return nil, err
-	}
-
-	b.appendOptionalDelimiter(&fPair)
-	ob, err := orderbook.Get(b.Name, fPair, assetType)
-	if err != nil {
-		return b.UpdateOrderbook(ctx, fPair, assetType)
-	}
-	return ob, nil
-}
-
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (b *Bitfinex) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
 	o := &orderbook.Base{

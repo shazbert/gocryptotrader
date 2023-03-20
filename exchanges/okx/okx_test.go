@@ -1993,24 +1993,6 @@ func TestUpdateTickers(t *testing.T) {
 	}
 }
 
-func TestFetchTicker(t *testing.T) {
-	t.Parallel()
-	_, err := ok.FetchTicker(context.Background(), currency.NewPair(currency.BTC, currency.NewCode("USDT-SWAP")), asset.PerpetualSwap)
-	if err != nil {
-		t.Error("Okx FetchTicker() error", err)
-	}
-	if _, err = ok.FetchTicker(context.Background(), currency.NewPair(currency.BTC, currency.USDT), asset.Spot); err != nil {
-		t.Error("Okx FetchTicker() error", err)
-	}
-}
-
-func TestFetchOrderbook(t *testing.T) {
-	t.Parallel()
-	if _, err := ok.FetchOrderbook(context.Background(), currency.NewPair(currency.BTC, currency.USDT), asset.Spot); err != nil {
-		t.Error("Okx FetchOrderbook() error", err)
-	}
-}
-
 func TestUpdateOrderbook(t *testing.T) {
 	t.Parallel()
 	if _, err := ok.UpdateOrderbook(context.Background(), currency.NewPair(currency.BTC, currency.NewCode("USDT-SWAP")), asset.Spot); err != nil {

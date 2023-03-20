@@ -20,9 +20,11 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/margin"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/orderbook"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/protocol"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/request"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/stream"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/ticker"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/trade"
 	"github.com/thrasher-corp/gocryptotrader/log"
 	"github.com/thrasher-corp/gocryptotrader/portfolio/banking"
@@ -1495,4 +1497,58 @@ func (b *Base) GetFundingRates(ctx context.Context, request *order.FundingRatesR
 // differs by exchange
 func (b *Base) IsPerpetualFutureCurrency(asset.Item, currency.Pair) (bool, error) {
 	return false, common.ErrNotYetImplemented
+}
+
+var errCurrencyPairNotEnabled = errors.New("currency pair not enabled")
+
+// FetchTicker returns the ticker for a currency pair. UpdateTicker needs to be
+// called first before ticker is stored.
+func (b *Base) FetchTicker(pair currency.Pair, a asset.Item) (*ticker.Price, error) {
+	if b == nil {
+		return nil, fmt.Errorf("cannot fetch ticker %w %T", common.ErrNilPointer, b)
+	}
+	if pair.IsEmpty() {
+		return nil, fmt.Errorf("cannot fetch ticker %w", currency.ErrCurrencyPairEmpty)
+	}
+	if !a.IsValid() {
+		return nil, fmt.Errorf("cannot fetch ticker [%s] %w", a, asset.ErrNotSupported)
+	}
+	enabled, err := b.GetEnabledPairs(a)
+	if err != nil {
+		return nil, fmt.Errorf("cannot fetch ticker %w", err)
+	}
+	if !enabled.Contains(pair, true) {
+		return nil, fmt.Errorf("cannot fetch ticker %w", errCurrencyPairNotEnabled)
+	}
+	tick, err := ticker.GetTicker(b.Name, pair, a)
+	if err != nil {
+		return nil, fmt.Errorf("cannot fetch ticker %w", err)
+	}
+	return tick, nil
+}
+
+// FetchOrderbook returns orderbook base for the currency pair. UpdateOrderbook
+// needs to be called first before orderbook is stored.
+func (b *Base) FetchOrderbook(pair currency.Pair, a asset.Item) (*orderbook.Base, error) {
+	if b == nil {
+		return nil, fmt.Errorf("cannot fetch ticker %w %T", common.ErrNilPointer, b)
+	}
+	if pair.IsEmpty() {
+		return nil, fmt.Errorf("cannot fetch orderbook %w", currency.ErrCurrencyPairEmpty)
+	}
+	if !a.IsValid() {
+		return nil, fmt.Errorf("cannot fetch orderbook [%s] %w", a, asset.ErrNotSupported)
+	}
+	enabled, err := b.GetEnabledPairs(a)
+	if err != nil {
+		return nil, fmt.Errorf("cannot fetch orderbook %w", err)
+	}
+	if !enabled.Contains(pair, true) {
+		return nil, fmt.Errorf("cannot fetch orderbook %w", errCurrencyPairNotEnabled)
+	}
+	book, err := orderbook.Get(b.Name, pair, a)
+	if err != nil {
+		return nil, fmt.Errorf("cannot fetch orderbook %w", err)
+	}
+	return book, nil
 }

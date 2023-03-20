@@ -13,8 +13,10 @@ import (
 )
 
 var (
+	// ErrTickerNotFound defines an error for when a ticker is not found in storage
+	ErrTickerNotFound = errors.New("ticker not found")
+
 	errInvalidTicker       = errors.New("invalid ticker")
-	errTickerNotFound      = errors.New("ticker not found")
 	errExchangeNameIsEmpty = errors.New("exchange name is empty")
 )
 
@@ -61,29 +63,10 @@ func GetTicker(exchange string, p currency.Pair, a asset.Item) (*Price, error) {
 	exchange = strings.ToLower(exchange)
 	service.mu.Lock()
 	defer service.mu.Unlock()
-	m1, ok := service.Tickers[exchange]
+	t, ok := service.Tickers[exchange][p.Base.Item][p.Quote.Item][a]
 	if !ok {
-		return nil, fmt.Errorf("no tickers for %s exchange", exchange)
+		return nil, fmt.Errorf("%w %s %s %s", ErrTickerNotFound, exchange, p, a)
 	}
-
-	m2, ok := m1[p.Base.Item]
-	if !ok {
-		return nil, fmt.Errorf("no tickers associated with base currency %s",
-			p.Base)
-	}
-
-	m3, ok := m2[p.Quote.Item]
-	if !ok {
-		return nil, fmt.Errorf("no tickers associated with quote currency %s",
-			p.Quote)
-	}
-
-	t, ok := m3[a]
-	if !ok {
-		return nil, fmt.Errorf("no tickers associated with asset type %s",
-			a)
-	}
-
 	cpy := t.Price // Don't let external functions have access to underlying
 	return &cpy, nil
 }
@@ -111,7 +94,7 @@ func FindLast(p currency.Pair, a asset.Item) (float64, error) {
 		}
 		return t.Last, nil
 	}
-	return 0, fmt.Errorf("%w %s %s", errTickerNotFound, p, a)
+	return 0, fmt.Errorf("%w %s %s", ErrTickerNotFound, p, a)
 }
 
 // ProcessTicker processes incoming tickers, creating or updating the Tickers

@@ -285,24 +285,6 @@ func (g *Gateio) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Item
 	return ticker.GetTicker(g.Name, p, a)
 }
 
-// FetchTicker returns the ticker for a currency pair
-func (g *Gateio) FetchTicker(ctx context.Context, p currency.Pair, assetType asset.Item) (*ticker.Price, error) {
-	tickerNew, err := ticker.GetTicker(g.Name, p, assetType)
-	if err != nil {
-		return g.UpdateTicker(ctx, p, assetType)
-	}
-	return tickerNew, nil
-}
-
-// FetchOrderbook returns orderbook base on the currency pair
-func (g *Gateio) FetchOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
-	ob, err := orderbook.Get(g.Name, p, assetType)
-	if err != nil {
-		return g.UpdateOrderbook(ctx, p, assetType)
-	}
-	return ob, nil
-}
-
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (g *Gateio) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
 	curr, err := g.FormatExchangeCurrency(p, assetType)

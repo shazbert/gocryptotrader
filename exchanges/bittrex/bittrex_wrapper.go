@@ -328,24 +328,6 @@ func (b *Bittrex) constructTicker(t TickerData, s *MarketSummaryData, pair curre
 	}
 }
 
-// FetchTicker returns the ticker for a currency pair
-func (b *Bittrex) FetchTicker(ctx context.Context, p currency.Pair, assetType asset.Item) (*ticker.Price, error) {
-	resp, err := ticker.GetTicker(b.Name, p, assetType)
-	if err != nil {
-		return b.UpdateTicker(ctx, p, assetType)
-	}
-	return resp, nil
-}
-
-// FetchOrderbook returns orderbook base on the currency pair
-func (b *Bittrex) FetchOrderbook(ctx context.Context, c currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
-	resp, err := orderbook.Get(b.Name, c, assetType)
-	if err != nil {
-		return b.UpdateOrderbook(ctx, c, assetType)
-	}
-	return resp, nil
-}
-
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (b *Bittrex) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
 	formattedPair, err := b.FormatExchangeCurrency(p, assetType)

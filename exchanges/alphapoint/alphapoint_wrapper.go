@@ -169,15 +169,6 @@ func (a *Alphapoint) UpdateTicker(ctx context.Context, p currency.Pair, assetTyp
 	})
 }
 
-// FetchTicker returns the ticker for a currency pair
-func (a *Alphapoint) FetchTicker(ctx context.Context, p currency.Pair, assetType asset.Item) (*ticker.Price, error) {
-	tick, err := ticker.GetTicker(a.Name, p, assetType)
-	if err != nil {
-		return a.UpdateTicker(ctx, p, assetType)
-	}
-	return tick, nil
-}
-
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (a *Alphapoint) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
 	orderBook := new(orderbook.Base)
@@ -207,15 +198,6 @@ func (a *Alphapoint) UpdateOrderbook(ctx context.Context, p currency.Pair, asset
 	orderBook.Asset = assetType
 
 	return orderBook.Process()
-}
-
-// FetchOrderbook returns the orderbook for a currency pair
-func (a *Alphapoint) FetchOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
-	ob, err := orderbook.Get(a.Name, p, assetType)
-	if err != nil {
-		return a.UpdateOrderbook(ctx, p, assetType)
-	}
-	return ob, nil
 }
 
 // GetFundingHistory returns funding history, deposits and

@@ -505,24 +505,6 @@ func (k *Kraken) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Item
 	return ticker.GetTicker(k.Name, p, a)
 }
 
-// FetchTicker returns the ticker for a currency pair
-func (k *Kraken) FetchTicker(ctx context.Context, p currency.Pair, assetType asset.Item) (*ticker.Price, error) {
-	tickerNew, err := ticker.GetTicker(k.Name, p, assetType)
-	if err != nil {
-		return k.UpdateTicker(ctx, p, assetType)
-	}
-	return tickerNew, nil
-}
-
-// FetchOrderbook returns orderbook base on the currency pair
-func (k *Kraken) FetchOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
-	ob, err := orderbook.Get(k.Name, p, assetType)
-	if err != nil {
-		return k.UpdateOrderbook(ctx, p, assetType)
-	}
-	return ob, nil
-}
-
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (k *Kraken) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
 	book := &orderbook.Base{

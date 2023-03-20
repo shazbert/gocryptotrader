@@ -451,24 +451,6 @@ func (c *COINUT) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Item
 		AssetType:    a})
 }
 
-// FetchTicker returns the ticker for a currency pair
-func (c *COINUT) FetchTicker(ctx context.Context, p currency.Pair, assetType asset.Item) (*ticker.Price, error) {
-	tickerNew, err := ticker.GetTicker(c.Name, p, assetType)
-	if err != nil {
-		return c.UpdateTicker(ctx, p, assetType)
-	}
-	return tickerNew, nil
-}
-
-// FetchOrderbook returns orderbook base on the currency pair
-func (c *COINUT) FetchOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
-	ob, err := orderbook.Get(c.Name, p, assetType)
-	if err != nil {
-		return c.UpdateOrderbook(ctx, p, assetType)
-	}
-	return ob, nil
-}
-
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (c *COINUT) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
 	err := c.loadInstrumentsIfNotLoaded()

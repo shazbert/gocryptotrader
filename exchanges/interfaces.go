@@ -29,10 +29,10 @@ type IBotExchange interface {
 	SetDefaults()
 	GetName() string
 	SetEnabled(bool)
-	FetchTicker(ctx context.Context, p currency.Pair, a asset.Item) (*ticker.Price, error)
+	FetchTicker(p currency.Pair, a asset.Item) (*ticker.Price, error)
 	UpdateTicker(ctx context.Context, p currency.Pair, a asset.Item) (*ticker.Price, error)
 	UpdateTickers(ctx context.Context, a asset.Item) error
-	FetchOrderbook(ctx context.Context, p currency.Pair, a asset.Item) (*orderbook.Base, error)
+	FetchOrderbook(p currency.Pair, a asset.Item) (*orderbook.Base, error)
 	UpdateOrderbook(ctx context.Context, p currency.Pair, a asset.Item) (*orderbook.Base, error)
 	FetchTradablePairs(ctx context.Context, a asset.Item) (currency.Pairs, error)
 	UpdateTradablePairs(ctx context.Context, forceUpdate bool) error

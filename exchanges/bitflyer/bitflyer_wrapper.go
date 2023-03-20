@@ -228,20 +228,6 @@ func (b *Bitflyer) UpdateTicker(ctx context.Context, p currency.Pair, a asset.It
 		AssetType:    a})
 }
 
-// FetchTicker returns the ticker for a currency pair
-func (b *Bitflyer) FetchTicker(ctx context.Context, p currency.Pair, assetType asset.Item) (*ticker.Price, error) {
-	fPair, err := b.FormatExchangeCurrency(p, assetType)
-	if err != nil {
-		return nil, err
-	}
-
-	tick, err := ticker.GetTicker(b.Name, fPair, assetType)
-	if err != nil {
-		return b.UpdateTicker(ctx, fPair, assetType)
-	}
-	return tick, nil
-}
-
 // CheckFXString upgrades currency pair if needed
 func (b *Bitflyer) CheckFXString(p currency.Pair) currency.Pair {
 	if strings.Contains(p.Base.String(), "FX") {
@@ -249,20 +235,6 @@ func (b *Bitflyer) CheckFXString(p currency.Pair) currency.Pair {
 		return p
 	}
 	return p
-}
-
-// FetchOrderbook returns the orderbook for a currency pair
-func (b *Bitflyer) FetchOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
-	fPair, err := b.FormatExchangeCurrency(p, assetType)
-	if err != nil {
-		return nil, err
-	}
-
-	ob, err := orderbook.Get(b.Name, fPair, assetType)
-	if err != nil {
-		return b.UpdateOrderbook(ctx, fPair, assetType)
-	}
-	return ob, nil
 }
 
 // UpdateOrderbook updates and returns the orderbook for a currency pair

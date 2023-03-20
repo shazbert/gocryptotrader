@@ -323,31 +323,13 @@ func (b *BTSE) UpdateTicker(ctx context.Context, p currency.Pair, a asset.Item) 
 	return ticker.GetTicker(b.Name, p, a)
 }
 
-// FetchTicker returns the ticker for a currency pair
-func (b *BTSE) FetchTicker(ctx context.Context, p currency.Pair, assetType asset.Item) (*ticker.Price, error) {
-	tickerNew, err := ticker.GetTicker(b.Name, p, assetType)
-	if err != nil {
-		return b.UpdateTicker(ctx, p, assetType)
-	}
-	return tickerNew, nil
-}
-
-// FetchOrderbook returns orderbook base on the currency pair
-func (b *BTSE) FetchOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
-	ob, err := orderbook.Get(b.Name, p, assetType)
-	if err != nil {
-		return b.UpdateOrderbook(ctx, p, assetType)
-	}
-	return ob, nil
-}
-
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (b *BTSE) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
 	fPair, err := b.FormatExchangeCurrency(p, assetType)
 	if err != nil {
 		return nil, err
 	}
-	a, err := b.FetchOrderBook(ctx, fPair.String(), 0, 0, 0, assetType == asset.Spot)
+	a, err := b.GetOrderbook(ctx, fPair.String(), 0, 0, 0, assetType == asset.Spot)
 	if err != nil {
 		return nil, err
 	}

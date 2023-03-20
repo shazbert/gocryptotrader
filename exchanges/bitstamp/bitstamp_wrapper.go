@@ -341,20 +341,6 @@ func (b *Bitstamp) UpdateTicker(ctx context.Context, p currency.Pair, a asset.It
 		AssetType:    a})
 }
 
-// FetchTicker returns the ticker for a currency pair
-func (b *Bitstamp) FetchTicker(ctx context.Context, p currency.Pair, assetType asset.Item) (*ticker.Price, error) {
-	fPair, err := b.FormatExchangeCurrency(p, assetType)
-	if err != nil {
-		return nil, err
-	}
-
-	tick, err := ticker.GetTicker(b.Name, fPair, assetType)
-	if err != nil {
-		return b.UpdateTicker(ctx, fPair, assetType)
-	}
-	return tick, nil
-}
-
 // GetFeeByType returns an estimate of fee based on type of transaction
 func (b *Bitstamp) GetFeeByType(ctx context.Context, feeBuilder *exchange.FeeBuilder) (float64, error) {
 	if feeBuilder == nil {
@@ -365,20 +351,6 @@ func (b *Bitstamp) GetFeeByType(ctx context.Context, feeBuilder *exchange.FeeBui
 		feeBuilder.FeeType = exchange.OfflineTradeFee
 	}
 	return b.GetFee(ctx, feeBuilder)
-}
-
-// FetchOrderbook returns the orderbook for a currency pair
-func (b *Bitstamp) FetchOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
-	fPair, err := b.FormatExchangeCurrency(p, assetType)
-	if err != nil {
-		return nil, err
-	}
-
-	ob, err := orderbook.Get(b.Name, fPair, assetType)
-	if err != nil {
-		return b.UpdateOrderbook(ctx, fPair, assetType)
-	}
-	return ob, nil
 }
 
 // UpdateOrderbook updates and returns the orderbook for a currency pair

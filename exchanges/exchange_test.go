@@ -13,9 +13,11 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/orderbook"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/protocol"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/request"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/stream"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/ticker"
 	"github.com/thrasher-corp/gocryptotrader/portfolio/banking"
 )
 
@@ -2680,5 +2682,135 @@ func TestHasAssetTypeAccountSegregation(t *testing.T) {
 	has := b.HasAssetTypeAccountSegregation()
 	if !has {
 		t.Errorf("expected '%v' received '%v'", true, false)
+	}
+}
+
+func TestFetchTicker(t *testing.T) {
+	t.Parallel()
+	var b *Base
+	_, err := b.FetchTicker(currency.EMPTYPAIR, 0)
+	if !errors.Is(err, common.ErrNilPointer) {
+		t.Fatalf("received: '%v' but expected: '%v'", err, common.ErrNilPointer)
+	}
+
+	b = &Base{}
+	_, err = b.FetchTicker(currency.EMPTYPAIR, 0)
+	if !errors.Is(err, currency.ErrCurrencyPairEmpty) {
+		t.Fatalf("received: '%v' but expected: '%v'", err, currency.ErrCurrencyPairEmpty)
+	}
+
+	pair := currency.NewPair(currency.BTC, currency.USDT)
+
+	_, err = b.FetchTicker(pair, 0)
+	if !errors.Is(err, asset.ErrNotSupported) {
+		t.Fatalf("received: '%v' but expected: '%v'", err, asset.ErrNotSupported)
+	}
+
+	_, err = b.FetchTicker(pair, asset.Spot)
+	if !errors.Is(err, errCurrencyPairNotEnabled) {
+		t.Fatalf("received: '%v' but expected: '%v'", err, errCurrencyPairNotEnabled)
+	}
+
+	b.Name = "RAWR"
+	b.CurrencyPairs = currency.PairsManager{
+		Pairs: map[asset.Item]*currency.PairStore{
+			asset.Spot: {
+				AssetEnabled:  convert.BoolPtr(true),
+				Enabled:       currency.Pairs{pair},
+				Available:     currency.Pairs{pair},
+				RequestFormat: &currency.PairFormat{Delimiter: "-", Uppercase: true},
+				ConfigFormat:  &currency.EMPTYFORMAT,
+			},
+		},
+	}
+
+	_, err = b.FetchTicker(pair, asset.Spot)
+	if !errors.Is(err, ticker.ErrTickerNotFound) {
+		t.Fatalf("received: '%v' but expected: '%v'", err, ticker.ErrTickerNotFound)
+	}
+
+	_, err = ticker.ProcessTicker(&ticker.Price{
+		ExchangeName: "RAWR",
+		Pair:         pair,
+		AssetType:    asset.Spot,
+		Last:         1234,
+	})
+	if !errors.Is(err, nil) {
+		t.Fatalf("received: '%v' but expected: '%v'", err, nil)
+	}
+
+	tp, err := b.FetchTicker(pair, asset.Spot)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received: '%v' but expected: '%v'", err, nil)
+	}
+
+	if tp.Last != 1234 {
+		t.Fatalf("received: '%v' but expected: '%v'", tp.Last, 1234)
+	}
+}
+
+func TestFetchOrderbook(t *testing.T) {
+	t.Parallel()
+	var b *Base
+	_, err := b.FetchOrderbook(currency.EMPTYPAIR, 0)
+	if !errors.Is(err, common.ErrNilPointer) {
+		t.Fatalf("received: '%v' but expected: '%v'", err, common.ErrNilPointer)
+	}
+
+	b = &Base{}
+	_, err = b.FetchOrderbook(currency.EMPTYPAIR, 0)
+	if !errors.Is(err, currency.ErrCurrencyPairEmpty) {
+		t.Fatalf("received: '%v' but expected: '%v'", err, currency.ErrCurrencyPairEmpty)
+	}
+
+	pair := currency.NewPair(currency.BTC, currency.USDT)
+
+	_, err = b.FetchOrderbook(pair, 0)
+	if !errors.Is(err, asset.ErrNotSupported) {
+		t.Fatalf("received: '%v' but expected: '%v'", err, asset.ErrNotSupported)
+	}
+
+	_, err = b.FetchOrderbook(pair, asset.Spot)
+	if !errors.Is(err, errCurrencyPairNotEnabled) {
+		t.Fatalf("received: '%v' but expected: '%v'", err, errCurrencyPairNotEnabled)
+	}
+
+	b.Name = "RAWR"
+	b.CurrencyPairs = currency.PairsManager{
+		Pairs: map[asset.Item]*currency.PairStore{
+			asset.Spot: {
+				AssetEnabled:  convert.BoolPtr(true),
+				Enabled:       currency.Pairs{pair},
+				Available:     currency.Pairs{pair},
+				RequestFormat: &currency.PairFormat{Delimiter: "-", Uppercase: true},
+				ConfigFormat:  &currency.EMPTYFORMAT,
+			},
+		},
+	}
+
+	_, err = b.FetchOrderbook(pair, asset.Spot)
+	if !errors.Is(err, orderbook.ErrCannotFindOrderbook) {
+		t.Fatalf("received: '%v' but expected: '%v'", err, orderbook.ErrCannotFindOrderbook)
+	}
+
+	ob := &orderbook.Base{
+		Exchange: "RAWR",
+		Pair:     pair,
+		Asset:    asset.Spot,
+		Bids:     []orderbook.Item{{Amount: 1, Price: 1}},
+		Asks:     []orderbook.Item{{Amount: 1, Price: 1}},
+	}
+	_, err = ob.Process()
+	if !errors.Is(err, nil) {
+		t.Fatalf("received: '%v' but expected: '%v'", err, nil)
+	}
+
+	fetchedBook, err := b.FetchOrderbook(pair, asset.Spot)
+	if !errors.Is(err, nil) {
+		t.Fatalf("received: '%v' but expected: '%v'", err, nil)
+	}
+
+	if fetchedBook.Bids[0].Amount != 1 {
+		t.Fatalf("received: '%v' but expected: '%v'", fetchedBook.Bids[0].Amount, 1)
 	}
 }

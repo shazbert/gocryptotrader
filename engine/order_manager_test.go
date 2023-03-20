@@ -33,7 +33,7 @@ func (f omfExchange) CancelOrder(ctx context.Context, o *order.Cancel) error {
 	return nil
 }
 
-func (f omfExchange) FetchTicker(ctx context.Context, p currency.Pair, a asset.Item) (*ticker.Price, error) {
+func (f omfExchange) FetchTicker(bruhctx context.Context, p currency.Pair, a asset.Item) (*ticker.Price, error) {
 	return &ticker.Price{
 		Last:                  1337,
 		High:                  1337,

@@ -218,24 +218,6 @@ func (l *LocalBitcoins) UpdateTicker(ctx context.Context, p currency.Pair, a ass
 	return ticker.GetTicker(l.Name, p, a)
 }
 
-// FetchTicker returns the ticker for a currency pair
-func (l *LocalBitcoins) FetchTicker(ctx context.Context, p currency.Pair, assetType asset.Item) (*ticker.Price, error) {
-	tickerNew, err := ticker.GetTicker(l.Name, p, assetType)
-	if err != nil {
-		return l.UpdateTicker(ctx, p, assetType)
-	}
-	return tickerNew, nil
-}
-
-// FetchOrderbook returns orderbook base on the currency pair
-func (l *LocalBitcoins) FetchOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
-	ob, err := orderbook.Get(l.Name, p, assetType)
-	if err != nil {
-		return l.UpdateOrderbook(ctx, p, assetType)
-	}
-	return ob, nil
-}
-
 // UpdateOrderbook updates and returns the orderbook for a currency pair
 func (l *LocalBitcoins) UpdateOrderbook(ctx context.Context, p currency.Pair, assetType asset.Item) (*orderbook.Base, error) {
 	orderbookNew, err := l.GetOrderbook(ctx, p.Quote.String())

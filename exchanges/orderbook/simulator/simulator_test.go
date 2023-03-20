@@ -1,7 +1,7 @@
 package simulator
 
 import (
-	"context"
+	"sync"
 	"testing"
 
 	"github.com/thrasher-corp/gocryptotrader/currency"
@@ -12,11 +12,20 @@ import (
 func TestSimulate(t *testing.T) {
 	b := bitstamp.Bitstamp{}
 	b.SetDefaults()
-	b.Verbose = false
-	o, err := b.FetchOrderbook(context.Background(),
-		currency.NewPair(currency.BTC, currency.USD), asset.Spot)
+	var wg sync.WaitGroup
+	err := b.Start(&wg)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
+	}
+	b.Verbose = false
+	pair := currency.NewPair(currency.BTC, currency.USD)
+	err = b.CurrencyPairs.EnablePair(asset.Spot, pair)
+	if err != nil {
+		t.Fatal(err)
+	}
+	o, err := b.FetchOrderbook(pair, asset.Spot)
+	if err != nil {
+		t.Fatal(err)
 	}
 	_, err = o.SimulateOrder(10000000, true)
 	if err != nil {
