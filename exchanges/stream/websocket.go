@@ -214,25 +214,25 @@ func (w *Websocket) SetupNewConnection(c ConnectionSetup) error {
 		c.ConnectionLevelReporter = globalReporter
 	}
 
-	newConn := &WebsocketConnection{
-		ExchangeName:      w.exchangeName,
-		URL:               connectionURL,
-		ProxyURL:          w.GetProxyAddress(),
-		Verbose:           w.verbose,
-		ResponseMaxLimit:  c.ResponseMaxLimit,
-		Traffic:           w.TrafficAlert,
-		readMessageErrors: w.ReadMessageErrors,
-		ShutdownC:         w.ShutdownC,
-		Wg:                w.Wg,
-		Match:             w.Match,
-		RateLimit:         c.RateLimit,
-		Reporter:          c.ConnectionLevelReporter,
+	newConn := ConnState{
+		// ExchangeName:      w.exchangeName,
+		URL: connectionURL,
+		// ProxyURL:          w.GetProxyAddress(),
+		// Verbose:           w.verbose,
+		ResponseMaxLimit: c.ResponseMaxLimit,
+		// Traffic:           w.TrafficAlert,
+		// readMessageErrors: w.ReadMessageErrors,
+		// ShutdownC:         w.ShutdownC,
+		// Wg:                w.Wg,
+		// Match:             w.Match,
+		RateLimit: c.RateLimit,
+		Reporter:  c.ConnectionLevelReporter,
 	}
 
 	if c.Authenticated {
-		w.AuthConn = newConn
+		w.AuthState = newConn
 	} else {
-		w.Conn = newConn
+		w.UnauthState = newConn
 	}
 
 	return nil

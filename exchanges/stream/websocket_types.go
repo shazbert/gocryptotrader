@@ -47,7 +47,7 @@ type Websocket struct {
 	connector                    func() error
 
 	subscriptionMutex sync.Mutex
-	subscriptions     []ChannelSubscription
+	subscriptions     map[Connection]ChannelSubscription
 	Subscribe         chan []ChannelSubscription
 	Unsubscribe       chan []ChannelSubscription
 
@@ -87,9 +87,11 @@ type Websocket struct {
 	features          *protocol.Features
 
 	// Standard stream connection
-	Conn Connection
+	UnauthState ConnState
+	Conn        ConnectionPool
 	// Authenticated stream connection
-	AuthConn Connection
+	AuthState ConnState
+	AuthConn  ConnectionPool
 
 	// Latency reporter
 	ExchangeLevelReporter Reporter
@@ -99,14 +101,67 @@ type Websocket struct {
 	MaxSubscriptionsPerConnection int
 }
 
+// ConnectionPool is a collection of websocket connections
+type ConnectionPool []Connection
+
+// Shutdown closes all websocket connections
+func (c ConnectionPool) Shutdown() error {
+	for i := range c {
+		err := c[i].Shutdown()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// SetURL sets the URL for all connections
+func (c ConnectionPool) SetURL(url string) {
+	for i := range c {
+		c[i].SetURL(url)
+	}
+}
+
+// SetProxy sets the proxy for all connections
+func (c ConnectionPool) SetProxy(url string) {
+	for i := range c {
+		c[i].SetProxy(url)
+	}
+}
+
+// SendPayloadUnsubscribe sends a payload to unsubscribe from a channel
+// it will then release the subscription from the connection and return
+func (w *Websocket) SendPayloadUnsubscribe(payload any, isAuth bool, channels ...ChannelSubscription) error {
+	// Match the channels to the connection
+	m := make(map[Connection][]ChannelSubscription)
+	for i := range channels {
+		for key, val := range w.subscriptions {
+			if val.Equal(&channels[i]) {
+				m[key] = append(m[key], channels[i])
+				break
+			}
+		}
+	}
+	return nil
+}
+
+// SendPayloadSubscribe sends a payload to subscribe to a channel and adds the
+// subscription to the connection.
+func (w *Websocket) SendPayloadSubscribe(payload any, isAuth bool, channels ...ChannelSubscription) error {
+	return nil
+}
+
 // WebsocketSetup defines variables for setting up a websocket connection
 type WebsocketSetup struct {
-	ExchangeConfig        *config.Exchange
-	DefaultURL            string
-	RunningURL            string
-	RunningURLAuth        string
-	Connector             func() error
-	Subscriber            func([]ChannelSubscription) error
+	ExchangeConfig *config.Exchange
+	DefaultURL     string
+	RunningURL     string
+	RunningURLAuth string
+	// Connector is a function that connects individual websocket connections
+	// to the exchange. This can be used for exchanges that have multiple
+	// websocket connections.
+	Connector             func(conn Connection, isAuth bool) error
+	Subscriber            func(conn Connection, subs []ChannelSubscription) error
 	Unsubscriber          func([]ChannelSubscription) error
 	GenerateSubscriptions func() ([]ChannelSubscription, error)
 	Features              *protocol.Features
@@ -148,4 +203,12 @@ type WebsocketConnection struct {
 	readMessageErrors chan error
 
 	Reporter Reporter
+}
+
+// ConnState defines the connection state
+type ConnState struct {
+	URL              string
+	ResponseMaxLimit time.Duration
+	RateLimit        int64
+	Reporter         Reporter
 }

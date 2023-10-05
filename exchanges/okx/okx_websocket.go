@@ -213,34 +213,32 @@ const (
 )
 
 // WsConnect initiates a websocket connection
-func (ok *Okx) WsConnect() error {
+func (ok *Okx) WsConnect(conn stream.Connection, isAuth bool) error {
 	if !ok.Websocket.IsEnabled() || !ok.IsEnabled() {
 		return errors.New(stream.WebsocketNotEnabled)
 	}
-	var dialer websocket.Dialer
-	dialer.ReadBufferSize = 8192
-	dialer.WriteBufferSize = 8192
 
-	err := ok.Websocket.Conn.Dial(&dialer, http.Header{})
-	if err != nil {
-		return err
+	if !isAuth {
+		err := conn.Dial(&websocket.Dialer{ReadBufferSize: 8192, WriteBufferSize: 8192}, nil)
+		if err != nil {
+			return err
+		}
+		ok.Websocket.Wg.Add(1)
+		go ok.wsReadData(conn)
+		if ok.Verbose {
+			log.Debugf(log.ExchangeSys, "Successful connection to %v\n",
+				ok.Websocket.GetWebsocketURL())
+		}
+		conn.SetupPingHandler(stream.PingHandler{
+			MessageType: websocket.TextMessage,
+			Message:     pingMsg,
+			Delay:       time.Second * 20,
+		})
+		return nil
 	}
-	ok.Websocket.Wg.Add(1)
-	go ok.wsReadData(ok.Websocket.Conn)
-	if ok.Verbose {
-		log.Debugf(log.ExchangeSys, "Successful connection to %v\n",
-			ok.Websocket.GetWebsocketURL())
-	}
-	ok.Websocket.Conn.SetupPingHandler(stream.PingHandler{
-		MessageType: websocket.TextMessage,
-		Message:     pingMsg,
-		Delay:       time.Second * 20,
-	})
+
 	if ok.IsWebsocketAuthenticationSupported() {
-		var authDialer websocket.Dialer
-		authDialer.ReadBufferSize = 8192
-		authDialer.WriteBufferSize = 8192
-		err = ok.WsAuth(context.TODO(), &authDialer)
+		err := ok.WsAuth(context.TODO(), conn)
 		if err != nil {
 			log.Errorf(log.ExchangeSys, "Error connecting auth socket: %s\n", err.Error())
 			ok.Websocket.SetCanUseAuthenticatedEndpoints(false)
@@ -250,17 +248,17 @@ func (ok *Okx) WsConnect() error {
 }
 
 // WsAuth will connect to Okx's Private websocket connection and Authenticate with a login payload.
-func (ok *Okx) WsAuth(ctx context.Context, dialer *websocket.Dialer) error {
+func (ok *Okx) WsAuth(ctx context.Context, authConn stream.Connection) error {
 	if !ok.Websocket.CanUseAuthenticatedEndpoints() {
 		return fmt.Errorf("%v AuthenticatedWebsocketAPISupport not enabled", ok.Name)
 	}
-	err := ok.Websocket.AuthConn.Dial(dialer, http.Header{})
+	err := authConn.Dial(&websocket.Dialer{ReadBufferSize: 8192, WriteBufferSize: 8192}, nil)
 	if err != nil {
 		return fmt.Errorf("%v Websocket connection %v error. Error %v", ok.Name, okxAPIWebsocketPrivateURL, err)
 	}
 	ok.Websocket.Wg.Add(1)
-	go ok.wsReadData(ok.Websocket.AuthConn)
-	ok.Websocket.AuthConn.SetupPingHandler(stream.PingHandler{
+	go ok.wsReadData(authConn)
+	authConn.SetupPingHandler(stream.PingHandler{
 		MessageType: websocket.TextMessage,
 		Message:     pingMsg,
 		Delay:       time.Second * 20,
@@ -291,7 +289,7 @@ func (ok *Okx) WsAuth(ctx context.Context, dialer *websocket.Dialer) error {
 			},
 		},
 	}
-	err = ok.Websocket.AuthConn.SendJSONMessage(request)
+	err = authConn.SendJSONMessage(request)
 	if err != nil {
 		return err
 	}
