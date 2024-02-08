@@ -351,22 +351,22 @@ func (d *Deribit) UpdateOrderbook(ctx context.Context, p currency.Pair, assetTyp
 		Asset:           assetType,
 		VerifyOrderbook: d.CanVerifyOrderbook,
 	}
-	book.Asks = []orderbook.Item{}
+	book.Asks = []orderbook.Tranche{}
 	for x := range book.Asks {
 		if obData.Asks[x][0] == 0 {
 			continue
 		}
-		book.Asks = append(book.Asks, orderbook.Item{
+		book.Asks = append(book.Asks, orderbook.Tranche{
 			Price:  obData.Asks[x][0],
 			Amount: obData.Asks[x][1],
 		})
 	}
-	book.Bids = []orderbook.Item{}
+	book.Bids = []orderbook.Tranche{}
 	for x := range book.Bids {
 		if obData.Bids[x][0] == 0 {
 			continue
 		}
-		book.Bids = append(book.Bids, orderbook.Item{
+		book.Bids = append(book.Bids, orderbook.Tranche{
 			Price:  obData.Bids[x][0],
 			Amount: obData.Bids[x][1],
 		})
