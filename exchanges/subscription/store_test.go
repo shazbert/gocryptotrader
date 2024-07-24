@@ -158,7 +158,7 @@ func TestStoreDiff(t *testing.T) {
 	s := NewStore()
 	assert.NotPanics(t, func() { (*Store)(nil).Diff(List{}) }, "Should not panic when called on nil")
 	assert.NotPanics(t, func() { (&Store{}).Diff(List{}) }, "Should not panic when called with no subscription map")
-	subs, unsubs := s.Diff(List{{Channel: TickerChannel}, {Channel: CandlesChannel}, {Channel: OrderbookChannel}})
+	subs, unsubs, _ := s.Diff(List{{Channel: TickerChannel}, {Channel: CandlesChannel}, {Channel: OrderbookChannel}})
 	assert.Equal(t, 3, len(subs), "Should get the correct number of subs")
 	assert.Empty(t, unsubs, "Should get no unsubs")
 	for _, sub := range subs {
@@ -166,10 +166,10 @@ func TestStoreDiff(t *testing.T) {
 	}
 	assert.NotPanics(t, func() { s.Diff(nil) }, "Should not panic when called with nil list")
 
-	subs, unsubs = s.Diff(List{{Channel: CandlesChannel}})
+	subs, unsubs, _ = s.Diff(List{{Channel: CandlesChannel}})
 	assert.Empty(t, subs, "Should get no subs")
 	assert.Equal(t, 2, len(unsubs), "Should get the correct number of unsubs")
-	subs, unsubs = s.Diff(List{{Channel: TickerChannel}, {Channel: MyTradesChannel}})
+	subs, unsubs, _ = s.Diff(List{{Channel: TickerChannel}, {Channel: MyTradesChannel}})
 	require.Equal(t, 1, len(subs), "Should get the correct number of subs")
 	assert.Equal(t, MyTradesChannel, subs[0].Channel, "Should get correct channels in sub")
 	require.Equal(t, 2, len(unsubs), "Should get the correct number of unsubs")

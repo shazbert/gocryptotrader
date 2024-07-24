@@ -668,3 +668,20 @@ func (d *Counter) Get() int64 {
 	}
 	return newID
 }
+
+// Batch takes a slice type and converts it into a slice of slices (STOLEN)
+func Batch[S ~[]E, E any](blobs S, batchSize int) []S {
+	if batchSize <= 0 || len(blobs) == 0 {
+		return []S{}
+	}
+	i := 0
+	batches := make([]S, (len(blobs)+batchSize-1)/batchSize)
+	for batchSize < len(blobs) {
+		blobs, batches[i] = blobs[batchSize:], blobs[:batchSize:batchSize]
+		i++
+	}
+	if len(blobs) > 0 {
+		batches[i] = blobs
+	}
+	return batches
+}

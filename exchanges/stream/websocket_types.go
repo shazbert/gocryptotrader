@@ -56,7 +56,7 @@ type Websocket struct {
 	connectionManager []ConnectionWrapper
 	// Connections contains the current connections with their associated
 	// connection candidates
-	connections map[Connection]*ConnectionWrapper
+	connections map[Connection]*ConnectionSubsHolder
 
 	subscriptions *subscription.Store
 

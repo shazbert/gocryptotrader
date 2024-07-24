@@ -93,7 +93,7 @@ func NewWebsocket() *Websocket {
 		subscriptions:     subscription.NewStore(),
 		features:          &protocol.Features{},
 		Orderbook:         buffer.Orderbook{},
-		connections:       make(map[Connection]*ConnectionWrapper),
+		connections:       make(map[Connection]*ConnectionSubsHolder),
 	}
 }
 
@@ -259,8 +259,8 @@ func (w *Websocket) SetupNewConnection(c *ConnectionSetup) error {
 		}
 
 		w.connectionManager = append(w.connectionManager, ConnectionWrapper{
-			Setup:         c,
-			Subscriptions: subscription.NewStore(),
+			Setup:     c,
+			MainStore: subscription.NewStore(),
 		})
 		return nil
 	}
@@ -412,60 +412,77 @@ func (w *Websocket) Connect() error {
 			break
 		}
 
-		// TODO: Add window for max subscriptions per connection, to spawn new connections if needed.
+		batchedSubs := []subscription.List{subs}
+		if w.MaxSubscriptionsPerConnection > 0 {
+			batchedSubs = common.Batch(subs, w.MaxSubscriptionsPerConnection)
+		}
 
-		conn := w.getConnectionFromSetup(w.connectionManager[i].Setup)
-		w.connectionManager[i].Connection = conn
-		w.connections[conn] = &w.connectionManager[i]
+		for _, batched := range batchedSubs {
+			if len(batched) == 0 {
+				panic("batched subscriptions cannot be empty")
+			}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err = w.connectionManager[i].Setup.Connector(context.TODO(), conn)
-			if err != nil {
+			conn := w.getConnectionFromSetup(w.connectionManager[i].Setup)
+
+			holder := &ConnectionSubsHolder{
+				Wrapper:       &w.connectionManager[i],
+				Connection:    conn,
+				Subscriptions: subscription.NewStore(),
+			}
+
+			w.connectionManager[i].Connections = append(w.connectionManager[i].Connections, holder)
+
+			w.connections[conn] = holder
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				err = w.connectionManager[i].Setup.Connector(context.TODO(), conn)
+				if err != nil {
+					m.Lock()
+					multiConnectFatalError = fmt.Errorf("%v Error connecting %w", w.exchangeName, err)
+					m.Unlock()
+					return
+				}
+
+				if !conn.IsConnected() {
+					m.Lock()
+					multiConnectFatalError = fmt.Errorf("%s websocket: [conn:%d] [URL:%s] failed to connect", w.exchangeName, i+1, conn.URL)
+					m.Unlock()
+					return
+				}
+
+				w.Wg.Add(1)
+				go w.Reader(context.TODO(), conn, w.connectionManager[i].Setup.Handler)
+
+				var result *subscription.Result
+				result, err = w.connectionManager[i].Setup.Subscriber(context.TODO(), conn, subs)
+				if err != nil {
+					m.Lock()
+					multiConnectFatalError = fmt.Errorf("%v Error subscribing %w", w.exchangeName, err)
+					m.Unlock()
+					return
+				}
+
+				if issues := result.GetUnsuccessful(); len(issues) > 0 {
+					m.Lock()
+					multiConnectFatalError = fmt.Errorf("%v %w: %v", w.exchangeName, ErrSubscriptionFailure, issues)
+					m.Unlock()
+				}
+
 				m.Lock()
-				multiConnectFatalError = fmt.Errorf("%v Error connecting %w", w.exchangeName, err)
+				subResult[conn] = result.GetSuccessful()
 				m.Unlock()
-				return
-			}
 
-			if !conn.IsConnected() {
-				m.Lock()
-				multiConnectFatalError = fmt.Errorf("%s websocket: [conn:%d] [URL:%s] failed to connect", w.exchangeName, i+1, conn.URL)
-				m.Unlock()
-				return
-			}
-
-			w.Wg.Add(1)
-			go w.Reader(context.TODO(), conn, w.connectionManager[i].Setup.Handler)
-
-			var result *subscription.Result
-			result, err = w.connectionManager[i].Setup.Subscriber(context.TODO(), conn, subs)
-			if err != nil {
-				m.Lock()
-				multiConnectFatalError = fmt.Errorf("%v Error subscribing %w", w.exchangeName, err)
-				m.Unlock()
-				return
-			}
-
-			if issues := result.GetUnsuccessful(); len(issues) > 0 {
-				m.Lock()
-				multiConnectFatalError = fmt.Errorf("%v %w: %v", w.exchangeName, ErrSubscriptionFailure, issues)
-				m.Unlock()
-			}
-
-			m.Lock()
-			subResult[conn] = result.GetSuccessful()
-			m.Unlock()
-
-			if w.verbose {
-				log.Debugf(log.WebsocketMgr, "%s websocket: [conn:%d] [URL:%s] connected. [Subscribed: %d]",
-					w.exchangeName,
-					i+1,
-					conn.URL,
-					len(subs))
-			}
-		}()
+				if w.verbose {
+					log.Debugf(log.WebsocketMgr, "%s websocket: [conn:%d] [URL:%s] connected. [Subscribed: %d]",
+						w.exchangeName,
+						i+1,
+						conn.URL,
+						len(subs))
+				}
+			}()
+		}
 	}
 
 	wg.Wait()
@@ -473,13 +490,17 @@ func (w *Websocket) Connect() error {
 	if multiConnectFatalError != nil {
 		// Roll back any successful connections and flush subscriptions
 		for x := range w.connectionManager {
-			if w.connectionManager[x].Connection != nil {
-				if err := w.connectionManager[x].Connection.Shutdown(); err != nil {
+			for _, holder := range w.connectionManager[x].Connections {
+				if holder.Connection == nil {
+					continue
+				}
+				if err := holder.Connection.Shutdown(); err != nil {
 					log.Errorln(log.WebsocketMgr, err)
 				}
-				w.connectionManager[x].Connection = nil
+				holder.Subscriptions.Clear()
 			}
-			w.connectionManager[x].Subscriptions.Clear()
+			w.connectionManager[x].Connections = w.connectionManager[x].Connections[:0]
+			w.connectionManager[x].MainStore.Clear()
 		}
 		close(w.ShutdownC)
 		w.Wg.Wait()
@@ -655,18 +676,19 @@ func (w *Websocket) Shutdown() error {
 
 	defer w.Orderbook.FlushBuffer()
 
-	// Shutdown managed connections
-	for conn := range w.connections {
-		if err := conn.Shutdown(); err != nil {
-			return err
-		}
-	}
-	// Clean map of old connections
-	clear(w.connections)
 	// Flush any subscriptions from last connection across any managed connections
 	for x := range w.connectionManager {
-		w.connectionManager[x].Subscriptions.Clear()
+		for y := range w.connectionManager[x].Connections {
+			if err := w.connectionManager[x].Connections[y].Connection.Shutdown(); err != nil {
+				return err
+			}
+			w.connectionManager[x].Connections[y].Subscriptions.Clear()
+		}
+		w.connectionManager[x].MainStore.Clear()
 	}
+
+	// Clean map of old connections
+	clear(w.connections)
 
 	if w.Conn != nil {
 		if err := w.Conn.Shutdown(); err != nil {
@@ -709,7 +731,7 @@ func (w *Websocket) FlushChannels() error {
 				return err
 			}
 
-			subs, unsubs := w.GetChannelDifference(nil, newsubs)
+			subs, unsubs, _ := w.GetChannelDifference(nil, newsubs)
 			if len(unsubs) != 0 && w.features.Unsubscribe {
 				err := w.UnsubscribeChannels(nil, unsubs)
 				if err != nil {
@@ -725,26 +747,45 @@ func (w *Websocket) FlushChannels() error {
 			if w.connectionManager[x].Setup.GenerateSubscriptions == nil {
 				continue
 			}
-			newsubs, err := w.connectionManager[x].Setup.GenerateSubscriptions()
-			if err != nil {
-				if errors.Is(err, asset.ErrNotEnabled) {
-					continue
-				}
-				return err
-			}
-			subs, unsubs := w.GetChannelDifference(w.connectionManager[x].Connection, newsubs)
-			if len(unsubs) != 0 && w.features.Unsubscribe {
-				err = w.UnsubscribeChannels(w.connectionManager[x].Connection, unsubs)
-				if err != nil {
-					return err
-				}
-			}
-			if len(subs) != 0 {
-				err = w.SubscribeToChannels(w.connectionManager[x].Connection, subs)
-				if err != nil {
-					return err
-				}
-			}
+			// newsubs, err := w.connectionManager[x].Setup.GenerateSubscriptions()
+			// if err != nil {
+			// 	if errors.Is(err, asset.ErrNotEnabled) {
+			// 		continue
+			// 	}
+			// 	return err
+			// }
+
+			// subs, unsubs, _ := w.connectionManager[x].MainStore.Diff(newsubs)
+			// if len(unsubs) != 0 && w.features.Unsubscribe {
+			// 	for i, conn := range w.connectionManager[x].Connections {
+
+			// 		_, _, matched := conn.Subscriptions.Diff(unsubs)
+			// 		if len(matched) == 0 {
+			// 			continue
+			// 		}
+
+			// 		err = w.UnsubscribeChannels(conn.Connection, matched)
+			// 		if err != nil {
+			// 			return err
+			// 		}
+
+			// 		if conn.Subscriptions.Len() == 0 {
+			// 			w.connectionManager[x].Connections = slices.RemoveConnectionSubsHolder(w.connectionManager[x].Connections, i)
+			// 		}
+
+			// 	}
+
+			// 	err = w.UnsubscribeChannels(w.connectionManager[x].Connection, unsubs)
+			// 	if err != nil {
+			// 		return err
+			// 	}
+			// }
+			// if len(subs) != 0 {
+			// 	err = w.SubscribeToChannels(w.connectionManager[x].Connection, subs)
+			// 	if err != nil {
+			// 		return err
+			// 	}
+			// }
 		}
 		return nil
 	} else if w.features.FullPayloadSubscribe {
@@ -768,26 +809,26 @@ func (w *Websocket) FlushChannels() error {
 			return nil
 		}
 
-		for x := range w.connectionManager {
-			if w.connectionManager[x].Setup.GenerateSubscriptions == nil {
-				continue
-			}
-			newsubs, err := w.connectionManager[x].Setup.GenerateSubscriptions()
-			if err != nil {
-				if errors.Is(err, asset.ErrNotEnabled) {
-					continue
-				}
-				return err
-			}
-			if len(newsubs) != 0 {
-				// Purge subscription list as there will be conflicts
-				w.connectionManager[x].Subscriptions.Clear()
-				err = w.SubscribeToChannels(w.connectionManager[x].Connection, newsubs)
-				if err != nil {
-					return err
-				}
-			}
-		}
+		// for x := range w.connectionManager {
+		// 	if w.connectionManager[x].Setup.GenerateSubscriptions == nil {
+		// 		continue
+		// 	}
+		// 	newsubs, err := w.connectionManager[x].Setup.GenerateSubscriptions()
+		// 	if err != nil {
+		// 		if errors.Is(err, asset.ErrNotEnabled) {
+		// 			continue
+		// 		}
+		// 		return err
+		// 	}
+		// 	if len(newsubs) != 0 {
+		// 		// Purge subscription list as there will be conflicts
+		// 		w.connectionManager[x].Subscriptions.Clear()
+		// 		err = w.SubscribeToChannels(w.connectionManager[x].Connection, newsubs)
+		// 		if err != nil {
+		// 			return err
+		// 		}
+		// 	}
+		// }
 		return nil
 	}
 
@@ -1040,7 +1081,7 @@ func (w *Websocket) GetName() string {
 
 // GetChannelDifference finds the difference between the subscribed channels
 // and the new subscription list when pairs are disabled or enabled.
-func (w *Websocket) GetChannelDifference(conn Connection, newSubs subscription.List) (sub, unsub subscription.List) {
+func (w *Websocket) GetChannelDifference(conn Connection, newSubs subscription.List) (sub, unsub, match subscription.List) {
 	var subscriptionStore **subscription.Store
 	if candidate, ok := w.connections[conn]; ok {
 		subscriptionStore = &candidate.Subscriptions
@@ -1059,16 +1100,16 @@ func (w *Websocket) UnsubscribeChannels(conn Connection, channels subscription.L
 		return nil // No channels to unsubscribe from is not an error
 	}
 
-	if candidate, ok := w.connections[conn]; ok {
-		if candidate.Subscriptions == nil {
+	if holder, ok := w.connections[conn]; ok {
+		if holder.Subscriptions == nil {
 			return nil // No channels to unsubscribe from is not an error
 		}
 		for _, s := range channels {
-			if candidate.Subscriptions.Get(s) == nil {
+			if holder.Subscriptions.Get(s) == nil {
 				return fmt.Errorf("%w: %s", subscription.ErrNotFound, s)
 			}
 		}
-		result, err := candidate.Setup.Unsubscriber(context.TODO(), conn, channels)
+		result, err := holder.Wrapper.Setup.Unsubscriber(context.TODO(), conn, channels)
 		if err != nil {
 			return fmt.Errorf("%w: %w", ErrSubscriptionFailure, err)
 		}
@@ -1117,8 +1158,8 @@ func (w *Websocket) SubscribeToChannels(conn Connection, subs subscription.List)
 		return err
 	}
 
-	if candidate, ok := w.connections[conn]; ok {
-		result, err := candidate.Setup.Subscriber(context.TODO(), conn, subs)
+	if holder, ok := w.connections[conn]; ok {
+		result, err := holder.Wrapper.Setup.Subscriber(context.TODO(), conn, subs)
 		if err != nil {
 			return fmt.Errorf("%w: %w", ErrSubscriptionFailure, err)
 		}

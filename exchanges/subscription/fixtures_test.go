@@ -52,7 +52,7 @@ func equalLists(tb testing.TB, a, b List) bool {
 	}
 	s, err := NewStoreFromList(a)
 	require.NoError(tb, err, "NewStoreFromList must not error")
-	added, missing := s.Diff(b)
+	added, missing, _ := s.Diff(b)
 	if len(added) > 0 || len(missing) > 0 {
 		fail := "Differences:"
 		if len(added) > 0 {

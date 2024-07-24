@@ -175,7 +175,7 @@ func (s *Store) match(key MatchableKey) *Subscription {
 // Diff returns a list of the added and missing subs from a new list
 // The store Diff is invoked upon is read-lock protected
 // The new store is assumed to be a new instance and enjoys no locking protection
-func (s *Store) Diff(compare List) (added, removed List) {
+func (s *Store) Diff(compare List) (added, removed, matched List) {
 	if s == nil || s.m == nil {
 		return
 	}
@@ -185,6 +185,7 @@ func (s *Store) Diff(compare List) (added, removed List) {
 	for _, sub := range compare {
 		if found := s.get(sub); found != nil {
 			delete(removedMap, found.Key)
+			matched = append(matched, found)
 		} else {
 			added = append(added, sub)
 		}
