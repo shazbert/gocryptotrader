@@ -1446,7 +1446,6 @@ func TestGetOrder(t *testing.T) {
 	exch.SetDefaults()
 	b := exch.GetBase()
 	cp := currency.NewPair(currency.BTC, currency.USDT)
-	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
 	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		Available:     currency.Pairs{cp},
 		Enabled:       currency.Pairs{cp},
@@ -1698,7 +1697,6 @@ func TestRPCServerUpsertDataHistoryJob(t *testing.T) {
 	exch.SetDefaults()
 	b := exch.GetBase()
 	cp := currency.NewPair(currency.BTC, currency.USD)
-	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
 	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		Available:    currency.Pairs{cp},
 		Enabled:      currency.Pairs{cp},
@@ -1985,7 +1983,6 @@ func TestGetManagedOrders(t *testing.T) {
 	exch.SetDefaults()
 	b := exch.GetBase()
 	cp := currency.NewPair(currency.BTC, currency.USDT)
-	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
 	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		Available:     currency.Pairs{cp},
 		Enabled:       currency.Pairs{cp},
@@ -2290,7 +2287,6 @@ func TestCurrencyStateTradingPair(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
 	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		AssetEnabled: convert.BoolPtr(true),
 		ConfigFormat: &currency.EMPTYFORMAT,
@@ -2336,7 +2332,6 @@ func TestGetFuturesPositionsOrders(t *testing.T) {
 	}
 	cp.Delimiter = ""
 
-	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
 	b.CurrencyPairs.Pairs[asset.Futures] = &currency.PairStore{
 		AssetEnabled:  convert.BoolPtr(true),
 		RequestFormat: &currency.PairFormat{Delimiter: "-"},
@@ -2418,7 +2413,6 @@ func TestGetCollateral(t *testing.T) {
 		t.Fatalf("received '%v', expected '%v'", err, nil)
 	}
 
-	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
 	b.CurrencyPairs.Pairs[asset.Futures] = &currency.PairStore{
 		AssetEnabled: convert.BoolPtr(true),
 		ConfigFormat: &currency.EMPTYFORMAT,
@@ -2543,7 +2537,6 @@ func TestGetTechnicalAnalysis(t *testing.T) {
 		t.Fatalf("received '%v', expected '%v'", err, nil)
 	}
 
-	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
 	b.CurrencyPairs.Pairs[asset.Futures] = &currency.PairStore{
 		AssetEnabled: convert.BoolPtr(true),
 		ConfigFormat: &currency.PairFormat{},
@@ -2815,7 +2808,6 @@ func TestGetMarginRatesHistory(t *testing.T) {
 		t.Fatalf("received '%v', expected '%v'", err, nil)
 	}
 
-	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
 	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		AssetEnabled: convert.BoolPtr(true),
 		ConfigFormat: &currency.PairFormat{},
@@ -2958,7 +2950,6 @@ func TestGetFundingRates(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
 	err = b.CurrencyPairs.Store(asset.Futures, &currency.PairStore{
 		AssetEnabled:  convert.BoolPtr(true),
 		RequestFormat: &currency.PairFormat{Delimiter: "-"},
@@ -3066,7 +3057,6 @@ func TestGetLatestFundingRate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
 	err = b.CurrencyPairs.Store(asset.Futures, &currency.PairStore{
 		AssetEnabled:  convert.BoolPtr(true),
 		RequestFormat: &currency.PairFormat{Delimiter: "-"},
@@ -3171,7 +3161,6 @@ func TestGetManagedPosition(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
 	b.CurrencyPairs.Pairs[asset.Futures] = &currency.PairStore{
 		AssetEnabled:  convert.BoolPtr(true),
 		RequestFormat: &currency.PairFormat{Delimiter: "-"},
@@ -3314,7 +3303,6 @@ func TestGetAllManagedPositions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
 	b.CurrencyPairs.Pairs[asset.Futures] = &currency.PairStore{
 		AssetEnabled:  convert.BoolPtr(true),
 		RequestFormat: &currency.PairFormat{Delimiter: "-"},
@@ -3420,7 +3408,6 @@ func TestGetOrderbookMovement(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
 	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		AssetEnabled:  convert.BoolPtr(true),
 		ConfigFormat:  &currency.PairFormat{Delimiter: "/"},
@@ -3533,7 +3520,6 @@ func TestGetOrderbookAmountByNominal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
 	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		AssetEnabled:  convert.BoolPtr(true),
 		ConfigFormat:  &currency.PairFormat{Delimiter: "/"},
@@ -3746,7 +3732,6 @@ func TestChangePositionMargin(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
 	b.CurrencyPairs.Pairs[asset.USDTMarginedFutures] = &currency.PairStore{
 		AssetEnabled:  convert.BoolPtr(true),
 		ConfigFormat:  &currency.PairFormat{Delimiter: "/"},
