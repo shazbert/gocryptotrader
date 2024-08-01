@@ -795,7 +795,7 @@ func TestProcessOrders(t *testing.T) {
 			},
 		},
 	}
-	exch.GetBase().CurrencyPairs = currency.PairsManager{
+	exch.GetBase().CurrencyPairs = *currency.NewPairsManagerFromState(&currency.PairManagerState{
 		UseGlobalFormat: true,
 		RequestFormat: &currency.PairFormat{
 			Delimiter: "-",
@@ -817,9 +817,9 @@ func TestProcessOrders(t *testing.T) {
 				Available:    pairs,
 			},
 		},
-	}
+	})
 	exch.GetBase().Config = &config.Exchange{
-		CurrencyPairs: &currency.PairsManager{
+		CurrencyPairs: currency.NewPairsManagerFromState(&currency.PairManagerState{
 			UseGlobalFormat: true,
 			RequestFormat: &currency.PairFormat{
 				Delimiter: "-",
@@ -841,7 +841,7 @@ func TestProcessOrders(t *testing.T) {
 					Available:    pairs,
 				},
 			},
-		},
+		}),
 	}
 
 	orders := []order.Detail{
@@ -1520,21 +1520,20 @@ func TestGetOpenFuturesPosition(t *testing.T) {
 	b := exch.GetBase()
 	b.Name = fakeExchangeName
 	b.Enabled = true
-	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
-	b.CurrencyPairs.Pairs[asset.Futures] = &currency.PairStore{
+	b.CurrencyPairs.Store(asset.Futures, &currency.PairStore{
 		AssetEnabled:  convert.BoolPtr(true),
 		RequestFormat: &currency.PairFormat{Delimiter: "-"},
 		ConfigFormat:  &currency.PairFormat{Delimiter: "-"},
 		Available:     currency.Pairs{cp},
 		Enabled:       currency.Pairs{cp},
-	}
-	b.CurrencyPairs.Pairs[asset.Spot] = &currency.PairStore{
+	})
+	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		AssetEnabled:  convert.BoolPtr(true),
 		ConfigFormat:  &currency.PairFormat{Delimiter: "/"},
 		RequestFormat: &currency.PairFormat{Delimiter: "/"},
 		Available:     currency.Pairs{cp},
 		Enabled:       currency.Pairs{cp},
-	}
+	})
 	fakeExchange := fExchange{
 		IBotExchange: exch,
 	}
@@ -1614,21 +1613,20 @@ func TestProcessFuturesPositions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
-	b.CurrencyPairs.Pairs[asset.Futures] = &currency.PairStore{
+	b.CurrencyPairs.Store(asset.Futures, &currency.PairStore{
 		AssetEnabled:  convert.BoolPtr(true),
 		RequestFormat: &currency.PairFormat{Delimiter: "-"},
 		ConfigFormat:  &currency.PairFormat{Delimiter: "-"},
 		Available:     currency.Pairs{cp, cp2},
 		Enabled:       currency.Pairs{cp, cp2},
-	}
-	b.CurrencyPairs.Pairs[asset.Spot] = &currency.PairStore{
+	})
+	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		AssetEnabled:  convert.BoolPtr(true),
 		ConfigFormat:  &currency.PairFormat{Delimiter: "/"},
 		RequestFormat: &currency.PairFormat{Delimiter: "/"},
 		Available:     currency.Pairs{cp, cp2},
 		Enabled:       currency.Pairs{cp, cp2},
-	}
+	})
 	fakeExchange := fExchange{
 		IBotExchange: exch,
 	}

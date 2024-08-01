@@ -633,8 +633,8 @@ func (c *Config) GetPairFormat(exchName string, assetType asset.Item) (currency.
 		return currency.EMPTYFORMAT, err
 	}
 
-	if exchCfg.CurrencyPairs.UseGlobalFormat {
-		return *exchCfg.CurrencyPairs.ConfigFormat, nil
+	if exchCfg.CurrencyPairs.IsUsingGlobalFormat() {
+		return *exchCfg.CurrencyPairs.GetGlobalConfigPairFormat(), nil
 	}
 
 	p, err := exchCfg.CurrencyPairs.Get(assetType)
@@ -902,15 +902,13 @@ func (c *Config) CheckExchangeConfigValues() error {
 
 		// Check if see if the new currency pairs format is empty and flesh it out if so
 		if c.Exchanges[i].CurrencyPairs == nil {
-			c.Exchanges[i].CurrencyPairs = new(currency.PairsManager)
-			c.Exchanges[i].CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
-
+			var state currency.PairManagerState
 			if c.Exchanges[i].PairsLastUpdated != nil {
-				c.Exchanges[i].CurrencyPairs.LastUpdated = *c.Exchanges[i].PairsLastUpdated
+				state.LastUpdated = *c.Exchanges[i].PairsLastUpdated
 			}
 
-			c.Exchanges[i].CurrencyPairs.ConfigFormat = c.Exchanges[i].ConfigCurrencyPairFormat
-			c.Exchanges[i].CurrencyPairs.RequestFormat = c.Exchanges[i].RequestCurrencyPairFormat
+			state.ConfigFormat = c.Exchanges[i].ConfigCurrencyPairFormat
+			state.RequestFormat = c.Exchanges[i].RequestCurrencyPairFormat
 
 			var availPairs, enabledPairs currency.Pairs
 			if c.Exchanges[i].AvailablePairs != nil {
@@ -921,15 +919,16 @@ func (c *Config) CheckExchangeConfigValues() error {
 				enabledPairs = *c.Exchanges[i].EnabledPairs
 			}
 
-			c.Exchanges[i].CurrencyPairs.UseGlobalFormat = true
-			err := c.Exchanges[i].CurrencyPairs.Store(asset.Spot, &currency.PairStore{
-				AssetEnabled: convert.BoolPtr(true),
-				Available:    availPairs,
-				Enabled:      enabledPairs,
-			})
-			if err != nil {
-				return err
+			state.UseGlobalFormat = true
+			state.Pairs = currency.FullStore{
+				asset.Spot: &currency.PairStore{
+					AssetEnabled: convert.BoolPtr(true),
+					Available:    availPairs,
+					Enabled:      enabledPairs,
+				},
 			}
+
+			c.Exchanges[i].CurrencyPairs = currency.NewPairsManagerFromState(&state)
 
 			// flush old values
 			c.Exchanges[i].PairsLastUpdated = nil
@@ -1018,7 +1017,7 @@ func (c *Config) CheckExchangeConfigValues() error {
 			}
 			if !c.Exchanges[i].Features.Supports.RESTCapabilities.AutoPairUpdates &&
 				!c.Exchanges[i].Features.Supports.WebsocketCapabilities.AutoPairUpdates {
-				lastUpdated := convert.UnixTimestampToTime(c.Exchanges[i].CurrencyPairs.LastUpdated)
+				lastUpdated := convert.UnixTimestampToTime(c.Exchanges[i].CurrencyPairs.GetLastUpdated())
 				lastUpdated = lastUpdated.AddDate(0, 0, pairsLastUpdatedWarningThreshold)
 				if lastUpdated.Unix() <= time.Now().Unix() {
 					log.Warnf(log.ConfigMgr,

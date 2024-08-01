@@ -32,12 +32,111 @@ var (
 	errPairConfigFormatNil = errors.New("pair config format is nil")
 )
 
+// NewPairsManagerFromState returns a new pairs manager
+func NewPairsManagerFromState(state *PairManagerState) *PairsManager {
+	if state == nil {
+		state = &PairManagerState{}
+	}
+	// if state.RequestFormat == nil {
+	// 	state.RequestFormat = &EMPTYFORMAT
+	// }
+	// if state.ConfigFormat == nil {
+	// 	state.ConfigFormat = &EMPTYFORMAT
+	// }
+	if state.Pairs == nil {
+		state.Pairs = make(FullStore)
+	}
+	return &PairsManager{
+		bypassConfigFormatUpgrades: state.BypassConfigFormatUpgrades,
+		requestFormat:              state.RequestFormat,
+		configFormat:               state.ConfigFormat,
+		useGlobalFormat:            state.UseGlobalFormat,
+		lastUpdated:                state.LastUpdated,
+		pairs:                      state.Pairs.clone(),
+		matcher:                    make(map[key]*Pair),
+	}
+}
+
+// GetState returns the current state of the pair manager
+func (p *PairsManager) GetState() *PairManagerState {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+	return &PairManagerState{
+		BypassConfigFormatUpgrades: p.bypassConfigFormatUpgrades,
+		RequestFormat:              p.requestFormat.clone(),
+		ConfigFormat:               p.configFormat.clone(),
+		UseGlobalFormat:            p.useGlobalFormat,
+		LastUpdated:                p.lastUpdated,
+		Pairs:                      p.pairs.clone(),
+	}
+}
+
+// MarshalJSON marshals the pair manager state into a JSON byte slice
+func (p *PairsManager) MarshalJSON() ([]byte, error) {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+	return json.Marshal(p.GetState())
+}
+
+// UnmarshalJSON unmarshals the pair manager state from a JSON byte slice
+func (p *PairsManager) UnmarshalJSON(data []byte) error {
+	var state PairManagerState
+	err := json.Unmarshal(data, &state)
+	if err != nil {
+		return err
+	}
+	p.Load(NewPairsManagerFromState(&state))
+	return nil
+}
+
+// IsUsingGlobalFormat returns if the pair manager is using the global format
+func (p *PairsManager) IsUsingGlobalFormat() bool {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+	return p.useGlobalFormat
+}
+
+// SetUseGlobalFormat sets if the pair manager should use the global format
+func (p *PairsManager) SetUseGlobalFormat(b bool) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	p.useGlobalFormat = b
+}
+
+// GetGlobalConfigPairFormat returns a copy of the global config pair format
+func (p *PairsManager) GetGlobalConfigPairFormat() *PairFormat {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+	return p.configFormat.clone()
+}
+
+// GetGlobalRequestPairFormat returns a copy of the global request pair format
+func (p *PairsManager) GetGlobalRequestPairFormat() *PairFormat {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+	return p.requestFormat.clone()
+}
+
+// GetLastUpdated returns the last updated time of the pairs manager
+func (p *PairsManager) GetLastUpdated() int64 {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+	return p.lastUpdated
+}
+
+// GetLastUpdated returns the last updated time of the pairs manager
+func (p *PairsManager) SetLastUpdated(lu int64) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	p.lastUpdated = lu
+}
+
 // GetAssetTypes returns a list of stored asset types
 func (p *PairsManager) GetAssetTypes(enabled bool) asset.Items {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
-	assetTypes := make(asset.Items, 0, len(p.Pairs))
-	for k, ps := range p.Pairs {
+	assetTypes := make(asset.Items, 0, len(p.pairs))
+	for k, ps := range p.pairs {
 		if enabled && (ps.AssetEnabled == nil || !*ps.AssetEnabled) {
 			continue
 		}
@@ -54,7 +153,7 @@ func (p *PairsManager) Get(a asset.Item) (*PairStore, error) {
 
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
-	c, ok := p.Pairs[a]
+	c, ok := p.pairs[a]
 	if !ok {
 		return nil, fmt.Errorf("cannot get pair store, %v %w", a, asset.ErrNotSupported)
 	}
@@ -89,10 +188,10 @@ func (p *PairsManager) Store(a asset.Item, ps *PairStore) error {
 	}
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	if p.Pairs == nil {
-		p.Pairs = FullStore{}
+	if p.pairs == nil {
+		p.pairs = FullStore{}
 	}
-	p.Pairs[a] = ps.clone()
+	p.pairs[a] = ps.clone()
 	p.reindex()
 	return nil
 }
@@ -100,7 +199,7 @@ func (p *PairsManager) Store(a asset.Item, ps *PairStore) error {
 // Delete deletes a map entry based on the supplied asset type
 func (p *PairsManager) Delete(a asset.Item) {
 	p.mutex.Lock()
-	vals, ok := p.Pairs[a]
+	vals, ok := p.pairs[a]
 	if !ok {
 		p.mutex.Unlock()
 		return
@@ -108,7 +207,7 @@ func (p *PairsManager) Delete(a asset.Item) {
 	for x := range vals.Available {
 		delete(p.matcher, key{Symbol: vals.Available[x].Base.Lower().String() + vals.Available[x].Quote.Lower().String(), Asset: a})
 	}
-	delete(p.Pairs, a)
+	delete(p.pairs, a)
 	p.mutex.Unlock()
 }
 
@@ -121,7 +220,7 @@ func (p *PairsManager) GetPairs(a asset.Item, enabled bool) (Pairs, error) {
 
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
-	pairStore, ok := p.Pairs[a]
+	pairStore, ok := p.pairs[a]
 	if !ok {
 		return nil, nil
 	}
@@ -158,14 +257,14 @@ func (p *PairsManager) StoreFormat(a asset.Item, pFmt *PairFormat, config bool) 
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	if p.Pairs == nil {
-		p.Pairs = make(map[asset.Item]*PairStore)
+	if p.pairs == nil {
+		p.pairs = make(map[asset.Item]*PairStore)
 	}
 
-	pairStore, ok := p.Pairs[a]
+	pairStore, ok := p.pairs[a]
 	if !ok {
 		pairStore = new(PairStore)
-		p.Pairs[a] = pairStore
+		p.pairs[a] = pairStore
 	}
 
 	if config {
@@ -182,11 +281,11 @@ func (p *PairsManager) GetFormat(a asset.Item, request bool) (PairFormat, error)
 	defer p.mutex.RUnlock()
 
 	var pFmt *PairFormat
-	if p.UseGlobalFormat {
+	if p.useGlobalFormat {
 		if request {
-			pFmt = p.RequestFormat
+			pFmt = p.requestFormat
 		} else {
-			pFmt = p.ConfigFormat
+			pFmt = p.configFormat
 		}
 	} else {
 		ps, err := p.getPairStoreRequiresLock(a)
@@ -215,14 +314,14 @@ func (p *PairsManager) StorePairs(a asset.Item, pairs Pairs, enabled bool) error
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	if p.Pairs == nil {
-		p.Pairs = make(map[asset.Item]*PairStore)
+	if p.pairs == nil {
+		p.pairs = make(map[asset.Item]*PairStore)
 	}
 
-	pairStore, ok := p.Pairs[a]
+	pairStore, ok := p.pairs[a]
 	if !ok {
 		pairStore = new(PairStore)
-		p.Pairs[a] = pairStore
+		p.pairs[a] = pairStore
 	}
 
 	if enabled {
@@ -245,7 +344,7 @@ func (p *PairsManager) EnsureOnePairEnabled() (Pair, asset.Item, error) {
 	}
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	for _, v := range p.Pairs {
+	for _, v := range p.pairs {
 		if v.AssetEnabled == nil ||
 			!*v.AssetEnabled ||
 			len(v.Available) == 0 {
@@ -255,7 +354,7 @@ func (p *PairsManager) EnsureOnePairEnabled() (Pair, asset.Item, error) {
 			return EMPTYPAIR, asset.Empty, nil
 		}
 	}
-	for k, v := range p.Pairs {
+	for k, v := range p.pairs {
 		if v.AssetEnabled == nil ||
 			!*v.AssetEnabled ||
 			len(v.Available) == 0 {
@@ -265,7 +364,7 @@ func (p *PairsManager) EnsureOnePairEnabled() (Pair, asset.Item, error) {
 		if err != nil {
 			return EMPTYPAIR, asset.Empty, err
 		}
-		p.Pairs[k].Enabled = v.Enabled.Add(rp)
+		p.pairs[k].Enabled = v.Enabled.Add(rp)
 		return rp, k, nil
 	}
 	return EMPTYPAIR, asset.Empty, ErrCurrencyPairsEmpty
@@ -403,7 +502,7 @@ func (p *PairsManager) IsAssetEnabled(a asset.Item) error {
 func (p *PairsManager) IsAssetSupported(a asset.Item) bool {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
-	_, ok := p.Pairs[a]
+	_, ok := p.pairs[a]
 	return ok
 }
 
@@ -443,12 +542,12 @@ func (p *PairsManager) Load(seed *PairsManager) {
 	seed.mutex.RLock()
 	defer seed.mutex.RUnlock()
 
-	p.BypassConfigFormatUpgrades = seed.BypassConfigFormatUpgrades
-	p.UseGlobalFormat = seed.UseGlobalFormat
-	p.LastUpdated = seed.LastUpdated
-	p.Pairs = seed.Pairs.clone()
-	p.RequestFormat = seed.RequestFormat.clone()
-	p.ConfigFormat = seed.ConfigFormat.clone()
+	p.bypassConfigFormatUpgrades = seed.bypassConfigFormatUpgrades
+	p.useGlobalFormat = seed.useGlobalFormat
+	p.lastUpdated = seed.lastUpdated
+	p.pairs = seed.pairs.clone()
+	p.requestFormat = seed.requestFormat.clone()
+	p.configFormat = seed.configFormat.clone()
 	p.reindex()
 }
 
@@ -456,7 +555,7 @@ func (p *PairsManager) Load(seed *PairsManager) {
 // This method does not lock for concurrency
 func (p *PairsManager) reindex() {
 	p.matcher = make(map[key]*Pair)
-	for a, fs := range p.Pairs {
+	for a, fs := range p.pairs {
 		for i, pair := range fs.Available {
 			k := key{Symbol: pair.Base.Lower().String() + pair.Quote.Lower().String(), Asset: a}
 			p.matcher[k] = &fs.Available[i]
@@ -465,11 +564,11 @@ func (p *PairsManager) reindex() {
 }
 
 func (p *PairsManager) getPairStoreRequiresLock(a asset.Item) (*PairStore, error) {
-	if p.Pairs == nil {
+	if p.pairs == nil {
 		return nil, fmt.Errorf("%w when requesting %v pairs", ErrPairManagerNotInitialised, a)
 	}
 
-	pairStore, ok := p.Pairs[a]
+	pairStore, ok := p.pairs[a]
 	if !ok {
 		return nil, fmt.Errorf("%w %w %v", ErrAssetNotFound, asset.ErrNotSupported, a)
 	}
@@ -484,10 +583,10 @@ func (p *PairsManager) getPairStoreRequiresLock(a asset.Item) (*PairStore, error
 // SetDelimitersFromConfig ensures that the pairs adhere to the configured delimiters
 // Pairs.Unmarshal doesn't know what the delimiter is, so uses the first punctuation rune
 func (p *PairsManager) SetDelimitersFromConfig() error {
-	for a, s := range p.Pairs {
+	for a, s := range p.pairs {
 		cf := s.ConfigFormat
 		if cf == nil {
-			cf = p.ConfigFormat
+			cf = p.configFormat
 		}
 		if cf == nil {
 			return errPairConfigFormatNil

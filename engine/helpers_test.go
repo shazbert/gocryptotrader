@@ -70,12 +70,12 @@ func CreateTestBot(tb testing.TB) *Engine {
 				API: config.APIConfig{
 					Credentials: config.APICredentialsConfig{},
 				},
-				CurrencyPairs: &currency.PairsManager{
+				CurrencyPairs: currency.NewPairsManagerFromState(&currency.PairManagerState{
 					RequestFormat:   cFormat,
 					ConfigFormat:    cFormat,
 					UseGlobalFormat: true,
 					Pairs:           pairs1,
-				},
+				}),
 			},
 			{
 				Name:                    "binance",
@@ -84,12 +84,12 @@ func CreateTestBot(tb testing.TB) *Engine {
 				API: config.APIConfig{
 					Credentials: config.APICredentialsConfig{},
 				},
-				CurrencyPairs: &currency.PairsManager{
+				CurrencyPairs: currency.NewPairsManagerFromState(&currency.PairManagerState{
 					RequestFormat:   cFormat,
 					ConfigFormat:    cFormat,
 					UseGlobalFormat: true,
 					Pairs:           pairs2,
-				},
+				}),
 			},
 		}}}
 	err := bot.LoadExchange(testExchange)
@@ -373,16 +373,17 @@ func TestGetSpecificAvailablePairs(t *testing.T) {
 			{
 				Enabled: true,
 				Name:    testExchange,
-				CurrencyPairs: &currency.PairsManager{Pairs: map[asset.Item]*currency.PairStore{
-					asset.Spot: {
-						AssetEnabled: convert.BoolPtr(true),
-						Enabled:      currency.Pairs{currency.NewPair(currency.BTC, currency.USD), currency.NewPair(currency.BTC, c)},
-						Available:    currency.Pairs{currency.NewPair(currency.BTC, currency.USD), currency.NewPair(currency.BTC, c)},
-						ConfigFormat: &currency.PairFormat{
-							Uppercase: true,
+				CurrencyPairs: currency.NewPairsManagerFromState(&currency.PairManagerState{
+					Pairs: map[asset.Item]*currency.PairStore{
+						asset.Spot: {
+							AssetEnabled: convert.BoolPtr(true),
+							Enabled:      currency.Pairs{currency.NewPair(currency.BTC, currency.USD), currency.NewPair(currency.BTC, c)},
+							Available:    currency.Pairs{currency.NewPair(currency.BTC, currency.USD), currency.NewPair(currency.BTC, c)},
+							ConfigFormat: &currency.PairFormat{
+								Uppercase: true,
+							},
 						},
-					},
-				}},
+					}}),
 			},
 		},
 	}
@@ -718,16 +719,18 @@ func TestGetExchangeNamesByCurrency(t *testing.T) {
 	e.Config.Exchanges = append(e.Config.Exchanges, config.Exchange{
 		Enabled: true,
 		Name:    bf,
-		CurrencyPairs: &currency.PairsManager{Pairs: map[asset.Item]*currency.PairStore{
-			asset.Spot: {
-				AssetEnabled: convert.BoolPtr(true),
-				Enabled:      currency.Pairs{btcjpy},
-				Available:    currency.Pairs{btcjpy},
-				ConfigFormat: &currency.PairFormat{
-					Uppercase: true,
+		CurrencyPairs: currency.NewPairsManagerFromState(&currency.PairManagerState{
+			Pairs: map[asset.Item]*currency.PairStore{
+				asset.Spot: {
+					AssetEnabled: convert.BoolPtr(true),
+					Enabled:      currency.Pairs{btcjpy},
+					Available:    currency.Pairs{btcjpy},
+					ConfigFormat: &currency.PairFormat{
+						Uppercase: true,
+					},
 				},
 			},
-		}},
+		}),
 	})
 	assetType := asset.Spot
 
@@ -1065,13 +1068,13 @@ func createDepositEngine(opts *fakeDepositExchangeOpts) *Engine {
 				{
 					Name:    "fake",
 					Enabled: true,
-					CurrencyPairs: &currency.PairsManager{
+					CurrencyPairs: currency.NewPairsManagerFromState(&currency.PairManagerState{
 						UseGlobalFormat: true,
 						ConfigFormat:    &currency.EMPTYFORMAT,
 						Pairs: map[asset.Item]*currency.PairStore{
 							asset.Spot: &ps,
 						},
-					},
+					}),
 				},
 			},
 		},

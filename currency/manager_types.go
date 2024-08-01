@@ -6,14 +6,24 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 )
 
-// PairsManager manages asset pairs
-type PairsManager struct {
+// PairManagerState holds the state of the pair manager
+type PairManagerState struct {
 	BypassConfigFormatUpgrades bool        `json:"bypassConfigFormatUpgrades"`
 	RequestFormat              *PairFormat `json:"requestFormat,omitempty"`
 	ConfigFormat               *PairFormat `json:"configFormat,omitempty"`
 	UseGlobalFormat            bool        `json:"useGlobalFormat,omitempty"`
 	LastUpdated                int64       `json:"lastUpdated,omitempty"`
 	Pairs                      FullStore   `json:"pairs"`
+}
+
+// PairsManager manages asset pairs
+type PairsManager struct {
+	bypassConfigFormatUpgrades bool
+	requestFormat              *PairFormat
+	configFormat               *PairFormat
+	useGlobalFormat            bool
+	lastUpdated                int64
+	pairs                      FullStore
 	matcher                    map[key]*Pair
 	mutex                      sync.RWMutex
 }

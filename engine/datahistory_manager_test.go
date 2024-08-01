@@ -920,11 +920,10 @@ func createDHM(t *testing.T) (*DataHistoryManager, *datahistoryjob.DataHistoryJo
 	cp2 := currency.NewPair(currency.BTC, currency.USDT)
 	exch.SetDefaults()
 	b := exch.GetBase()
-	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
-	b.CurrencyPairs.Pairs[asset.Spot] = &currency.PairStore{
+	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		Available:    currency.Pairs{cp, cp2},
 		Enabled:      currency.Pairs{cp, cp2},
-		AssetEnabled: convert.BoolPtr(true)}
+		AssetEnabled: convert.BoolPtr(true)})
 	err = em.Add(exch)
 	if !errors.Is(err, nil) {
 		t.Fatalf("received: '%v' but expected: '%v'", err, nil)
@@ -936,14 +935,13 @@ func createDHM(t *testing.T) (*DataHistoryManager, *datahistoryjob.DataHistoryJo
 	}
 	exch2.SetDefaults()
 	b = exch2.GetBase()
-	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
-	b.CurrencyPairs.Pairs[asset.Spot] = &currency.PairStore{
+	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		Available:     currency.Pairs{cp, cp2},
 		Enabled:       currency.Pairs{cp, cp2},
 		AssetEnabled:  convert.BoolPtr(true),
 		ConfigFormat:  &currency.PairFormat{Uppercase: true},
 		RequestFormat: &currency.PairFormat{Uppercase: true},
-	}
+	})
 
 	err = em.Add(exch2)
 	if !errors.Is(err, nil) {

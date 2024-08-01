@@ -481,13 +481,12 @@ func RPCTestSetup(t *testing.T) *Engine {
 	exch.SetDefaults()
 	b := exch.GetBase()
 	cp := currency.NewPair(currency.BTC, currency.USD)
-	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
-	b.CurrencyPairs.Pairs[asset.Spot] = &currency.PairStore{
+	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		Available:     currency.Pairs{cp},
 		Enabled:       currency.Pairs{cp},
 		AssetEnabled:  convert.BoolPtr(true),
 		ConfigFormat:  &currency.PairFormat{Uppercase: true},
-		RequestFormat: &currency.PairFormat{Uppercase: true}}
+		RequestFormat: &currency.PairFormat{Uppercase: true}})
 	err = em.Add(exch)
 	if !errors.Is(err, nil) {
 		t.Fatalf("received: '%v' but expected: '%v'", err, nil)
@@ -500,13 +499,12 @@ func RPCTestSetup(t *testing.T) *Engine {
 	exch.SetDefaults()
 	b = exch.GetBase()
 	cp = currency.NewPair(currency.BTC, currency.USDT)
-	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
-	b.CurrencyPairs.Pairs[asset.Spot] = &currency.PairStore{
+	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		Available:     currency.Pairs{cp},
 		Enabled:       currency.Pairs{cp},
 		AssetEnabled:  convert.BoolPtr(true),
 		ConfigFormat:  &currency.PairFormat{Uppercase: true},
-		RequestFormat: &currency.PairFormat{Uppercase: true}}
+		RequestFormat: &currency.PairFormat{Uppercase: true}})
 	err = em.Add(exch)
 	if !errors.Is(err, nil) {
 		t.Fatalf("received: '%v' but expected: '%v'", err, nil)
@@ -1267,9 +1265,9 @@ func TestGetAccountInfo(t *testing.T) {
 	b.Name = fakeExchangeName
 	b.Enabled = true
 	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
-	b.CurrencyPairs.Pairs[asset.Spot] = &currency.PairStore{
+	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		AssetEnabled: convert.BoolPtr(true),
-	}
+	})
 	fakeExchange := fExchange{
 		IBotExchange: exch,
 	}
@@ -1295,9 +1293,9 @@ func TestUpdateAccountInfo(t *testing.T) {
 	b.Name = fakeExchangeName
 	b.Enabled = true
 	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
-	b.CurrencyPairs.Pairs[asset.Spot] = &currency.PairStore{
+	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		AssetEnabled: convert.BoolPtr(true),
-	}
+	})
 	fakeExchange := fExchange{
 		IBotExchange: exch,
 	}
@@ -1339,12 +1337,12 @@ func TestGetOrders(t *testing.T) {
 	b := exch.GetBase()
 	cp := currency.NewPair(currency.BTC, currency.USDT)
 	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
-	b.CurrencyPairs.Pairs[asset.Spot] = &currency.PairStore{
+	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		Available:     currency.Pairs{cp},
 		Enabled:       currency.Pairs{cp},
 		AssetEnabled:  convert.BoolPtr(true),
 		ConfigFormat:  &currency.PairFormat{Uppercase: true},
-		RequestFormat: &currency.PairFormat{Uppercase: true}}
+		RequestFormat: &currency.PairFormat{Uppercase: true}})
 	err = em.Add(exch)
 	if !errors.Is(err, nil) {
 		t.Fatalf("received: '%v' but expected: '%v'", err, nil)
@@ -1449,12 +1447,12 @@ func TestGetOrder(t *testing.T) {
 	b := exch.GetBase()
 	cp := currency.NewPair(currency.BTC, currency.USDT)
 	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
-	b.CurrencyPairs.Pairs[asset.Spot] = &currency.PairStore{
+	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		Available:     currency.Pairs{cp},
 		Enabled:       currency.Pairs{cp},
 		AssetEnabled:  convert.BoolPtr(true),
 		ConfigFormat:  &currency.PairFormat{Uppercase: true},
-		RequestFormat: &currency.PairFormat{Uppercase: true}}
+		RequestFormat: &currency.PairFormat{Uppercase: true}})
 	err = em.Add(exch)
 	if !errors.Is(err, nil) {
 		t.Fatalf("received: '%v' but expected: '%v'", err, nil)
@@ -1701,10 +1699,10 @@ func TestRPCServerUpsertDataHistoryJob(t *testing.T) {
 	b := exch.GetBase()
 	cp := currency.NewPair(currency.BTC, currency.USD)
 	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
-	b.CurrencyPairs.Pairs[asset.Spot] = &currency.PairStore{
+	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		Available:    currency.Pairs{cp},
 		Enabled:      currency.Pairs{cp},
-		AssetEnabled: convert.BoolPtr(true)}
+		AssetEnabled: convert.BoolPtr(true)})
 	err = em.Add(exch)
 	if !errors.Is(err, nil) {
 		t.Fatalf("received: '%v' but expected: '%v'", err, nil)
@@ -1988,12 +1986,12 @@ func TestGetManagedOrders(t *testing.T) {
 	b := exch.GetBase()
 	cp := currency.NewPair(currency.BTC, currency.USDT)
 	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
-	b.CurrencyPairs.Pairs[asset.Spot] = &currency.PairStore{
+	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		Available:     currency.Pairs{cp},
 		Enabled:       currency.Pairs{cp},
 		AssetEnabled:  convert.BoolPtr(true),
 		ConfigFormat:  &currency.PairFormat{Uppercase: true},
-		RequestFormat: &currency.PairFormat{Uppercase: true}}
+		RequestFormat: &currency.PairFormat{Uppercase: true}})
 	err = em.Add(exch)
 	if !errors.Is(err, nil) {
 		t.Fatalf("received: '%v' but expected: '%v'", err, nil)
@@ -2293,12 +2291,12 @@ func TestCurrencyStateTradingPair(t *testing.T) {
 	}
 
 	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
-	b.CurrencyPairs.Pairs[asset.Spot] = &currency.PairStore{
+	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		AssetEnabled: convert.BoolPtr(true),
 		ConfigFormat: &currency.EMPTYFORMAT,
 		Available:    currency.Pairs{cp},
 		Enabled:      currency.Pairs{cp},
-	}
+	})
 	fakeExchange := fExchange{
 		IBotExchange: exch,
 	}
@@ -2346,13 +2344,13 @@ func TestGetFuturesPositionsOrders(t *testing.T) {
 		Available:     currency.Pairs{cp},
 		Enabled:       currency.Pairs{cp},
 	}
-	b.CurrencyPairs.Pairs[asset.Spot] = &currency.PairStore{
+	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		AssetEnabled:  convert.BoolPtr(true),
 		ConfigFormat:  &currency.PairFormat{Delimiter: "/"},
 		RequestFormat: &currency.PairFormat{Delimiter: "/"},
 		Available:     currency.Pairs{cp},
 		Enabled:       currency.Pairs{cp},
-	}
+	})
 	fakeExchange := fExchange{
 		IBotExchange: exch,
 	}
@@ -2427,12 +2425,12 @@ func TestGetCollateral(t *testing.T) {
 		Available:    currency.Pairs{cp},
 		Enabled:      currency.Pairs{cp},
 	}
-	b.CurrencyPairs.Pairs[asset.Spot] = &currency.PairStore{
+	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		AssetEnabled: convert.BoolPtr(true),
 		ConfigFormat: &currency.EMPTYFORMAT,
 		Available:    currency.Pairs{cp},
 		Enabled:      currency.Pairs{cp},
-	}
+	})
 	b.Features.Supports.FuturesCapabilities.Collateral = true
 	fakeExchange := fExchange{
 		IBotExchange: exch,
@@ -2552,12 +2550,12 @@ func TestGetTechnicalAnalysis(t *testing.T) {
 		Available:    currency.Pairs{cp},
 		Enabled:      currency.Pairs{cp},
 	}
-	b.CurrencyPairs.Pairs[asset.Spot] = &currency.PairStore{
+	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		AssetEnabled: convert.BoolPtr(true),
 		ConfigFormat: &currency.PairFormat{},
 		Available:    currency.Pairs{cp},
 		Enabled:      currency.Pairs{cp},
-	}
+	})
 
 	b.Features.Enabled.Kline.Intervals = kline.DeployExchangeIntervals(kline.IntervalCapacity{Interval: kline.OneDay})
 	err = em.Add(fExchange{IBotExchange: exch})
@@ -2818,12 +2816,12 @@ func TestGetMarginRatesHistory(t *testing.T) {
 	}
 
 	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
-	b.CurrencyPairs.Pairs[asset.Spot] = &currency.PairStore{
+	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		AssetEnabled: convert.BoolPtr(true),
 		ConfigFormat: &currency.PairFormat{},
 		Available:    currency.Pairs{cp},
 		Enabled:      currency.Pairs{cp},
-	}
+	})
 	fakeExchange := fExchange{
 		IBotExchange: exch,
 	}
@@ -3181,13 +3179,13 @@ func TestGetManagedPosition(t *testing.T) {
 		Available:     currency.Pairs{cp, cp2},
 		Enabled:       currency.Pairs{cp, cp2},
 	}
-	b.CurrencyPairs.Pairs[asset.Spot] = &currency.PairStore{
+	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		AssetEnabled:  convert.BoolPtr(true),
 		ConfigFormat:  &currency.PairFormat{Delimiter: "/"},
 		RequestFormat: &currency.PairFormat{Delimiter: "/"},
 		Available:     currency.Pairs{cp, cp2},
 		Enabled:       currency.Pairs{cp, cp2},
-	}
+	})
 	b.Features.Supports.FuturesCapabilities.OrderManagerPositionTracking = true
 	fakeExchange := fExchange{
 		IBotExchange: exch,
@@ -3324,13 +3322,13 @@ func TestGetAllManagedPositions(t *testing.T) {
 		Available:     currency.Pairs{cp, cp2},
 		Enabled:       currency.Pairs{cp, cp2},
 	}
-	b.CurrencyPairs.Pairs[asset.Spot] = &currency.PairStore{
+	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		AssetEnabled:  convert.BoolPtr(true),
 		ConfigFormat:  &currency.PairFormat{Delimiter: "/"},
 		RequestFormat: &currency.PairFormat{Delimiter: "/"},
 		Available:     currency.Pairs{cp, cp2},
 		Enabled:       currency.Pairs{cp, cp2},
-	}
+	})
 	fakeExchange := fExchange{
 		IBotExchange: exch,
 	}
@@ -3423,13 +3421,13 @@ func TestGetOrderbookMovement(t *testing.T) {
 	}
 
 	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
-	b.CurrencyPairs.Pairs[asset.Spot] = &currency.PairStore{
+	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		AssetEnabled:  convert.BoolPtr(true),
 		ConfigFormat:  &currency.PairFormat{Delimiter: "/"},
 		RequestFormat: &currency.PairFormat{Delimiter: "/"},
 		Available:     currency.Pairs{cp},
 		Enabled:       currency.Pairs{cp},
-	}
+	})
 
 	fakeExchange := fExchange{
 		IBotExchange: exch,
@@ -3536,13 +3534,13 @@ func TestGetOrderbookAmountByNominal(t *testing.T) {
 	}
 
 	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
-	b.CurrencyPairs.Pairs[asset.Spot] = &currency.PairStore{
+	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		AssetEnabled:  convert.BoolPtr(true),
 		ConfigFormat:  &currency.PairFormat{Delimiter: "/"},
 		RequestFormat: &currency.PairFormat{Delimiter: "/"},
 		Available:     currency.Pairs{cp},
 		Enabled:       currency.Pairs{cp},
-	}
+	})
 
 	fakeExchange := fExchange{
 		IBotExchange: exch,
@@ -3641,14 +3639,13 @@ func TestGetOrderbookAmountByImpact(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b.CurrencyPairs.Pairs = make(map[asset.Item]*currency.PairStore)
-	b.CurrencyPairs.Pairs[asset.Spot] = &currency.PairStore{
+	b.CurrencyPairs.Store(asset.Spot, &currency.PairStore{
 		AssetEnabled:  convert.BoolPtr(true),
 		ConfigFormat:  &currency.PairFormat{Delimiter: "/"},
 		RequestFormat: &currency.PairFormat{Delimiter: "/"},
 		Available:     currency.Pairs{cp},
 		Enabled:       currency.Pairs{cp},
-	}
+	})
 
 	fakeExchange := fExchange{
 		IBotExchange: exch,
