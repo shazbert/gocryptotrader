@@ -207,67 +207,33 @@ const (
 )
 
 // WsConnect initiates a websocket connection
-func (ok *Okx) WsConnect() error {
-	if !ok.Websocket.IsEnabled() || !ok.IsEnabled() {
-		return stream.ErrWebsocketNotEnabled
-	}
+func (ok *Okx) WsConnect(ctx context.Context, conn stream.Connection) error {
 	var dialer websocket.Dialer
 	dialer.ReadBufferSize = 8192
 	dialer.WriteBufferSize = 8192
 
-	err := ok.Websocket.Conn.Dial(&dialer, http.Header{})
+	err := conn.DialContext(ctx, &dialer, nil)
 	if err != nil {
 		return err
 	}
-	ok.Websocket.Wg.Add(1)
-	go ok.wsReadData(ok.Websocket.Conn)
-	if ok.Verbose {
-		log.Debugf(log.ExchangeSys, "Successful connection to %v\n",
-			ok.Websocket.GetWebsocketURL())
-	}
-	ok.Websocket.Conn.SetupPingHandler(stream.PingHandler{
+	conn.SetupPingHandler(stream.PingHandler{
 		MessageType: websocket.TextMessage,
 		Message:     pingMsg,
 		Delay:       time.Second * 20,
 	})
-	if ok.IsWebsocketAuthenticationSupported() {
-		var authDialer websocket.Dialer
-		authDialer.ReadBufferSize = 8192
-		authDialer.WriteBufferSize = 8192
-		err = ok.WsAuth(context.TODO(), &authDialer)
-		if err != nil {
-			log.Errorf(log.ExchangeSys, "Error connecting auth socket: %s\n", err.Error())
-			ok.Websocket.SetCanUseAuthenticatedEndpoints(false)
-		}
-	}
 	return nil
 }
 
-// WsAuth will connect to Okx's Private websocket connection and Authenticate with a login payload.
-func (ok *Okx) WsAuth(ctx context.Context, dialer *websocket.Dialer) error {
-	if !ok.Websocket.CanUseAuthenticatedEndpoints() {
-		return fmt.Errorf("%v AuthenticatedWebsocketAPISupport not enabled", ok.Name)
-	}
-	err := ok.Websocket.AuthConn.Dial(dialer, http.Header{})
-	if err != nil {
-		return fmt.Errorf("%v Websocket connection %v error. Error %v", ok.Name, okxAPIWebsocketPrivateURL, err)
-	}
-	ok.Websocket.Wg.Add(1)
-	go ok.wsReadData(ok.Websocket.AuthConn)
-	ok.Websocket.AuthConn.SetupPingHandler(stream.PingHandler{
-		MessageType: websocket.TextMessage,
-		Message:     pingMsg,
-		Delay:       time.Second * 20,
-	})
+// WsAuth will authenticate the connection with a login payload.
+func (ok *Okx) WsAuth(ctx context.Context, conn stream.Connection) error {
 	creds, err := ok.GetCredentials(ctx)
 	if err != nil {
 		return err
 	}
-	ok.Websocket.SetCanUseAuthenticatedEndpoints(true)
-	timeUnix := time.Now()
+	tn := time.Now()
 	signPath := "/users/self/verify"
 	hmac, err := crypto.GetHMAC(crypto.HashSHA256,
-		[]byte(strconv.FormatInt(timeUnix.UTC().Unix(), 10)+http.MethodGet+signPath),
+		[]byte(strconv.FormatInt(tn.UTC().Unix(), 10)+http.MethodGet+signPath),
 		[]byte(creds.Secret),
 	)
 	if err != nil {
@@ -278,42 +244,46 @@ func (ok *Okx) WsAuth(ctx context.Context, dialer *websocket.Dialer) error {
 		{
 			APIKey:     creds.Key,
 			Passphrase: creds.ClientID,
-			Timestamp:  timeUnix,
+			Timestamp:  tn,
 			Sign:       base64Sign,
 		},
 	}
-	var nothing interface{}
-	err = ok.SendWebsocketRequest(ctx, "login-response", operationLogin, args, &nothing)
-	return err
-}
 
-// wsReadData sends msgs from public and auth websockets to data handler
-func (ok *Okx) wsReadData(ws stream.Connection) {
-	defer ok.Websocket.Wg.Done()
-	for {
-		resp := ws.ReadMessage()
-		if resp.Raw == nil {
-			return
-		}
-		if err := ok.WsHandleData(resp.Raw); err != nil {
-			ok.Websocket.DataHandler <- err
-		}
+	outbound := &struct {
+		ID        string      `json:"id"`
+		Operation string      `json:"op"`
+		Arguments interface{} `json:"args"`
+	}{
+		ID:        "login-response",
+		Operation: operationLogin,
+		Arguments: args,
 	}
+
+	resp, err := conn.SendMessageReturnResponse(ctx, "login-response", outbound)
+	if err != nil {
+		return err
+	}
+
+	if len(resp) == 0 {
+		return errors.New("no response received")
+	}
+
+	return nil
 }
 
 // Subscribe sends a websocket subscription request to several channels to receive data.
-func (ok *Okx) Subscribe(channelsToSubscribe subscription.List) error {
-	return ok.handleSubscription(operationSubscribe, channelsToSubscribe)
+func (ok *Okx) Subscribe(ctx context.Context, conn stream.Connection, channelsToSubscribe subscription.List) error {
+	return ok.handleSubscription(ctx, conn, operationSubscribe, channelsToSubscribe)
 }
 
 // Unsubscribe sends a websocket unsubscription request to several channels to receive data.
-func (ok *Okx) Unsubscribe(channelsToUnsubscribe subscription.List) error {
-	return ok.handleSubscription(operationUnsubscribe, channelsToUnsubscribe)
+func (ok *Okx) Unsubscribe(ctx context.Context, conn stream.Connection, channelsToUnsubscribe subscription.List) error {
+	return ok.handleSubscription(ctx, conn, operationUnsubscribe, channelsToUnsubscribe)
 }
 
-// handleSubscription sends a subscription and unsubscription information thought the websocket endpoint.
+// handleSubscription sends a subscription and unsubscription information through the websocket endpoint.
 // as of the okx, exchange this endpoint sends subscription and unsubscription messages but with a list of json objects.
-func (ok *Okx) handleSubscription(operation string, subscriptions subscription.List) error {
+func (ok *Okx) handleSubscription(ctx context.Context, conn stream.Connection, operation string, subscriptions subscription.List) error {
 	request := WSSubscriptionInformationList{Operation: operation}
 	authRequests := WSSubscriptionInformationList{Operation: operation}
 	ok.WsRequestSemaphore <- 1
@@ -435,14 +405,14 @@ func (ok *Okx) handleSubscription(operation string, subscriptions subscription.L
 			if len(authChunk) > maxConnByteLen {
 				authRequests.Arguments = authRequests.Arguments[:len(authRequests.Arguments)-1]
 				i--
-				err = ok.Websocket.AuthConn.SendJSONMessage(authRequests)
+				err = conn.SendJSONMessage(authRequests)
 				if err != nil {
 					return err
 				}
 				if operation == operationUnsubscribe {
-					err = ok.Websocket.RemoveSubscriptions(ok.Websocket.AuthConn, channels...)
+					err = ok.Websocket.RemoveSubscriptions(conn, channels...)
 				} else {
-					err = ok.Websocket.AddSuccessfulSubscriptions(ok.Websocket.AuthConn, channels...)
+					err = ok.Websocket.AddSuccessfulSubscriptions(conn, channels...)
 				}
 				if err != nil {
 					return err
@@ -459,14 +429,14 @@ func (ok *Okx) handleSubscription(operation string, subscriptions subscription.L
 			}
 			if len(chunk) > maxConnByteLen {
 				i--
-				err = ok.Websocket.Conn.SendJSONMessage(request)
+				err = conn.SendJSONMessage(request)
 				if err != nil {
 					return err
 				}
 				if operation == operationUnsubscribe {
-					err = ok.Websocket.RemoveSubscriptions(ok.Websocket.Conn, channels...)
+					err = ok.Websocket.RemoveSubscriptions(conn, channels...)
 				} else {
-					err = ok.Websocket.AddSuccessfulSubscriptions(ok.Websocket.Conn, channels...)
+					err = ok.Websocket.AddSuccessfulSubscriptions(conn, channels...)
 				}
 				if err != nil {
 					return err
@@ -479,27 +449,27 @@ func (ok *Okx) handleSubscription(operation string, subscriptions subscription.L
 	}
 
 	if len(request.Arguments) > 0 {
-		if err := ok.Websocket.Conn.SendJSONMessage(request); err != nil {
+		if err := conn.SendJSONMessage(request); err != nil {
 			return err
 		}
 	}
 
 	if len(authRequests.Arguments) > 0 && ok.Websocket.CanUseAuthenticatedEndpoints() {
-		if err := ok.Websocket.AuthConn.SendJSONMessage(authRequests); err != nil {
+		if err := conn.SendJSONMessage(authRequests); err != nil {
 			return err
 		}
 	}
 
 	channels = append(channels, authChannels...)
 	if operation == operationUnsubscribe {
-		return ok.Websocket.RemoveSubscriptions(ok.Websocket.Conn, channels...)
+		return ok.Websocket.RemoveSubscriptions(conn, channels...)
 	}
 
-	return ok.Websocket.AddSuccessfulSubscriptions(ok.Websocket.Conn, channels...)
+	return ok.Websocket.AddSuccessfulSubscriptions(conn, channels...)
 }
 
 // WsHandleData will read websocket raw data and pass to appropriate handler
-func (ok *Okx) WsHandleData(respRaw []byte) error {
+func (ok *Okx) WsHandleData(ctx context.Context, respRaw []byte) error {
 	if id, err := jsonparser.GetString(respRaw, "id"); err == nil && id != "" {
 		if !ok.Websocket.Match.IncomingWithData(id, respRaw) {
 			return fmt.Errorf("%s: %w to payload %v", ok.Name, errWebsocketDataNotMatchedWithID, string(respRaw))
@@ -803,7 +773,7 @@ func (ok *Okx) wsProcessOrderBooks(data []byte) error {
 		}
 		if err != nil {
 			if errors.Is(err, errInvalidChecksum) {
-				err = ok.Subscribe(subscription.List{
+				err = ok.Subscribe(context.TODO(), nil, subscription.List{
 					{
 						Channel: response.Argument.Channel,
 						Asset:   assets[0],
@@ -1264,20 +1234,8 @@ func (ok *Okx) wsProcessTickers(data []byte) error {
 func (ok *Okx) GenerateDefaultSubscriptions() (subscription.List, error) {
 	var subscriptions subscription.List
 	assets := ok.GetAssetTypes(true)
-	subs := make([]string, 0, len(defaultSubscribedChannels)+len(defaultAuthChannels))
-	subs = append(subs, defaultSubscribedChannels...)
-	if ok.Websocket.CanUseAuthenticatedEndpoints() {
-		subs = append(subs, defaultAuthChannels...)
-	}
-	for c := range subs {
-		switch subs[c] {
-		case okxChannelOrders:
-			for x := range assets {
-				subscriptions = append(subscriptions, &subscription.Subscription{
-					Channel: subs[c],
-					Asset:   assets[x],
-				})
-			}
+	for _, ch := range defaultSubscribedChannels {
+		switch ch {
 		case okxChannelCandle5m, okxChannelTickers, okxChannelOrderBooks, okxChannelFundingRate, okxChannelOrderBooks5, okxChannelOrderBooks50TBT, okxChannelOrderBooksTBT, okxChannelTrades:
 			for x := range assets {
 				pairs, err := ok.GetEnabledPairs(assets[x])
@@ -1286,16 +1244,37 @@ func (ok *Okx) GenerateDefaultSubscriptions() (subscription.List, error) {
 				}
 				for p := range pairs {
 					subscriptions = append(subscriptions, &subscription.Subscription{
-						Channel: subs[c],
+						Channel: ch,
 						Asset:   assets[x],
 						Pairs:   currency.Pairs{pairs[p]},
 					})
 				}
 			}
 		default:
-			subscriptions = append(subscriptions, &subscription.Subscription{
-				Channel: subs[c],
-			})
+			subscriptions = append(subscriptions, &subscription.Subscription{Channel: ch})
+		}
+	}
+	return subscriptions, nil
+}
+
+// GenerateDefaultSubscriptionsAuth returns a list of default subscription message for authenticated channels.
+func (ok *Okx) GenerateDefaultSubscriptionsAuth() (subscription.List, error) {
+	var subscriptions subscription.List
+	if !ok.Websocket.CanUseAuthenticatedEndpoints() {
+		return subscriptions, nil
+	}
+	assets := ok.GetAssetTypes(true)
+	for _, ch := range defaultAuthChannels {
+		switch ch {
+		case okxChannelOrders:
+			for x := range assets {
+				subscriptions = append(subscriptions, &subscription.Subscription{
+					Channel: ch,
+					Asset:   assets[x],
+				})
+			}
+		default:
+			subscriptions = append(subscriptions, &subscription.Subscription{Channel: ch})
 		}
 	}
 	return subscriptions, nil

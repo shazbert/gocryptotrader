@@ -88,9 +88,9 @@ type ConnectionWrapper struct {
 	// Subscriptions contains the subscriptions that are associated with the
 	// specific connection(s)
 	Subscriptions *subscription.Store
-	// Connection contains the active connection based off the connection
+	// Connections contains the active connection based off the connection
 	// details above.
-	Connection Connection // TODO: Upgrade to slice of connections.
+	Connections []Connection
 }
 
 // PingHandler container for ping handler settings

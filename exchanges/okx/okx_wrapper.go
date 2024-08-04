@@ -192,37 +192,49 @@ func (ok *Okx) Setup(exch *config.Exchange) error {
 		return err
 	}
 	if err := ok.Websocket.Setup(&stream.WebsocketSetup{
-		ExchangeConfig:                         exch,
-		DefaultURL:                             okxAPIWebsocketPublicURL,
-		RunningURL:                             wsRunningEndpoint,
-		Connector:                              ok.WsConnect,
-		Subscriber:                             ok.Subscribe,
-		Unsubscriber:                           ok.Unsubscribe,
-		GenerateSubscriptions:                  ok.GenerateDefaultSubscriptions,
+		ExchangeConfig: exch,
+		DefaultURL:     okxAPIWebsocketPublicURL,
+		RunningURL:     wsRunningEndpoint,
+		// Connector:                              ok.WsConnect,
+		// Subscriber:                             ok.Subscribe,
+		// Unsubscriber:                           ok.Unsubscribe,
+		// GenerateSubscriptions:                  ok.GenerateDefaultSubscriptions,
 		Features:                               &ok.Features.Supports.WebsocketCapabilities,
 		MaxWebsocketSubscriptionsPerConnection: 240,
 		OrderbookBufferConfig: buffer.Config{
 			Checksum: ok.CalculateUpdateOrderbookChecksum,
 		},
+		UseMultiConnectionManagement: true,
 	}); err != nil {
 		return err
 	}
 
 	if err := ok.Websocket.SetupNewConnection(&stream.ConnectionSetup{
-		URL:                  okxAPIWebsocketPublicURL,
-		ResponseCheckTimeout: exch.WebsocketResponseCheckTimeout,
-		ResponseMaxLimit:     okxWebsocketResponseMaxLimit,
-		RateLimit:            500,
+		URL:                   okxAPIWebsocketPublicURL,
+		ResponseCheckTimeout:  exch.WebsocketResponseCheckTimeout,
+		ResponseMaxLimit:      okxWebsocketResponseMaxLimit,
+		Connector:             ok.WsConnect,
+		Subscriber:            ok.Subscribe,
+		Unsubscriber:          ok.Unsubscribe,
+		GenerateSubscriptions: ok.GenerateDefaultSubscriptions,
+		Handler:               ok.WsHandleData,
+		RateLimit:             500,
 	}); err != nil {
 		return err
 	}
 
 	return ok.Websocket.SetupNewConnection(&stream.ConnectionSetup{
-		URL:                  okxAPIWebsocketPrivateURL,
-		ResponseCheckTimeout: exch.WebsocketResponseCheckTimeout,
-		ResponseMaxLimit:     okxWebsocketResponseMaxLimit,
-		Authenticated:        true,
-		RateLimit:            500,
+		URL:                   okxAPIWebsocketPrivateURL,
+		ResponseCheckTimeout:  exch.WebsocketResponseCheckTimeout,
+		ResponseMaxLimit:      okxWebsocketResponseMaxLimit,
+		Connector:             ok.WsConnect,
+		Authenticate:          ok.WsAuth,
+		Subscriber:            ok.Subscribe,
+		Unsubscriber:          ok.Unsubscribe,
+		GenerateSubscriptions: ok.GenerateDefaultSubscriptionsAuth,
+		Handler:               ok.WsHandleData,
+		Authenticated:         true,
+		RateLimit:             500,
 	})
 }
 

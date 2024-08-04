@@ -423,7 +423,7 @@ func TestConnectionMessageErrors(t *testing.T) {
 	err = ws.Connect()
 	require.NoError(t, err)
 
-	err = ws.connectionManager[0].Connection.SendRawMessage(websocket.TextMessage, []byte("test"))
+	err = ws.connectionManager[0].Connections[0].SendRawMessage(websocket.TextMessage, []byte("test"))
 	require.NoError(t, err)
 
 	require.NoError(t, err)
@@ -1490,7 +1490,7 @@ func TestGetOutboundConnection(t *testing.T) {
 	require.ErrorIs(t, err, ErrNotConnected)
 
 	expected := &WebsocketConnection{}
-	ws.connectionManager[0].Connection = expected
+	ws.connectionManager[0].Connections = []Connection{expected}
 
 	conn, err := ws.GetOutboundConnection("testURL")
 	require.NoError(t, err)
