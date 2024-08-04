@@ -364,12 +364,16 @@ func TestConnectionMessageErrors(t *testing.T) {
 	assert.ErrorIs(t, err, errNoPendingConnections, "Connect should error correctly")
 
 	ws.useMultiConnectionManagement = true
+	ws.SetCanUseAuthenticatedEndpoints(true)
+	ws.verbose = true // NOTE: Intentional
 
 	mock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { mockws.WsMockUpgrader(t, w, r, mockws.EchoHandler) }))
 	defer mock.Close()
-	ws.connectionManager = []ConnectionWrapper{{Setup: &ConnectionSetup{URL: "ws" + mock.URL[len("http"):] + "/ws"}}}
+	ws.connectionManager = []*ConnectionWrapper{{Setup: &ConnectionSetup{URL: "ws" + mock.URL[len("http"):] + "/ws"}}}
 	err = ws.Connect()
 	require.ErrorIs(t, err, errWebsocketSubscriptionsGeneratorUnset)
+
+	ws.connectionManager[0].Setup.Authenticate = func(context.Context, Connection) error { return errDastardlyReason }
 
 	ws.connectionManager[0].Setup.GenerateSubscriptions = func() (subscription.List, error) {
 		return nil, errDastardlyReason
@@ -609,7 +613,7 @@ func TestSubscribeUnsubscribe(t *testing.T) {
 
 	amazingConn := multi.getConnectionFromSetup(amazingCandidate)
 	multi.connections = map[Connection]*ConnectionWrapper{
-		amazingConn: &multi.connectionManager[0],
+		amazingConn: multi.connectionManager[0],
 	}
 
 	subs, err = amazingCandidate.GenerateSubscriptions()
@@ -871,8 +875,7 @@ func TestSendMessage(t *testing.T) {
 	}
 }
 
-// TestSendMessageWithResponse logic test
-func TestSendMessageWithResponse(t *testing.T) {
+func TestSendMessageReturnResponse(t *testing.T) {
 	t.Parallel()
 	wc := &WebsocketConnection{
 		Verbose:          true,
@@ -900,10 +903,20 @@ func TestSendMessageWithResponse(t *testing.T) {
 		RequestID: wc.GenerateMessageID(false),
 	}
 
-	_, err = wc.SendMessageReturnResponse(request.RequestID, request)
+	_, err = wc.SendMessageReturnResponse(context.Background(), request.RequestID, request)
 	if err != nil {
 		t.Error(err)
 	}
+
+	cancelledCtx, fn := context.WithDeadline(context.Background(), time.Now())
+	fn()
+	_, err = wc.SendMessageReturnResponse(cancelledCtx, "123", request)
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
+
+	// with timeout
+	wc.ResponseMaxLimit = 1
+	_, err = wc.SendMessageReturnResponse(context.Background(), "123", request)
+	assert.ErrorIs(t, err, ErrSignatureTimeout, "SendMessageReturnResponse should error when request ID not found")
 }
 
 type reporter struct {
@@ -1344,7 +1357,7 @@ func TestSetupNewConnection(t *testing.T) {
 	require.Nil(t, multi.Conn)
 
 	err = multi.SetupNewConnection(connSetup)
-	require.ErrorIs(t, err, errConnectionCandidateDuplication)
+	require.ErrorIs(t, err, errConnectionWrapperDuplication)
 }
 
 func TestWebsocketConnectionShutdown(t *testing.T) {
@@ -1398,7 +1411,7 @@ func TestLatency(t *testing.T) {
 		RequestID: wc.GenerateMessageID(false),
 	}
 
-	_, err = wc.SendMessageReturnResponse(request.RequestID, request)
+	_, err = wc.SendMessageReturnResponse(context.Background(), request.RequestID, request)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1442,4 +1455,44 @@ func TestCheckSubscriptions(t *testing.T) {
 
 	err = ws.checkSubscriptions(nil, subscription.List{{}})
 	assert.NoError(t, err, "checkSubscriptions should not error")
+}
+
+func TestGetOutboundConnection(t *testing.T) {
+	t.Parallel()
+	var ws *Websocket
+	_, err := ws.GetOutboundConnection("")
+	require.ErrorIs(t, err, common.ErrNilPointer)
+
+	ws = &Websocket{}
+	_, err = ws.GetOutboundConnection("")
+	require.ErrorIs(t, err, ErrRequestRouteNotSet)
+
+	_, err = ws.GetOutboundConnection("testURL")
+	require.ErrorIs(t, err, ErrNotConnected)
+
+	ws.setState(connectedState)
+	_, err = ws.GetOutboundConnection("testURL")
+	require.ErrorIs(t, err, errCannotObtainOutboundConnection)
+
+	ws.useMultiConnectionManagement = true
+	_, err = ws.GetOutboundConnection("testURL")
+	require.ErrorIs(t, err, ErrRequestRouteNotFound)
+
+	ws.connectionManager = []*ConnectionWrapper{{
+		Setup: &ConnectionSetup{URL: "testURL"},
+	}}
+
+	ws.outbound = map[any]*ConnectionWrapper{
+		"testURL": ws.connectionManager[0],
+	}
+
+	_, err = ws.GetOutboundConnection("testURL")
+	require.ErrorIs(t, err, ErrNotConnected)
+
+	expected := &WebsocketConnection{}
+	ws.connectionManager[0].Connection = expected
+
+	conn, err := ws.GetOutboundConnection("testURL")
+	require.NoError(t, err)
+	assert.Same(t, expected, conn)
 }

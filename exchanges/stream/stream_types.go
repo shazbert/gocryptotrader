@@ -17,16 +17,20 @@ type Connection interface {
 	Dial(*websocket.Dialer, http.Header) error
 	DialContext(context.Context, *websocket.Dialer, http.Header) error
 	ReadMessage() Response
-	SendJSONMessage(interface{}) error
+	SendJSONMessage(any) error
 	SetupPingHandler(PingHandler)
 	GenerateMessageID(highPrecision bool) int64
-	SendMessageReturnResponse(signature interface{}, request interface{}) ([]byte, error)
+	SendMessageReturnResponse(ctx context.Context, signature any, request any) ([]byte, error)
+	SendMessageReturnResponses(ctx context.Context, signature any, request any, expected int, isFinalMessage ...Inspector) ([][]byte, error)
 	SendRawMessage(messageType int, message []byte) error
 	SetURL(string)
 	SetProxy(string)
 	GetURL() string
 	Shutdown() error
 }
+
+// Inspector is a hook that allows for custom message inspection
+type Inspector func([]byte) bool
 
 // Response defines generalised data from the stream connection
 type Response struct {
@@ -63,6 +67,16 @@ type ConnectionSetup struct {
 	// received from the exchange's websocket server. This function should
 	// handle the incoming message and pass it to the appropriate data handler.
 	Handler func(ctx context.Context, incoming []byte) error
+	// Authenticate is a function that will be called to authenticate the
+	// connection to the exchange's websocket server. This function should
+	// handle the authentication process and return an error if the
+	// authentication fails.
+	Authenticate func(ctx context.Context, conn Connection) error
+	// OutboundRequestSignature is any type that will match outbound
+	// requests to this specific connection. This could be an asset type
+	// `asset.Spot`, a string type denoting the individual URL, an
+	// authenticated or unauthenticated string or a mixture of these.
+	OutboundRequestSignature any
 }
 
 // ConnectionWrapper contains the connection setup details to be used when

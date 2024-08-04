@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/buger/jsonparser"
 	"github.com/gorilla/websocket"
 	"github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/currency"
@@ -83,6 +84,12 @@ func (g *Gateio) WsConnectSpot(ctx context.Context, conn stream.Connection) erro
 	return nil
 }
 
+// AuthenticateSpot sends an authentication message to the websocket connection
+func (g *Gateio) AuthenticateSpot(ctx context.Context, conn stream.Connection) error {
+	_, err := g.WebsocketLogin(ctx, conn, "spot.login")
+	return err
+}
+
 func (g *Gateio) generateWsSignature(secret, event, channel string, dtime time.Time) (string, error) {
 	msg := "channel=" + channel + "&event=" + event + "&time=" + strconv.FormatInt(dtime.Unix(), 10)
 	mac := hmac.New(sha512.New, []byte(secret))
@@ -94,6 +101,14 @@ func (g *Gateio) generateWsSignature(secret, event, channel string, dtime time.T
 
 // WsHandleSpotData handles spot data
 func (g *Gateio) WsHandleSpotData(_ context.Context, respRaw []byte) error {
+	if requestID, err := jsonparser.GetString(respRaw, "request_id"); err == nil && requestID != "" {
+		fmt.Println("HANDLE: ", string(respRaw))
+		if !g.Websocket.Match.IncomingWithData(requestID, respRaw) {
+			return fmt.Errorf("gateio_websocket.go error - unable to match requestID %v", requestID)
+		}
+		return nil
+	}
+
 	var push WsResponse
 	err := json.Unmarshal(respRaw, &push)
 	if err != nil {
@@ -683,7 +698,7 @@ func (g *Gateio) handleSubscription(ctx context.Context, conn stream.Connection,
 	}
 	var errs error
 	for k := range payloads {
-		result, err := conn.SendMessageReturnResponse(payloads[k].ID, payloads[k])
+		result, err := conn.SendMessageReturnResponse(ctx, payloads[k].ID, payloads[k])
 		if err != nil {
 			errs = common.AppendError(errs, err)
 			continue
