@@ -755,7 +755,7 @@ func (ok *Okx) SubmitOrder(ctx context.Context, s *order.Submit) (*order.SubmitR
 		}
 	}
 	if ok.Websocket.CanUseAuthenticatedWebsocketForWrapper() {
-		placeOrderResponse, err = ok.WsPlaceOrder(orderRequest)
+		placeOrderResponse, err = ok.WsPlaceOrder(ctx, orderRequest)
 		if err != nil {
 			return nil, err
 		}
@@ -805,7 +805,7 @@ func (ok *Okx) ModifyOrder(ctx context.Context, action *order.Modify) (*order.Mo
 		ClientOrderID: action.ClientOrderID,
 	}
 	if ok.Websocket.CanUseAuthenticatedWebsocketForWrapper() {
-		_, err = ok.WsAmendOrder(&amendRequest)
+		_, err = ok.WsAmendOrder(ctx, &amendRequest)
 	} else {
 		_, err = ok.AmendOrder(ctx, &amendRequest)
 	}
@@ -837,7 +837,7 @@ func (ok *Okx) CancelOrder(ctx context.Context, ord *order.Cancel) error {
 		ClientOrderID: ord.ClientOrderID,
 	}
 	if ok.Websocket.CanUseAuthenticatedWebsocketForWrapper() {
-		_, err = ok.WsCancelOrder(req)
+		_, err = ok.WsCancelOrder(ctx, req)
 	} else {
 		_, err = ok.CancelSingleOrder(ctx, req)
 	}
@@ -878,7 +878,7 @@ func (ok *Okx) CancelBatchOrders(ctx context.Context, o []order.Cancel) (*order.
 	}
 	var canceledOrders []OrderData
 	if ok.Websocket.CanUseAuthenticatedWebsocketForWrapper() {
-		canceledOrders, err = ok.WsCancelMultipleOrder(cancelOrderParams)
+		canceledOrders, err = ok.WsCancelMultipleOrder(ctx, cancelOrderParams)
 	} else {
 		canceledOrders, err = ok.CancelMultipleOrders(ctx, cancelOrderParams)
 	}
@@ -967,14 +967,14 @@ ordersLoop:
 		var response []OrderData
 		if len(remaining) > 20 {
 			if ok.Websocket.CanUseAuthenticatedWebsocketForWrapper() {
-				response, err = ok.WsCancelMultipleOrder(remaining[:20])
+				response, err = ok.WsCancelMultipleOrder(ctx, remaining[:20])
 			} else {
 				response, err = ok.CancelMultipleOrders(ctx, remaining[:20])
 			}
 			remaining = remaining[20:]
 		} else {
 			if ok.Websocket.CanUseAuthenticatedWebsocketForWrapper() {
-				response, err = ok.WsCancelMultipleOrder(remaining)
+				response, err = ok.WsCancelMultipleOrder(ctx, remaining)
 			} else {
 				response, err = ok.CancelMultipleOrders(ctx, remaining)
 			}
