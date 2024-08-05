@@ -4254,75 +4254,50 @@ func GetAssetTypeFromInstrumentType(instrumentType string) asset.Item {
 
 // GetAssetsFromInstrumentTypeOrID parses an instrument type and instrument ID and returns a list of assets
 // that the currency pair is associated with.
+// TODO: Deprecate and set up individual websocket connections for each asset type.
 func (ok *Okx) GetAssetsFromInstrumentTypeOrID(instType, instrumentID string) ([]asset.Item, error) {
 	if instType != "" {
-		a := GetAssetTypeFromInstrumentType(instType)
-		if a != asset.Empty {
+		if a := GetAssetTypeFromInstrumentType(instType); a != asset.Empty {
 			return []asset.Item{a}, nil
 		}
 	}
 	if instrumentID == "" {
 		return nil, fmt.Errorf("%w instrumentID", errEmptyArgument)
 	}
-	pf, err := ok.CurrencyPairs.GetFormat(asset.Spot, true)
-	if err != nil {
-		return nil, err
-	}
-	splitSymbol := strings.Split(instrumentID, pf.Delimiter)
-	if len(splitSymbol) <= 1 {
-		return nil, fmt.Errorf("%w %v", currency.ErrCurrencyNotSupported, instrumentID)
-	}
-	pair, err := currency.NewPairDelimiter(instrumentID, pf.Delimiter)
-	if err != nil {
-		return nil, err
-	}
+
+	splitSymbol := strings.Split(instrumentID, "-")
+
+	var resp []asset.Item
 	switch {
 	case len(splitSymbol) == 2:
-		resp := make([]asset.Item, 0, 2)
-		enabled, err := ok.IsPairEnabled(pair, asset.Spot)
-		if err != nil {
-			return nil, err
-		}
-		if enabled {
-			resp = append(resp, asset.Spot)
-		}
-		enabled, err = ok.IsPairEnabled(pair, asset.Margin)
-		if err != nil {
-			return nil, err
-		}
-		if enabled {
-			resp = append(resp, asset.Margin)
-		}
-		if len(resp) > 0 {
-			return resp, nil
-		}
+		resp = []asset.Item{asset.Spot, asset.Margin}
 	case len(splitSymbol) > 2:
 		switch splitSymbol[len(splitSymbol)-1] {
 		case "SWAP", "swap":
-			enabled, err := ok.IsPairEnabled(pair, asset.PerpetualSwap)
-			if err != nil {
-				return nil, err
-			}
-			if enabled {
-				return []asset.Item{asset.PerpetualSwap}, nil
-			}
+			resp = []asset.Item{asset.PerpetualSwap}
 		case "C", "P", "c", "p":
-			enabled, err := ok.IsPairEnabled(pair, asset.Options)
-			if err != nil {
-				return nil, err
-			}
-			if enabled {
-				return []asset.Item{asset.Options}, nil
-			}
+			resp = []asset.Item{asset.Options}
 		default:
-			enabled, err := ok.IsPairEnabled(pair, asset.Futures)
-			if err != nil {
-				return nil, err
-			}
-			if enabled {
-				return []asset.Item{asset.Futures}, nil
-			}
+			resp = []asset.Item{asset.Futures}
+		}
+	default:
+		return nil, fmt.Errorf("%w %v", currency.ErrCurrencyNotSupported, instrumentID)
+	}
+
+	target := 0
+	for x := range resp {
+		_, enabled, err := ok.MatchSymbolCheckEnabled(instrumentID, resp[x], true)
+		if err != nil && !errors.Is(err, currency.ErrPairNotFound) {
+			return nil, err
+		}
+		if enabled {
+			target++
 		}
 	}
+
+	if target > 0 {
+		return resp[:target], nil
+	}
+
 	return nil, fmt.Errorf("%w '%v' or currency not enabled '%v'", asset.ErrNotSupported, instType, instrumentID)
 }

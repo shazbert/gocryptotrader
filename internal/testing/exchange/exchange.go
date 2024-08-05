@@ -123,7 +123,7 @@ func MockWsInstance[T any, PT interface {
 }
 
 // FixtureToDataHandler squirts the contents of a file to a reader function (probably e.wsHandleData)
-func FixtureToDataHandler(tb testing.TB, fixturePath string, reader func([]byte) error) {
+func FixtureToDataHandler(tb testing.TB, fixturePath string, reader func(context.Context, []byte) error) {
 	tb.Helper()
 
 	fixture, err := os.Open(fixturePath)
@@ -135,7 +135,7 @@ func FixtureToDataHandler(tb testing.TB, fixturePath string, reader func([]byte)
 	s := bufio.NewScanner(fixture)
 	for s.Scan() {
 		msg := s.Bytes()
-		err := reader(msg)
+		err := reader(context.TODO(), msg)
 		assert.NoErrorf(tb, err, "Fixture message should not error:\n%s", msg)
 	}
 	assert.NoError(tb, s.Err(), "Fixture Scanner should not error")

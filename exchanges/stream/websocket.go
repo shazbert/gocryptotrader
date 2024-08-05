@@ -1314,8 +1314,17 @@ func (w *Websocket) Reader(ctx context.Context, conn Connection, handler func(ct
 		if resp.Raw == nil {
 			return // Connection has been closed
 		}
+
+		fmt.Print("!")
+		continue
+
+		tn := time.Now()
 		if err := handler(ctx, resp.Raw); err != nil {
 			w.DataHandler <- err
+		}
+
+		if since := time.Since(tn); since > time.Millisecond {
+			fmt.Printf("Websocket reader handler took longer than %s\n", since)
 		}
 	}
 }

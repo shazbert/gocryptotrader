@@ -421,15 +421,15 @@ func (ok *Okx) handleSubscription(ctx context.Context, conn stream.Connection, o
 				authRequests.Arguments = []SubscriptionInfo{}
 			}
 		} else {
-			channels = append(channels, s)
-			request.Arguments = append(request.Arguments, arg)
-			chunk, err := json.Marshal(request)
+			// Check to see if this exceeds byte limit
+			temp := append(slices.Clone(request.Arguments), arg)
+			chunk, err := json.Marshal(WSSubscriptionInformationList{Operation: operation, Arguments: temp})
 			if err != nil {
 				return err
 			}
 			if len(chunk) > maxConnByteLen {
-				i--
-				err = conn.SendJSONMessage(request)
+				fmt.Println("chunk", string(chunk))
+				err = conn.SendJSONMessage(WSSubscriptionInformationList{Operation: operation, Arguments: request.Arguments})
 				if err != nil {
 					return err
 				}
@@ -441,10 +441,12 @@ func (ok *Okx) handleSubscription(ctx context.Context, conn stream.Connection, o
 				if err != nil {
 					return err
 				}
-				channels = subscription.List{}
-				request.Arguments = []SubscriptionInfo{}
+				channels = subscription.List{s}
+				request.Arguments = []SubscriptionInfo{arg}
 				continue
 			}
+			channels = append(channels, s)
+			request.Arguments = temp
 		}
 	}
 
@@ -470,6 +472,7 @@ func (ok *Okx) handleSubscription(ctx context.Context, conn stream.Connection, o
 
 // WsHandleData will read websocket raw data and pass to appropriate handler
 func (ok *Okx) WsHandleData(ctx context.Context, respRaw []byte) error {
+
 	if id, err := jsonparser.GetString(respRaw, "id"); err == nil && id != "" {
 		if !ok.Websocket.Match.IncomingWithData(id, respRaw) {
 			return fmt.Errorf("%s: %w to payload %v", ok.Name, errWebsocketDataNotMatchedWithID, string(respRaw))
@@ -489,6 +492,7 @@ func (ok *Okx) WsHandleData(ctx context.Context, respRaw []byte) error {
 		(resp.Event == "login" ||
 			(resp.Event == "error" &&
 				slices.Contains([]string{"60022", "60023", "60024", "60026", "63999", "60032", "60011", "60009", "60005", "60021", "60031"}, resp.Code))) {
+		fmt.Printf("error: %v\n", resp)
 		// find error codes and corresponding reasons: https://www.okx.com/docs-v5/en/#error-code-websocket-public
 		if !ok.Websocket.Match.IncomingWithData("login-response", respRaw) {
 			return fmt.Errorf("%s: %w to payload %v", ok.Name, errWebsocketDataNotMatchedWithID, string(respRaw))
@@ -758,10 +762,6 @@ func (ok *Okx) wsProcessOrderBooks(data []byte) error {
 	if err != nil {
 		return err
 	}
-	if !pair.IsPopulated() {
-		return errIncompleteCurrencyPair
-	}
-	pair.Delimiter = currency.DashDelimiter
 	for i := range response.Data {
 		if response.Action == wsOrderbookSnapshot {
 			err = ok.WsProcessSnapshotOrderBook(response.Data[i], pair, assets)
@@ -789,10 +789,7 @@ func (ok *Okx) wsProcessOrderBooks(data []byte) error {
 		}
 	}
 	if ok.Verbose {
-		log.Debugf(log.ExchangeSys,
-			"%s passed checksum for pair %v",
-			ok.Name, pair,
-		)
+		log.Debugf(log.ExchangeSys, "%s passed checksum for pair %v", ok.Name, pair)
 	}
 	return nil
 }
@@ -807,9 +804,7 @@ func (ok *Okx) WsProcessSnapshotOrderBook(data WsOrderBookData, pair currency.Pa
 			err)
 	}
 	if signedChecksum != data.Checksum {
-		return fmt.Errorf("%w %v",
-			errInvalidChecksum,
-			pair)
+		return fmt.Errorf("%w %v", errInvalidChecksum, pair)
 	}
 
 	asks, err := ok.AppendWsOrderbookItems(data.Asks)
@@ -820,6 +815,7 @@ func (ok *Okx) WsProcessSnapshotOrderBook(data WsOrderBookData, pair currency.Pa
 	if err != nil {
 		return err
 	}
+
 	for i := range assets {
 		newOrderBook := orderbook.Base{
 			Asset:           assets[i],
@@ -835,6 +831,9 @@ func (ok *Okx) WsProcessSnapshotOrderBook(data WsOrderBookData, pair currency.Pa
 			return err
 		}
 	}
+
+	fmt.Println("ob since:", time.Since(data.Timestamp.Time()))
+
 	return nil
 }
 
