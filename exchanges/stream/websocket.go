@@ -317,7 +317,7 @@ func (w *Websocket) getConnectionFromSetup(c *ConnectionSetup) *WebsocketConnect
 
 // Connect initiates a websocket connection by using a package defined connection
 // function
-func (w *Websocket) Connect() error {
+func (w *Websocket) Connect(subscriptionModifier ...subscription.Hook) error {
 	w.m.Lock()
 	defer w.m.Unlock()
 
@@ -362,6 +362,11 @@ func (w *Websocket) Connect() error {
 		if err != nil {
 			return fmt.Errorf("%s websocket: %w", w.exchangeName, common.AppendError(ErrSubscriptionFailure, err))
 		}
+
+		if len(subscriptionModifier) > 0 {
+			subs = subscriptionModifier[0](subs)
+		}
+
 		if len(subs) != 0 {
 			if err := w.SubscribeToChannels(nil, subs); err != nil {
 				return err
@@ -401,6 +406,10 @@ func (w *Websocket) Connect() error {
 			multiConnectFatalError = fmt.Errorf("%s websocket: %w", w.exchangeName, common.AppendError(ErrSubscriptionFailure, err))
 			m.Unlock()
 			break
+		}
+
+		if len(subscriptionModifier) > 0 {
+			subs = subscriptionModifier[0](subs)
 		}
 
 		if len(subs) == 0 {
@@ -738,7 +747,7 @@ func (w *Websocket) Shutdown() error {
 }
 
 // FlushChannels flushes channel subscriptions when there is a pair/asset change
-func (w *Websocket) FlushChannels() error {
+func (w *Websocket) FlushChannels(subscriptionModifier ...subscription.Hook) error {
 	if !w.IsEnabled() {
 		return fmt.Errorf("%s %w", w.exchangeName, ErrWebsocketNotEnabled)
 	}
@@ -752,6 +761,10 @@ func (w *Websocket) FlushChannels() error {
 			newsubs, err := w.GenerateSubs()
 			if err != nil {
 				return err
+			}
+
+			if len(subscriptionModifier) > 0 {
+				newsubs = subscriptionModifier[0](newsubs)
 			}
 
 			subs, unsubs := w.GetChannelDifference(nil, newsubs)
@@ -777,6 +790,11 @@ func (w *Websocket) FlushChannels() error {
 				}
 				return err
 			}
+
+			if len(subscriptionModifier) > 0 {
+				newsubs = subscriptionModifier[0](newsubs)
+			}
+
 			subs, unsubs := w.GetChannelDifference(w.connectionManager[x].Connection, newsubs)
 			if len(unsubs) != 0 && w.features.Unsubscribe {
 				err = w.UnsubscribeChannels(w.connectionManager[x].Connection, unsubs)
@@ -805,6 +823,10 @@ func (w *Websocket) FlushChannels() error {
 				return err
 			}
 
+			if len(subscriptionModifier) > 0 {
+				newsubs = subscriptionModifier[0](newsubs)
+			}
+
 			if len(newsubs) != 0 {
 				// Purge subscription list as there will be conflicts
 				w.subscriptions.Clear()
@@ -824,6 +846,11 @@ func (w *Websocket) FlushChannels() error {
 				}
 				return err
 			}
+
+			if len(subscriptionModifier) > 0 {
+				newsubs = subscriptionModifier[0](newsubs)
+			}
+
 			if len(newsubs) != 0 {
 				// Purge subscription list as there will be conflicts
 				w.connectionManager[x].Subscriptions.Clear()
