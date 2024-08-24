@@ -22,9 +22,12 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/log"
 )
 
-// errConnectionFault is a connection fault error which alerts the system that a
-// connection cycle needs to take place.
-var errConnectionFault = errors.New("connection fault")
+var (
+	// errConnectionFault is a connection fault error which alerts the system that a
+	// connection cycle needs to take place.
+	errConnectionFault = errors.New("connection fault")
+	errMatchTimeout    = errors.New("websocket connection: timeout waiting for response with signature")
+)
 
 // Dial sets proxy urls and then connects to the websocket
 func (w *WebsocketConnection) Dial(dialer *websocket.Dialer, headers http.Header) error {
@@ -65,51 +68,47 @@ func (w *WebsocketConnection) DialContext(ctx context.Context, dialer *websocket
 }
 
 // SendJSONMessage sends a JSON encoded message over the connection
-func (w *WebsocketConnection) SendJSONMessage(data interface{}) error {
-	if !w.IsConnected() {
-		return fmt.Errorf("%s websocket connection: cannot send message to a disconnected websocket", w.ExchangeName)
-	}
-
-	w.writeControl.Lock()
-	defer w.writeControl.Unlock()
-
-	if w.Verbose {
-		if msg, err := json.Marshal(data); err == nil { // WriteJSON will error for us anyway
-			log.Debugf(log.WebsocketMgr, "%s websocket connection: sending message: %s\n", w.ExchangeName, msg)
+func (w *WebsocketConnection) SendJSONMessage(ctx context.Context, data interface{}) error {
+	return w.writeToConn(ctx, func() error {
+		if w.Verbose {
+			if msg, err := json.Marshal(data); err == nil { // WriteJSON will error for us anyway
+				log.Debugf(log.WebsocketMgr, "%s websocket connection: sending message: %s\n", w.ExchangeName, msg)
+			}
 		}
-	}
-
-	if w.RateLimit > 0 {
-		time.Sleep(time.Duration(w.RateLimit) * time.Millisecond)
-		if !w.IsConnected() {
-			return fmt.Errorf("%v websocket connection: cannot send message to a disconnected websocket", w.ExchangeName)
-		}
-	}
-	return w.Connection.WriteJSON(data)
+		return w.Connection.WriteJSON(data)
+	})
 }
 
 // SendRawMessage sends a message over the connection without JSON encoding it
-func (w *WebsocketConnection) SendRawMessage(messageType int, message []byte) error {
+func (w *WebsocketConnection) SendRawMessage(ctx context.Context, messageType int, message []byte) error {
+	return w.writeToConn(ctx, func() error {
+		if w.Verbose {
+			log.Debugf(log.WebsocketMgr, "%v websocket connection: sending message [%s]\n", w.ExchangeName, message)
+		}
+		return w.Connection.WriteMessage(messageType, message)
+	})
+}
+
+func (w *WebsocketConnection) writeToConn(ctx context.Context, writeConn func() error) error {
 	if !w.IsConnected() {
 		return fmt.Errorf("%v websocket connection: cannot send message to a disconnected websocket", w.ExchangeName)
 	}
-
-	w.writeControl.Lock()
-	defer w.writeControl.Unlock()
-
-	if w.Verbose {
-		log.Debugf(log.WebsocketMgr, "%v websocket connection: sending message [%s]\n", w.ExchangeName, message)
-	}
-	if w.RateLimit > 0 {
-		time.Sleep(time.Duration(w.RateLimit) * time.Millisecond)
-		if !w.IsConnected() {
-			return fmt.Errorf("%v websocket connection: cannot send message to a disconnected websocket", w.ExchangeName)
+	if w.RateLimit != nil {
+		err := request.RateLimit(ctx, w.RateLimit)
+		if err != nil {
+			return fmt.Errorf("%s websocket connection: rate limit error: %w", w.ExchangeName, err)
 		}
 	}
+	// This lock is only acting as rolling gate and stops panic for
+	// WriteMessage, need access to rate limit above as priority if available.
+	w.writeControl.Lock()
+	defer w.writeControl.Unlock()
+	// NOTE: Secondary check to ensure the connection is still active after
+	// semacquire and potential rate limit.
 	if !w.IsConnected() {
 		return fmt.Errorf("%v websocket connection: cannot send message to a disconnected websocket", w.ExchangeName)
 	}
-	return w.Connection.WriteMessage(messageType, message)
+	return writeConn()
 }
 
 // SetupPingHandler will automatically send ping or pong messages based on
@@ -117,9 +116,7 @@ func (w *WebsocketConnection) SendRawMessage(messageType int, message []byte) er
 func (w *WebsocketConnection) SetupPingHandler(handler PingHandler) {
 	if handler.UseGorillaHandler {
 		h := func(msg string) error {
-			err := w.Connection.WriteControl(handler.MessageType,
-				[]byte(msg),
-				time.Now().Add(handler.Delay))
+			err := w.Connection.WriteControl(handler.MessageType, []byte(msg), time.Now().Add(handler.Delay))
 			if err == websocket.ErrCloseSent {
 				return nil
 			} else if e, ok := err.(net.Error); ok && e.Timeout() {
@@ -140,13 +137,9 @@ func (w *WebsocketConnection) SetupPingHandler(handler PingHandler) {
 				ticker.Stop()
 				return
 			case <-ticker.C:
-				err := w.SendRawMessage(handler.MessageType, handler.Message)
+				err := w.SendRawMessage(context.TODO(), handler.MessageType, handler.Message)
 				if err != nil {
-					log.Errorf(log.WebsocketMgr,
-						"%v websocket connection: ping handler failed to send message [%s]",
-						w.ExchangeName,
-						handler.Message)
-					return
+					log.Errorf(log.WebsocketMgr, "%v websocket connection: ping handler failed to send message [%s]", w.ExchangeName, handler.Message)
 				}
 			}
 		}
@@ -316,7 +309,7 @@ func (w *WebsocketConnection) SendMessageReturnResponses(ctx context.Context, si
 		log.Debugf(log.WebsocketMgr, "%v %v websocket connection: Sending message: %v\n", w.ExchangeName, w.URL, string(outbound))
 	}
 
-	err = w.SendRawMessage(websocket.TextMessage, outbound)
+	err = w.SendRawMessage(ctx, websocket.TextMessage, outbound)
 	if err != nil {
 		return nil, err
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/config"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/fill"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/protocol"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/request"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/stream/buffer"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/subscription"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/trade"
@@ -73,6 +74,9 @@ type Websocket struct {
 	DataHandler chan interface{}
 	ToRoutine   chan interface{}
 
+	// TODO: Disconnect this as an exported field and make it a connection level method.
+	// This impedes multiple connection matches on startup between routines as they
+	// will all share the same match object, which is not needed.
 	Match *Match
 
 	// shutdown synchronises shutdown event across routines
@@ -148,7 +152,7 @@ type WebsocketConnection struct {
 	// writes methods
 	writeControl sync.Mutex
 
-	RateLimit    int64
+	RateLimit    *request.RateLimiterWithWeight
 	ExchangeName string
 	URL          string
 	ProxyURL     string

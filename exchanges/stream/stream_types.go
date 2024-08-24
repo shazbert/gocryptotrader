@@ -9,6 +9,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
+	"github.com/thrasher-corp/gocryptotrader/exchanges/request"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/subscription"
 )
 
@@ -17,7 +18,7 @@ type Connection interface {
 	Dial(*websocket.Dialer, http.Header) error
 	DialContext(context.Context, *websocket.Dialer, http.Header) error
 	ReadMessage() Response
-	SendJSONMessage(any) error
+	SendJSONMessage(ctx context.Context, payload any) error
 	SetupPingHandler(PingHandler)
 	// GenerateMessageID generates a message ID for the individual connection.
 	// If a bespoke function is set (by using SetupNewConnection) it will use
@@ -26,7 +27,7 @@ type Connection interface {
 	GenerateMessageID(highPrecision bool) int64
 	SendMessageReturnResponse(ctx context.Context, signature any, request any) ([]byte, error)
 	SendMessageReturnResponses(ctx context.Context, signature any, request any, expected int, isFinalMessage ...Inspector) ([][]byte, error)
-	SendRawMessage(messageType int, message []byte) error
+	SendRawMessage(ctx context.Context, messageType int, message []byte) error
 	SetURL(string)
 	SetProxy(string)
 	GetURL() string
@@ -46,7 +47,7 @@ type Response struct {
 type ConnectionSetup struct {
 	ResponseCheckTimeout    time.Duration
 	ResponseMaxLimit        time.Duration
-	RateLimit               int64
+	RateLimit               *request.RateLimiterWithWeight
 	Authenticated           bool
 	ConnectionLevelReporter Reporter
 
@@ -62,11 +63,11 @@ type ConnectionSetup struct {
 	// Subscriber is a function that will be called to send subscription
 	// messages based on the exchange's websocket server requirements to
 	// subscribe to specific channels.
-	Subscriber func(ctx context.Context, conn Connection, sub subscription.List) error
+	Subscriber func(ctx context.Context, conn Connection, sub subscription.List) (*subscription.Result, error)
 	// Unsubscriber is a function that will be called to send unsubscription
 	// messages based on the exchange's websocket server requirements to
 	// unsubscribe from specific channels. NOTE: IF THE FEATURE IS ENABLED.
-	Unsubscriber func(ctx context.Context, conn Connection, unsub subscription.List) error
+	Unsubscriber func(ctx context.Context, conn Connection, unsub subscription.List) (*subscription.Result, error)
 	// Handler defines the function that will be called when a message is
 	// received from the exchange's websocket server. This function should
 	// handle the incoming message and pass it to the appropriate data handler.
