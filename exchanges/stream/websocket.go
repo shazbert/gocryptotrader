@@ -571,13 +571,13 @@ func (w *Websocket) Disable() error {
 }
 
 // Enable enables the exchange websocket protocol
-func (w *Websocket) Enable() error {
+func (w *Websocket) Enable(subscriptionModifyer ...subscription.Hook) error {
 	if w.IsConnected() || w.IsEnabled() {
 		return fmt.Errorf("%s %w", w.exchangeName, errWebsocketAlreadyEnabled)
 	}
 
 	w.setEnabled(true)
-	return w.Connect()
+	return w.Connect(subscriptionModifyer...)
 }
 
 // dataMonitor monitors job throughput and logs if there is a back log of data
