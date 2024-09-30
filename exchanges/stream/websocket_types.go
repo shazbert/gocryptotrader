@@ -144,9 +144,11 @@ type WebsocketSetup struct {
 	// Fill data config values
 	FillsFeed bool
 
-	// MaxWebsocketSubscriptionsPerConnection defines the maximum number of
-	// subscriptions per connection that is allowed by the exchange.
+	// MaxWebsocketSubscriptionsPerConnection defines the maximum number of subscriptions per connection that is allowed
+	// by the exchange.
 	MaxWebsocketSubscriptionsPerConnection int
+	// MaxConnectionsPerIP defines the maximum number of connections per IP address
+	MaxConnectionsPerIP int
 
 	// RateLimitDefinitions contains the rate limiters shared between WebSocket and REST connections for all endpoints.
 	// These rate limits take precedence over any rate limits specified in individual connection configurations.
