@@ -165,7 +165,7 @@ func (g *Gateio) FuturesUnsubscribe(ctx context.Context, conn stream.Connection,
 }
 
 // WsHandleFuturesData handles futures websocket data
-func (g *Gateio) WsHandleFuturesData(_ context.Context, respRaw []byte, a asset.Item) error {
+func (g *Gateio) WsHandleFuturesData(_ context.Context, conn stream.Connection, respRaw []byte, a asset.Item) error {
 	if requestID, err := jsonparser.GetString(respRaw, "request_id"); err == nil && requestID != "" {
 		if !g.Websocket.Match.IncomingWithData(requestID, respRaw) {
 			return fmt.Errorf("gateio_websocket.go error - unable to match requestID %v", requestID)
@@ -180,7 +180,7 @@ func (g *Gateio) WsHandleFuturesData(_ context.Context, respRaw []byte, a asset.
 	}
 
 	if push.Event == subscribeEvent || push.Event == unsubscribeEvent {
-		if !g.Websocket.Match.IncomingWithData(push.ID, respRaw) {
+		if !conn.RouteIncomingWebsocketData(push.ID, respRaw) {
 			return fmt.Errorf("couldn't match subscription message with ID: %d", push.ID)
 		}
 		return nil

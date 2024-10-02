@@ -106,7 +106,7 @@ func (g *Gateio) generateWsSignature(secret, event, channel string, t int64) (st
 }
 
 // WsHandleSpotData handles spot data
-func (g *Gateio) WsHandleSpotData(_ context.Context, respRaw []byte) error {
+func (g *Gateio) WsHandleSpotData(_ context.Context, conn stream.Connection, respRaw []byte) error {
 	if requestID, err := jsonparser.GetString(respRaw, "request_id"); err == nil && requestID != "" {
 		if !g.Websocket.Match.IncomingWithData(requestID, respRaw) {
 			return fmt.Errorf("gateio_websocket.go error - unable to match requestID %v", requestID)
@@ -121,7 +121,7 @@ func (g *Gateio) WsHandleSpotData(_ context.Context, respRaw []byte) error {
 	}
 
 	if push.Event == subscribeEvent || push.Event == unsubscribeEvent {
-		if !g.Websocket.Match.IncomingWithData(push.ID, respRaw) {
+		if !conn.RouteIncomingWebsocketData(push.ID, respRaw) {
 			return fmt.Errorf("couldn't match subscription message with ID: %d", push.ID)
 		}
 		return nil
