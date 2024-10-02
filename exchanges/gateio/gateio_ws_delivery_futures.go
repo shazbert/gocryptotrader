@@ -110,12 +110,12 @@ func (g *Gateio) GenerateDeliveryFuturesDefaultSubscriptions() (subscription.Lis
 }
 
 // DeliveryFuturesSubscribe sends a websocket message to stop receiving data from the channel
-func (g *Gateio) DeliveryFuturesSubscribe(ctx context.Context, conn stream.Connection, channelsToUnsubscribe subscription.List) error {
+func (g *Gateio) DeliveryFuturesSubscribe(ctx context.Context, conn stream.Connection, channelsToUnsubscribe subscription.List) (*subscription.Result, error) {
 	return g.handleSubscription(ctx, conn, subscribeEvent, channelsToUnsubscribe, g.generateDeliveryFuturesPayload)
 }
 
 // DeliveryFuturesUnsubscribe sends a websocket message to stop receiving data from the channel
-func (g *Gateio) DeliveryFuturesUnsubscribe(ctx context.Context, conn stream.Connection, channelsToUnsubscribe subscription.List) error {
+func (g *Gateio) DeliveryFuturesUnsubscribe(ctx context.Context, conn stream.Connection, channelsToUnsubscribe subscription.List) (*subscription.Result, error) {
 	return g.handleSubscription(ctx, conn, unsubscribeEvent, channelsToUnsubscribe, g.generateDeliveryFuturesPayload)
 }
 

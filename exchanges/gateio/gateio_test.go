@@ -3009,8 +3009,9 @@ func TestSubscribe(t *testing.T) {
 	subs, err := g.Features.Subscriptions.ExpandTemplates(g)
 	require.NoError(t, err, "ExpandTemplates must not error")
 	g.Features.Subscriptions = subscription.List{}
-	err = g.Subscribe(context.Background(), &DummyConnection{}, subs)
+	result, err := g.Subscribe(context.Background(), &DummyConnection{}, subs)
 	require.NoError(t, err, "Subscribe must not error")
+	require.NotNil(t, result, "Subscribe must return a result")
 }
 
 func TestGenerateDeliveryFuturesDefaultSubscriptions(t *testing.T) {
@@ -3672,12 +3673,12 @@ func TestHandleSubscriptions(t *testing.T) {
 
 	subs := subscription.List{{Channel: subscription.OrderbookChannel}}
 
-	err := g.handleSubscription(context.Background(), &DummyConnection{}, subscribeEvent, subs, func(context.Context, stream.Connection, string, subscription.List) ([]WsInput, error) {
+	_, err := g.handleSubscription(context.Background(), &DummyConnection{}, subscribeEvent, subs, func(context.Context, stream.Connection, string, subscription.List) ([]WsInput, error) {
 		return []WsInput{{}}, nil
 	})
 	require.NoError(t, err)
 
-	err = g.handleSubscription(context.Background(), &DummyConnection{}, unsubscribeEvent, subs, func(context.Context, stream.Connection, string, subscription.List) ([]WsInput, error) {
+	_, err = g.handleSubscription(context.Background(), &DummyConnection{}, unsubscribeEvent, subs, func(context.Context, stream.Connection, string, subscription.List) ([]WsInput, error) {
 		return []WsInput{{}}, nil
 	})
 	require.NoError(t, err)

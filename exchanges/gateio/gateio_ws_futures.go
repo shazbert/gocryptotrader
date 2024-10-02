@@ -54,7 +54,6 @@ var defaultFuturesSubscriptions = []string{
 	futuresTickersChannel,
 	futuresTradesChannel,
 	futuresOrderbookChannel,
-	futuresOrderbookUpdateChannel,
 	futuresCandlesticksChannel,
 }
 
@@ -130,7 +129,9 @@ func (g *Gateio) GenerateFuturesDefaultSubscriptions(settlement currency.Code) (
 			params := make(map[string]any)
 			switch channelsToSubscribe[i] {
 			case futuresOrderbookChannel:
-				params["limit"] = 100
+				// Level is set to 10 as it's the most stable, anything larger with a lot of subscripted books will start producing errors
+				// TODO: Investigate root cause of this issue (gorrilla websocket or exchange)
+				params["limit"] = 10
 				params["interval"] = "0"
 			case futuresCandlesticksChannel:
 				params["interval"] = kline.FiveMin
@@ -154,12 +155,12 @@ func (g *Gateio) GenerateFuturesDefaultSubscriptions(settlement currency.Code) (
 }
 
 // FuturesSubscribe sends a websocket message to stop receiving data from the channel
-func (g *Gateio) FuturesSubscribe(ctx context.Context, conn stream.Connection, channelsToUnsubscribe subscription.List) error {
+func (g *Gateio) FuturesSubscribe(ctx context.Context, conn stream.Connection, channelsToUnsubscribe subscription.List) (*subscription.Result, error) {
 	return g.handleSubscription(ctx, conn, subscribeEvent, channelsToUnsubscribe, g.generateFuturesPayload)
 }
 
 // FuturesUnsubscribe sends a websocket message to stop receiving data from the channel
-func (g *Gateio) FuturesUnsubscribe(ctx context.Context, conn stream.Connection, channelsToUnsubscribe subscription.List) error {
+func (g *Gateio) FuturesUnsubscribe(ctx context.Context, conn stream.Connection, channelsToUnsubscribe subscription.List) (*subscription.Result, error) {
 	return g.handleSubscription(ctx, conn, unsubscribeEvent, channelsToUnsubscribe, g.generateFuturesPayload)
 }
 

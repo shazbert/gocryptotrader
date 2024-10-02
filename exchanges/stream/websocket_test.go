@@ -258,8 +258,8 @@ func TestConnectionMessageErrors(t *testing.T) {
 	err = ws.Connect()
 	require.ErrorIs(t, err, errWebsocketSubscriberUnset)
 
-	ws.connectionManager[0].Setup.Subscriber = func(context.Context, Connection, subscription.List) error {
-		return errDastardlyReason
+	ws.connectionManager[0].Setup.Subscriber = func(context.Context, Connection, subscription.List) (*subscription.Result, error) {
+		return nil, errDastardlyReason
 	}
 	err = ws.Connect()
 	require.ErrorIs(t, err, errDastardlyReason)
@@ -276,8 +276,8 @@ func TestConnectionMessageErrors(t *testing.T) {
 	err = ws.Connect()
 	require.ErrorIs(t, err, errDastardlyReason)
 
-	ws.connectionManager[0].Setup.Subscriber = func(context.Context, Connection, subscription.List) error {
-		return nil
+	ws.connectionManager[0].Setup.Subscriber = func(context.Context, Connection, subscription.List) (*subscription.Result, error) {
+		return nil, nil
 	}
 	err = ws.Connect()
 	require.NoError(t, err)
@@ -386,21 +386,9 @@ func currySimpleSub(w *Websocket) func(subscription.List) error {
 	}
 }
 
-func currySimpleSubConn(w *Websocket) func(context.Context, Connection, subscription.List) error {
-	return func(_ context.Context, conn Connection, subs subscription.List) error {
-		return w.AddSuccessfulSubscriptions(conn, subs...)
-	}
-}
-
 func currySimpleUnsub(w *Websocket) func(subscription.List) error {
 	return func(unsubs subscription.List) error {
 		return w.RemoveSubscriptions(nil, unsubs...)
-	}
-}
-
-func currySimpleUnsubConn(w *Websocket) func(context.Context, Connection, subscription.List) error {
-	return func(_ context.Context, conn Connection, unsubs subscription.List) error {
-		return w.RemoveSubscriptions(conn, unsubs...)
 	}
 }
 
@@ -456,11 +444,19 @@ func TestSubscribeUnsubscribe(t *testing.T) {
 		URL:                   "AMAZING",
 		Connector:             func(context.Context, Connection) error { return nil },
 		GenerateSubscriptions: ws.GenerateSubs,
-		Subscriber: func(ctx context.Context, c Connection, s subscription.List) error {
-			return currySimpleSubConn(multi)(ctx, c, s)
+		Subscriber: func(_ context.Context, _ Connection, s subscription.List) (*subscription.Result, error) {
+			result := subscription.Result{}
+			for x := range s {
+				result.RunRoutine(s[x], func() error { return nil })
+			}
+			return result.ReturnWhenFinished(), nil
 		},
-		Unsubscriber: func(ctx context.Context, c Connection, s subscription.List) error {
-			return currySimpleUnsubConn(multi)(ctx, c, s)
+		Unsubscriber: func(_ context.Context, _ Connection, s subscription.List) (*subscription.Result, error) {
+			result := subscription.Result{}
+			for x := range s {
+				result.RunRoutine(s[x], func() error { return nil })
+			}
+			return result.ReturnWhenFinished(), nil
 		},
 		Handler: func(context.Context, []byte) error { return nil },
 	}
@@ -503,7 +499,9 @@ func TestSubscribeUnsubscribe(t *testing.T) {
 	assert.NoError(t, multi.SubscribeToChannels(amazingConn, nil), "Subscribe to an nil List should not error")
 	assert.NoError(t, multi.UnsubscribeChannels(amazingConn, subs), "Unsubscribing should not error")
 
-	amazingCandidate.Subscriber = func(context.Context, Connection, subscription.List) error { return errDastardlyReason }
+	amazingCandidate.Subscriber = func(context.Context, Connection, subscription.List) (*subscription.Result, error) {
+		return nil, errDastardlyReason
+	}
 	assert.ErrorIs(t, multi.SubscribeToChannels(amazingConn, subs), errDastardlyReason, "Should error correctly when error returned from Subscriber")
 
 	err = multi.SubscribeToChannels(amazingConn, subscription.List{nil})
@@ -1117,6 +1115,14 @@ func TestFlushChannels(t *testing.T) {
 	err = w.FlushChannels()
 	assert.NoError(t, err, "FlushChannels should not error")
 
+	everythingIsAwesome := func(_ context.Context, _ Connection, subs subscription.List) (*subscription.Result, error) {
+		result := subscription.Result{}
+		for x := range subs {
+			result.RunRoutine(subs[x], func() error { return nil })
+		}
+		return result.ReturnWhenFinished(), nil
+	}
+
 	// Multi connection management
 	w.useMultiConnectionManagement = true
 	mock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { mockws.WsMockUpgrader(t, w, r, mockws.EchoHandler) }))
@@ -1128,13 +1134,9 @@ func TestFlushChannels(t *testing.T) {
 			return conn.DialContext(ctx, websocket.DefaultDialer, nil)
 		},
 		GenerateSubscriptions: newgen.generateSubs,
-		Subscriber: func(ctx context.Context, c Connection, s subscription.List) error {
-			return currySimpleSubConn(w)(ctx, c, s)
-		},
-		Unsubscriber: func(ctx context.Context, c Connection, s subscription.List) error {
-			return currySimpleUnsubConn(w)(ctx, c, s)
-		},
-		Handler: func(context.Context, []byte) error { return nil },
+		Subscriber:            everythingIsAwesome,
+		Unsubscriber:          everythingIsAwesome,
+		Handler:               func(context.Context, []byte) error { return nil },
 	}
 	require.NoError(t, w.SetupNewConnection(amazingCandidate))
 	require.NoError(t, w.FlushChannels(), "FlushChannels must not error")
@@ -1224,11 +1226,11 @@ func TestSetupNewConnection(t *testing.T) {
 	err = multi.SetupNewConnection(connSetup)
 	require.ErrorIs(t, err, errWebsocketSubscriberUnset)
 
-	connSetup.Subscriber = func(context.Context, Connection, subscription.List) error { return nil }
+	connSetup.Subscriber = func(context.Context, Connection, subscription.List) (*subscription.Result, error) { return nil, nil }
 	err = multi.SetupNewConnection(connSetup)
 	require.ErrorIs(t, err, errWebsocketUnsubscriberUnset)
 
-	connSetup.Unsubscriber = func(context.Context, Connection, subscription.List) error { return nil }
+	connSetup.Unsubscriber = func(context.Context, Connection, subscription.List) (*subscription.Result, error) { return nil, nil }
 	err = multi.SetupNewConnection(connSetup)
 	require.ErrorIs(t, err, errWebsocketDataHandlerUnset)
 

@@ -284,12 +284,12 @@ func (g *Gateio) generateOptionsPayload(ctx context.Context, conn stream.Connect
 }
 
 // OptionsSubscribe sends a websocket message to stop receiving data for asset type options
-func (g *Gateio) OptionsSubscribe(ctx context.Context, conn stream.Connection, channelsToUnsubscribe subscription.List) error {
+func (g *Gateio) OptionsSubscribe(ctx context.Context, conn stream.Connection, channelsToUnsubscribe subscription.List) (*subscription.Result, error) {
 	return g.handleSubscription(ctx, conn, subscribeEvent, channelsToUnsubscribe, g.generateOptionsPayload)
 }
 
 // OptionsUnsubscribe sends a websocket message to stop receiving data for asset type options
-func (g *Gateio) OptionsUnsubscribe(ctx context.Context, conn stream.Connection, channelsToUnsubscribe subscription.List) error {
+func (g *Gateio) OptionsUnsubscribe(ctx context.Context, conn stream.Connection, channelsToUnsubscribe subscription.List) (*subscription.Result, error) {
 	return g.handleSubscription(ctx, conn, unsubscribeEvent, channelsToUnsubscribe, g.generateOptionsPayload)
 }
 
