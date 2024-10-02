@@ -793,3 +793,37 @@ func BenchmarkCounter(b *testing.B) {
 		c.IncrementAndGet()
 	}
 }
+
+// NOTE: Not with main libaray disconnect this test
+func TestErrorWithContext(t *testing.T) {
+	t.Parallel()
+	require.ErrorIs(t, ErrorWithContext(nil), nil)
+	err := errors.New("internal test error")
+
+	require.ErrorIs(t, ErrorWithContext(err), err)
+
+	got := ErrorWithContext(err)
+	exp := []string{"common_test.go", "805", "common.TestErrorWithContext", "internal test error"}
+	for _, e := range exp {
+		require.Contains(t, got.Error(), e)
+	}
+
+	runtimeCaller = func(int) (pc uintptr, file string, line int, ok bool) {
+		return 0, "", 0, false
+	}
+
+	require.ErrorIs(t, ErrorWithContext(err), err)
+	runtimeCaller = runtime.Caller
+	runtimeFuncForPC = func(uintptr) *runtime.Func {
+		return nil
+	}
+
+	got = ErrorWithContext(err)
+	exp = []string{"common_test.go", "821", "internal test error"}
+	for _, e := range exp {
+		require.Contains(t, got.Error(), e)
+	}
+
+	// Test so we don't add context with more context
+	require.Equal(t, got, ErrorWithContext(got))
+}

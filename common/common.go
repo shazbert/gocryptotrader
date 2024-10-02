@@ -14,6 +14,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -459,9 +460,11 @@ func (e *fmtError) Unwrap() []error {
 
 // Error displays all errors comma separated
 func (e *multiError) Error() string {
-	allErrors := make([]string, len(e.errs))
+	allErrors := make([]string, 0, len(e.errs))
 	for x := range e.errs {
-		allErrors[x] = e.errs[x].Error()
+		if add := e.errs[x].Error(); add != "" {
+			allErrors = append(allErrors, add)
+		}
 	}
 	return strings.Join(allErrors, ", ")
 }
@@ -644,4 +647,37 @@ func (c *Counter) IncrementAndGet() int64 {
 		return 1
 	}
 	return newID
+}
+
+// NOTE: NOT WITH MAIN LIBRARY UNLINK THIS
+var runtimeCaller = runtime.Caller
+var runtimeFuncForPC = runtime.FuncForPC
+var errorContext = errors.New("")
+
+// ErrorWithContext adds contextual information to an error, including the
+// function name and line number.
+func ErrorWithContext(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	if errors.Is(err, errorContext) {
+		return err // Already has context
+	}
+
+	pc, file, line, ok := runtimeCaller(1)
+	if !ok {
+		return err // Unable to get caller information
+	}
+
+	baseFile := filepath.Base(file)
+
+	err = AppendError(err, errorContext)
+
+	fn := runtimeFuncForPC(pc)
+	if fn == nil {
+		return fmt.Errorf("%s:%d: %w", baseFile, line, err)
+	}
+
+	return fmt.Errorf("%s:%d %s: %w", baseFile, line, filepath.Base(fn.Name()), err)
 }
