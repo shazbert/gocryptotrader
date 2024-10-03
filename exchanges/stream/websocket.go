@@ -350,13 +350,13 @@ func (w *Websocket) getConnectionFromSetup(c *ConnectionSetup) *WebsocketConnect
 
 // Connect initiates a websocket connection by using a package defined connection
 // function
-func (w *Websocket) Connect() error {
+func (w *Websocket) Connect(filter ...subscription.FilterHook) error {
 	w.m.Lock()
 	defer w.m.Unlock()
-	return w.connect()
+	return w.connect(filter...)
 }
 
-func (w *Websocket) connect() error {
+func (w *Websocket) connect(filter ...subscription.FilterHook) error {
 	if !w.IsEnabled() {
 		return ErrWebsocketNotEnabled
 	}
@@ -391,13 +391,18 @@ func (w *Websocket) connect() error {
 
 		if w.connectionMonitorRunning.CompareAndSwap(false, true) {
 			// This oversees all connections and does not need to be part of wait group management.
-			go w.monitorFrame(nil, w.monitorConnection)
+			go w.monitorFrame(nil, w.monitorConnection, filter...)
 		}
 
 		subs, err := w.GenerateSubs() // regenerate state on new connection
 		if err != nil {
 			return fmt.Errorf("%s websocket: %w", w.exchangeName, common.AppendError(ErrSubscriptionFailure, err))
 		}
+
+		if len(filter) > 0 {
+			subs = filter[0](subs)
+		}
+
 		if len(subs) != 0 {
 			if err := w.SubscribeToChannels(nil, subs); err != nil {
 				return err
@@ -431,6 +436,10 @@ func (w *Websocket) connect() error {
 			multiConnectFatalError = fmt.Errorf("%s websocket: %w", w.exchangeName, common.AppendError(ErrSubscriptionFailure, err))
 			m.Unlock()
 			break
+		}
+
+		if len(filter) > 0 {
+			subs = filter[0](subs)
 		}
 
 		if len(subs) == 0 {
@@ -563,7 +572,7 @@ func (w *Websocket) connect() error {
 
 	if w.connectionMonitorRunning.CompareAndSwap(false, true) {
 		// This oversees all connections and does not need to be part of wait group management.
-		go w.monitorFrame(nil, w.monitorConnection)
+		go w.monitorFrame(nil, w.monitorConnection, filter...)
 	}
 
 	return nil
@@ -581,13 +590,13 @@ func (w *Websocket) Disable() error {
 }
 
 // Enable enables the exchange websocket protocol
-func (w *Websocket) Enable() error {
+func (w *Websocket) Enable(filter ...subscription.FilterHook) error {
 	if w.IsConnected() || w.IsEnabled() {
 		return fmt.Errorf("%s %w", w.exchangeName, errWebsocketAlreadyEnabled)
 	}
 
 	w.setEnabled(true)
-	return w.Connect()
+	return w.Connect(filter...)
 }
 
 // Shutdown attempts to shut down a websocket connection and associated routines
@@ -670,7 +679,7 @@ func (w *Websocket) shutdown() error {
 }
 
 // FlushChannels flushes channel subscriptions when there is a pair/asset change
-func (w *Websocket) FlushChannels() error {
+func (w *Websocket) FlushChannels(filter ...subscription.FilterHook) error {
 	if !w.IsEnabled() {
 		return fmt.Errorf("%s %w", w.exchangeName, ErrWebsocketNotEnabled)
 	}
@@ -687,13 +696,16 @@ func (w *Websocket) FlushChannels() error {
 		if err := w.shutdown(); err != nil {
 			return err
 		}
-		return w.connect()
+		return w.connect(filter...)
 	}
 
 	if !w.useMultiConnectionManagement {
 		newSubs, err := w.GenerateSubs()
 		if err != nil {
 			return err
+		}
+		if len(filter) > 0 {
+			newSubs = filter[0](newSubs)
 		}
 		subs, unsubs := w.GetChannelDifference(nil, newSubs)
 		if err := w.UnsubscribeChannels(nil, unsubs); err != nil {
@@ -709,6 +721,10 @@ func (w *Websocket) FlushChannels() error {
 		newSubs, err := w.connectionManager[x].Setup.GenerateSubscriptions()
 		if err != nil {
 			return err
+		}
+
+		if len(filter) > 0 {
+			newSubs = filter[0](newSubs)
 		}
 
 		// Case if there is nothing to unsubscribe from and the connection is nil
@@ -850,7 +866,7 @@ func (w *Websocket) GetWebsocketURL() string {
 }
 
 // SetProxyAddress sets websocket proxy address
-func (w *Websocket) SetProxyAddress(proxyAddr string) error {
+func (w *Websocket) SetProxyAddress(proxyAddr string, filter ...subscription.FilterHook) error {
 	w.m.Lock()
 
 	if proxyAddr != "" {
@@ -888,7 +904,7 @@ func (w *Websocket) SetProxyAddress(proxyAddr string) error {
 		if err := w.Shutdown(); err != nil {
 			return err
 		}
-		return w.Connect()
+		return w.Connect(filter...)
 	}
 
 	w.m.Unlock()
@@ -1215,16 +1231,16 @@ func drain(ch <-chan error) {
 }
 
 // ClosureFrame is a closure function that wraps monitoring variables with observer, if the return is true the frame will exit
-type ClosureFrame func() func() bool
+type ClosureFrame func(filter ...subscription.FilterHook) func() bool
 
 // monitorFrame monitors a specific websocket component or critical system. It will exit if the observer returns true
 // This is used for monitoring data throughput, connection status and other critical websocket components. The waitgroup
 // is optional and is used to signal when the monitor has finished.
-func (w *Websocket) monitorFrame(wg *sync.WaitGroup, fn ClosureFrame) {
+func (w *Websocket) monitorFrame(wg *sync.WaitGroup, fn ClosureFrame, filter ...subscription.FilterHook) {
 	if wg != nil {
 		defer w.Wg.Done()
 	}
-	observe := fn()
+	observe := fn(filter...)
 	for {
 		if observe() {
 			return
@@ -1233,7 +1249,7 @@ func (w *Websocket) monitorFrame(wg *sync.WaitGroup, fn ClosureFrame) {
 }
 
 // monitorData monitors data throughput and logs if there is a back log of data
-func (w *Websocket) monitorData() func() bool {
+func (w *Websocket) monitorData(filter ...subscription.FilterHook) func() bool {
 	dropped := 0
 	return func() bool { return w.observeData(&dropped) }
 }
@@ -1262,13 +1278,13 @@ func (w *Websocket) observeData(dropped *int) (exit bool) {
 }
 
 // monitorConnection monitors the connection and attempts to reconnect if the connection is lost
-func (w *Websocket) monitorConnection() func() bool {
+func (w *Websocket) monitorConnection(filter ...subscription.FilterHook) func() bool {
 	timer := time.NewTimer(w.connectionMonitorDelay)
-	return func() bool { return w.observeConnection(timer) }
+	return func() bool { return w.observeConnection(timer, filter...) }
 }
 
 // observeConnection observes the connection and attempts to reconnect if the connection is lost
-func (w *Websocket) observeConnection(t *time.Timer) (exit bool) {
+func (w *Websocket) observeConnection(t *time.Timer, filter ...subscription.FilterHook) (exit bool) {
 	select {
 	case err := <-w.ReadMessageErrors:
 		if errors.Is(err, errConnectionFault) {
@@ -1281,7 +1297,7 @@ func (w *Websocket) observeConnection(t *time.Timer) (exit bool) {
 		}
 		// Speedier reconnection, instead of waiting for the next cycle.
 		if w.IsEnabled() && (!w.IsConnected() && !w.IsConnecting()) {
-			if connectErr := w.Connect(); connectErr != nil {
+			if connectErr := w.Connect(filter...); connectErr != nil {
 				log.Errorln(log.WebsocketMgr, connectErr)
 			}
 		}
@@ -1307,7 +1323,7 @@ func (w *Websocket) observeConnection(t *time.Timer) (exit bool) {
 			return true
 		}
 		if !w.IsConnecting() && !w.IsConnected() {
-			err := w.Connect()
+			err := w.Connect(filter...)
 			if err != nil {
 				log.Errorln(log.WebsocketMgr, err)
 			}
@@ -1319,7 +1335,7 @@ func (w *Websocket) observeConnection(t *time.Timer) (exit bool) {
 
 // monitorTraffic monitors to see if there has been traffic within the trafficTimeout time window. If there is no traffic
 // the connection is shutdown and will be reconnected by the connectionMonitor routine.
-func (w *Websocket) monitorTraffic() func() bool {
+func (w *Websocket) monitorTraffic(filter ...subscription.FilterHook) func() bool {
 	timer := time.NewTimer(w.trafficTimeout)
 	return func() bool { return w.observeTraffic(timer) }
 }

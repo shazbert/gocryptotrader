@@ -42,6 +42,9 @@ var (
 	ErrDuplicate      = errors.New("duplicate subscription")
 )
 
+// FilterHook is a function that can be used to filter a list of subscriptions
+type FilterHook func(List) List
+
 // State tracks the status of a subscription channel
 type State uint8
 

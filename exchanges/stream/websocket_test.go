@@ -1390,9 +1390,9 @@ func TestMonitorFrame(t *testing.T) {
 	t.Parallel()
 	ws := Websocket{}
 	require.Panics(t, func() { ws.monitorFrame(nil, nil) }, "monitorFrame must panic on nil frame")
-	require.Panics(t, func() { ws.monitorFrame(nil, func() func() bool { return nil }) }, "monitorFrame must panic on nil function")
+	require.Panics(t, func() { ws.monitorFrame(nil, func(...subscription.FilterHook) func() bool { return nil }) }, "monitorFrame must panic on nil function")
 	ws.Wg.Add(1)
-	ws.monitorFrame(&ws.Wg, func() func() bool { return func() bool { return true } })
+	ws.monitorFrame(&ws.Wg, func(...subscription.FilterHook) func() bool { return func() bool { return true } })
 	ws.Wg.Wait()
 }
 
