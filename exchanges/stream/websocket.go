@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"runtime"
 	"slices"
 	"sync"
 	"time"
@@ -76,27 +75,7 @@ var (
 	errCannotObtainOutboundConnection       = errors.New("cannot obtain outbound connection")
 )
 
-var (
-	globalReporter Reporter
-
-	// jobsChanToWorkerPool is a buffered channel that distributes tasks to workers (goroutines).
-	// The buffer size equals runtime.NumCPU(), optimizing workload distribution across CPUs and
-	// improving WebSocket reading performance by reducing processing delays.
-	jobsChanToWorkerPool = make(chan func(), runtime.NumCPU())
-)
-
-// init starts a worker pool with the number of workers equal to runtime.NumCPU().
-// Each worker listens for and executes tasks from jobsChanToWorkerPool.
-// NOTE: GoMaxProcs in the engine ensures that the program will not run with fewer than runtime.NumCPU()
-func init() {
-	for range runtime.NumCPU() {
-		go func() {
-			for job := range jobsChanToWorkerPool {
-				job() // Execute task.
-			}
-		}()
-	}
-}
+var globalReporter Reporter
 
 // SetupGlobalReporter sets a reporter interface to be used
 // for all exchange requests
@@ -1212,10 +1191,8 @@ func (w *Websocket) Reader(ctx context.Context, conn Connection, handler func(ct
 		if resp.Raw == nil {
 			return // Connection has been closed
 		}
-		jobsChanToWorkerPool <- func() {
-			if err := handler(ctx, conn, resp.Raw); err != nil {
-				w.DataHandler <- fmt.Errorf("connection URL:[%v] error: %w", conn.GetURL(), err)
-			}
+		if err := handler(ctx, conn, resp.Raw); err != nil {
+			w.DataHandler <- fmt.Errorf("connection URL:[%v] error: %w", conn.GetURL(), err)
 		}
 	}
 }
