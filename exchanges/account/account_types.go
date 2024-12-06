@@ -61,6 +61,11 @@ type Balance struct {
 	Borrowed               float64
 }
 
+type Changes []Change
+
+// StreamDataCompliant implements the stream.ProcessedData interface
+func (Changes) StreamDataCompliant() {}
+
 // Change defines incoming balance change on currency holdings
 type Change struct {
 	Exchange string

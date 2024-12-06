@@ -1072,16 +1072,24 @@ func (w *Websocket) checkSubscriptions(conn Connection, subs subscription.List) 
 	return nil
 }
 
+// ProcessHandler is a function that processes incoming websocket data and returns a processed data type
+type ProcessHandler func(ctx context.Context, message []byte) (processed ProcessedData, err error)
+
 // Reader reads and handles data from a specific connection
-func (w *Websocket) Reader(ctx context.Context, conn Connection, handler func(ctx context.Context, message []byte) error) {
+func (w *Websocket) Reader(ctx context.Context, conn Connection, handler ProcessHandler) {
 	defer w.Wg.Done()
 	for {
 		resp := conn.ReadMessage()
 		if resp.Raw == nil {
 			return // Connection has been closed
 		}
-		if err := handler(ctx, resp.Raw); err != nil {
+		processed, err := handler(ctx, resp.Raw)
+		if err != nil {
 			w.DataHandler <- fmt.Errorf("connection URL:[%v] error: %w", conn.GetURL(), err)
+		}
+
+		if processed != nil {
+			w.DataHandler <- processed
 		}
 	}
 }

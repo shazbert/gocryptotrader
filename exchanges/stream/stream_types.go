@@ -68,10 +68,9 @@ type ConnectionSetup struct {
 	// messages based on the exchange's websocket server requirements to
 	// unsubscribe from specific channels. NOTE: IF THE FEATURE IS ENABLED.
 	Unsubscriber func(ctx context.Context, conn Connection, unsub subscription.List) error
-	// Handler defines the function that will be called when a message is
-	// received from the exchange's websocket server. This function should
-	// handle the incoming message and pass it to the appropriate data handler.
-	Handler func(ctx context.Context, incoming []byte) error
+	// Handler defines the function that will be called when a message is received from the exchange's websocket server.
+	// This function should handle the incoming message and return a processed type.
+	Handler func(ctx context.Context, incoming []byte) (ProcessedData, error)
 	// BespokeGenerateMessageID is a function that returns a unique message ID.
 	// This is useful for when an exchange connection requires a unique or
 	// structured message ID for each message sent.
@@ -113,6 +112,11 @@ type FundingData struct {
 	Side         order.Side
 }
 
+type Klines []KlineData
+
+func (k Klines) StreamDataCompliant() {}
+
+// TODO: RM and used kline package type
 // KlineData defines kline feed
 type KlineData struct {
 	Timestamp  time.Time
@@ -147,3 +151,21 @@ type UnhandledMessageWarning struct {
 type Reporter interface {
 	Latency(name string, message []byte, t time.Duration)
 }
+
+// ProcessedData is an interface that defines processed data that has been streamed into a type that implements this interface
+type ProcessedData interface {
+	StreamDataCompliant()
+}
+
+// NoData is a type that implements the ProcessedData interface used for when no data is returned
+type NoData struct{}
+
+// StreamDataCompliant implements the ProcessedData interface
+func (NoData) StreamDataCompliant() {}
+
+type NotYetImplemented struct {
+	Data any
+}
+
+// StreamDataCompliant implements the ProcessedData interface
+func (NotYetImplemented) StreamDataCompliant() {}

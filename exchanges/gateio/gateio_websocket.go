@@ -109,18 +109,18 @@ func (g *Gateio) generateWsSignature(secret, event, channel string, t int64) (st
 }
 
 // WsHandleSpotData handles spot data
-func (g *Gateio) WsHandleSpotData(_ context.Context, respRaw []byte) error {
+func (g *Gateio) WsHandleSpotData(_ context.Context, respRaw []byte) (stream.ProcessedData, error) {
 	var push WsResponse
 	err := json.Unmarshal(respRaw, &push)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if push.Event == subscribeEvent || push.Event == unsubscribeEvent {
 		if !g.Websocket.Match.IncomingWithData(push.ID, respRaw) {
-			return fmt.Errorf("couldn't match subscription message with ID: %d", push.ID)
+			return nil, fmt.Errorf("couldn't match subscription message with ID: %d", push.ID)
 		}
-		return nil
+		return nil, nil
 	}
 
 	switch push.Channel { // TODO: Convert function params below to only use push.Result
@@ -155,15 +155,15 @@ func (g *Gateio) WsHandleSpotData(_ context.Context, respRaw []byte) error {
 		g.Websocket.DataHandler <- stream.UnhandledMessageWarning{
 			Message: g.Name + stream.UnhandledMessage + string(respRaw),
 		}
-		return errors.New(stream.UnhandledMessage)
+		return nil, errors.New(stream.UnhandledMessage)
 	}
-	return nil
+	return nil, nil
 }
 
-func (g *Gateio) processTicker(incoming []byte, pushTime time.Time) error {
+func (g *Gateio) processTicker(incoming []byte, pushTime time.Time) (ticker.Prices, error) {
 	var data WsTicker
 	if err := json.Unmarshal(incoming, &data); err != nil {
-		return err
+		return nil, err
 	}
 	out := make([]ticker.Price, 0, len(standardMarginAssetTypes))
 	for _, a := range standardMarginAssetTypes {
@@ -183,24 +183,23 @@ func (g *Gateio) processTicker(incoming []byte, pushTime time.Time) error {
 			})
 		}
 	}
-	g.Websocket.DataHandler <- out
-	return nil
+	return out, nil
 }
 
-func (g *Gateio) processTrades(incoming []byte) error {
+func (g *Gateio) processTrades(incoming []byte) (*stream.NoData, error) {
 	saveTradeData := g.IsSaveTradeDataEnabled()
 	if !saveTradeData && !g.IsTradeFeedEnabled() {
-		return nil
+		return nil, nil
 	}
 
 	var data WsTrade
 	if err := json.Unmarshal(incoming, &data); err != nil {
-		return err
+		return nil, err
 	}
 
 	side, err := order.StringToOrderSide(data.Side)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for _, a := range standardMarginAssetTypes {
@@ -215,26 +214,26 @@ func (g *Gateio) processTrades(incoming []byte) error {
 				Side:         side,
 				TID:          strconv.FormatInt(data.ID, 10),
 			}); err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
 
-	return nil
+	return nil, nil
 }
 
-func (g *Gateio) processCandlestick(incoming []byte) error {
+func (g *Gateio) processCandlestick(incoming []byte) (stream.Klines, error) {
 	var data WsCandlesticks
 	if err := json.Unmarshal(incoming, &data); err != nil {
-		return err
+		return nil, err
 	}
 	icp := strings.Split(data.NameOfSubscription, currency.UnderscoreDelimiter)
 	if len(icp) < 3 {
-		return errors.New("malformed candlestick websocket push data")
+		return nil, errors.New("malformed candlestick websocket push data")
 	}
 	currencyPair, err := currency.NewPairFromString(strings.Join(icp[1:], currency.UnderscoreDelimiter))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	out := make([]stream.KlineData, 0, len(standardMarginAssetTypes))
@@ -254,16 +253,15 @@ func (g *Gateio) processCandlestick(incoming []byte) error {
 			})
 		}
 	}
-	g.Websocket.DataHandler <- out
-	return nil
+	return out, nil
 }
 
-func (g *Gateio) processOrderbookTicker(incoming []byte, updatePushedAt time.Time) error {
+func (g *Gateio) processOrderbookTicker(incoming []byte, updatePushedAt time.Time) (*stream.NoData, error) {
 	var data WsOrderbookTickerData
 	if err := json.Unmarshal(incoming, &data); err != nil {
-		return err
+		return nil, err
 	}
-	return g.Websocket.Orderbook.LoadSnapshot(&orderbook.Base{
+	return nil, g.Websocket.Orderbook.LoadSnapshot(&orderbook.Base{
 		Exchange:       g.Name,
 		Pair:           data.CurrencyPair,
 		Asset:          asset.Spot,
@@ -274,14 +272,14 @@ func (g *Gateio) processOrderbookTicker(incoming []byte, updatePushedAt time.Tim
 	})
 }
 
-func (g *Gateio) processOrderbookUpdate(incoming []byte, updatePushedAt time.Time) error {
+func (g *Gateio) processOrderbookUpdate(incoming []byte, updatePushedAt time.Time) (*stream.NoData, error) {
 	var data WsOrderbookUpdate
 	if err := json.Unmarshal(incoming, &data); err != nil {
-		return err
+		return nil, err
 	}
 
 	if len(data.Asks) == 0 && len(data.Bids) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	enabledAssets := make([]asset.Item, 0, len(standardMarginAssetTypes))
@@ -295,7 +293,7 @@ func (g *Gateio) processOrderbookUpdate(incoming []byte, updatePushedAt time.Tim
 	if !fetchedCurrencyPairSnapshotOrderbook[sPair] {
 		orderbooks, err := g.FetchOrderbook(context.Background(), data.CurrencyPair, asset.Spot) // currency pair orderbook data for Spot, Margin, and Cross Margin is same
 		if err != nil {
-			return err
+			return nil, err
 		}
 		// TODO: handle orderbook update synchronisation
 		for _, a := range enabledAssets {
@@ -303,7 +301,7 @@ func (g *Gateio) processOrderbookUpdate(incoming []byte, updatePushedAt time.Tim
 			assetOrderbook.Asset = a
 			err = g.Websocket.Orderbook.LoadSnapshot(&assetOrderbook)
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
 		fetchedCurrencyPairSnapshotOrderbook[sPair] = true
@@ -329,17 +327,17 @@ func (g *Gateio) processOrderbookUpdate(incoming []byte, updatePushedAt time.Tim
 			Asks:           asks,
 			Bids:           bids,
 		}); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return nil, nil
 }
 
-func (g *Gateio) processOrderbookSnapshot(incoming []byte, updatePushedAt time.Time) error {
+func (g *Gateio) processOrderbookSnapshot(incoming []byte, updatePushedAt time.Time) (*stream.NoData, error) {
 	var data WsOrderbookSnapshot
 	if err := json.Unmarshal(incoming, &data); err != nil {
-		return err
+		return nil, err
 	}
 
 	asks := make([]orderbook.Tranche, len(data.Asks))
@@ -364,14 +362,14 @@ func (g *Gateio) processOrderbookSnapshot(incoming []byte, updatePushedAt time.T
 				Bids:           bids,
 				Asks:           asks,
 			}); err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
-	return nil
+	return nil, nil
 }
 
-func (g *Gateio) processSpotOrders(data []byte) error {
+func (g *Gateio) processSpotOrders(data []byte) (order.Details, error) {
 	resp := struct {
 		Time    int64         `json:"time"`
 		Channel string        `json:"channel"`
@@ -380,21 +378,21 @@ func (g *Gateio) processSpotOrders(data []byte) error {
 	}{}
 	err := json.Unmarshal(data, &resp)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	details := make([]order.Detail, len(resp.Result))
 	for x := range resp.Result {
 		side, err := order.StringToOrderSide(resp.Result[x].Side)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		orderType, err := order.StringToOrderType(resp.Result[x].Type)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		a, err := asset.New(resp.Result[x].Account)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		details[x] = order.Detail{
 			Amount:         resp.Result[x].Amount.Float64(),
@@ -411,13 +409,12 @@ func (g *Gateio) processSpotOrders(data []byte) error {
 			LastUpdated:    resp.Result[x].UpdateTimeMs.Time(),
 		}
 	}
-	g.Websocket.DataHandler <- details
-	return nil
+	return details, nil
 }
 
-func (g *Gateio) processUserPersonalTrades(data []byte) error {
+func (g *Gateio) processUserPersonalTrades(data []byte) (*stream.NoData, error) {
 	if !g.IsFillsFeedEnabled() {
-		return nil
+		return nil, nil
 	}
 
 	resp := struct {
@@ -428,13 +425,13 @@ func (g *Gateio) processUserPersonalTrades(data []byte) error {
 	}{}
 	err := json.Unmarshal(data, &resp)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	fills := make([]fill.Data, len(resp.Result))
 	for x := range fills {
 		side, err := order.StringToOrderSide(resp.Result[x].Side)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		fills[x] = fill.Data{
 			Timestamp:    resp.Result[x].CreateTimeMs.Time(),
@@ -447,10 +444,10 @@ func (g *Gateio) processUserPersonalTrades(data []byte) error {
 			Amount:       resp.Result[x].Amount.Float64(),
 		}
 	}
-	return g.Websocket.Fills.Update(fills...)
+	return nil, g.Websocket.Fills.Update(fills...)
 }
 
-func (g *Gateio) processSpotBalances(data []byte) error {
+func (g *Gateio) processSpotBalances(data []byte) (account.Changes, error) {
 	resp := struct {
 		Time    int64           `json:"time"`
 		Channel string          `json:"channel"`
@@ -459,7 +456,7 @@ func (g *Gateio) processSpotBalances(data []byte) error {
 	}{}
 	err := json.Unmarshal(data, &resp)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	accountChanges := make([]account.Change, len(resp.Result))
 	for x := range resp.Result {
@@ -471,11 +468,10 @@ func (g *Gateio) processSpotBalances(data []byte) error {
 			Amount:   resp.Result[x].Available.Float64(),
 		}
 	}
-	g.Websocket.DataHandler <- accountChanges
-	return nil
+	return accountChanges, nil
 }
 
-func (g *Gateio) processMarginBalances(data []byte) error {
+func (g *Gateio) processMarginBalances(data []byte) (account.Changes, error) {
 	resp := struct {
 		Time    int64             `json:"time"`
 		Channel string            `json:"channel"`
@@ -484,7 +480,7 @@ func (g *Gateio) processMarginBalances(data []byte) error {
 	}{}
 	err := json.Unmarshal(data, &resp)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	accountChange := make([]account.Change, len(resp.Result))
 	for x := range resp.Result {
@@ -496,11 +492,10 @@ func (g *Gateio) processMarginBalances(data []byte) error {
 			Amount:   resp.Result[x].Available.Float64(),
 		}
 	}
-	g.Websocket.DataHandler <- accountChange
-	return nil
+	return accountChange, nil
 }
 
-func (g *Gateio) processFundingBalances(data []byte) error {
+func (g *Gateio) processFundingBalances(data []byte) (*stream.NotYetImplemented, error) {
 	resp := struct {
 		Time    int64              `json:"time"`
 		Channel string             `json:"channel"`
@@ -509,13 +504,12 @@ func (g *Gateio) processFundingBalances(data []byte) error {
 	}{}
 	err := json.Unmarshal(data, &resp)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	g.Websocket.DataHandler <- resp
-	return nil
+	return &stream.NotYetImplemented{Data: resp}, nil
 }
 
-func (g *Gateio) processCrossMarginBalance(data []byte) error {
+func (g *Gateio) processCrossMarginBalance(data []byte) (account.Changes, error) {
 	resp := struct {
 		Time    int64                  `json:"time"`
 		Channel string                 `json:"channel"`
@@ -524,7 +518,7 @@ func (g *Gateio) processCrossMarginBalance(data []byte) error {
 	}{}
 	err := json.Unmarshal(data, &resp)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	accountChanges := make([]account.Change, len(resp.Result))
 	for x := range resp.Result {
@@ -537,11 +531,10 @@ func (g *Gateio) processCrossMarginBalance(data []byte) error {
 			Account:  resp.Result[x].User,
 		}
 	}
-	g.Websocket.DataHandler <- accountChanges
-	return nil
+	return accountChanges, nil
 }
 
-func (g *Gateio) processCrossMarginLoans(data []byte) error {
+func (g *Gateio) processCrossMarginLoans(data []byte) (*stream.NotYetImplemented, error) {
 	resp := struct {
 		Time    int64             `json:"time"`
 		Channel string            `json:"channel"`
@@ -550,10 +543,10 @@ func (g *Gateio) processCrossMarginLoans(data []byte) error {
 	}{}
 	err := json.Unmarshal(data, &resp)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	g.Websocket.DataHandler <- resp
-	return nil
+	return &stream.NotYetImplemented{Data: resp}, nil
 }
 
 // generateSubscriptionsSpot returns configured subscriptions

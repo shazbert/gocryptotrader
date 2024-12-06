@@ -31,6 +31,12 @@ type Service struct {
 	mu       sync.Mutex
 }
 
+// Prices is a collection of Price
+type Prices []Price
+
+// StreamDataCompliant implements the stream.ProcessedData interface
+func (Prices) StreamDataCompliant() {}
+
 // Price struct stores the currency pair and pricing information
 type Price struct {
 	Last         float64       `json:"Last"`

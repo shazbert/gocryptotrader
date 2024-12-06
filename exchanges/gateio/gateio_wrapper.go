@@ -27,7 +27,6 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/exchanges/protocol"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/request"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/stream"
-	"github.com/thrasher-corp/gocryptotrader/exchanges/subscription"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/ticker"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/trade"
 	"github.com/thrasher-corp/gocryptotrader/log"
@@ -223,77 +222,78 @@ func (g *Gateio) Setup(exch *config.Exchange) error {
 	if err != nil {
 		return err
 	}
-	// Futures connection - USDT margined
-	err = g.Websocket.SetupNewConnection(&stream.ConnectionSetup{
-		URL:                  futuresWebsocketUsdtURL,
-		RateLimit:            request.NewWeightedRateLimitByDuration(gateioWebsocketRateLimit),
-		ResponseCheckTimeout: exch.WebsocketResponseCheckTimeout,
-		ResponseMaxLimit:     exch.WebsocketResponseMaxLimit,
-		Handler: func(ctx context.Context, incoming []byte) error {
-			return g.WsHandleFuturesData(ctx, incoming, asset.Futures)
-		},
-		Subscriber:               g.FuturesSubscribe,
-		Unsubscriber:             g.FuturesUnsubscribe,
-		GenerateSubscriptions:    func() (subscription.List, error) { return g.GenerateFuturesDefaultSubscriptions(currency.USDT) },
-		Connector:                g.WsFuturesConnect,
-		BespokeGenerateMessageID: g.GenerateWebsocketMessageID,
-	})
-	if err != nil {
-		return err
-	}
+	// // Futures connection - USDT margined
+	// err = g.Websocket.SetupNewConnection(&stream.ConnectionSetup{
+	// 	URL:                  futuresWebsocketUsdtURL,
+	// 	RateLimit:            request.NewWeightedRateLimitByDuration(gateioWebsocketRateLimit),
+	// 	ResponseCheckTimeout: exch.WebsocketResponseCheckTimeout,
+	// 	ResponseMaxLimit:     exch.WebsocketResponseMaxLimit,
+	// 	Handler: func(ctx context.Context, incoming []byte) error {
+	// 		return g.WsHandleFuturesData(ctx, incoming, asset.Futures)
+	// 	},
+	// 	Subscriber:               g.FuturesSubscribe,
+	// 	Unsubscriber:             g.FuturesUnsubscribe,
+	// 	GenerateSubscriptions:    func() (subscription.List, error) { return g.GenerateFuturesDefaultSubscriptions(currency.USDT) },
+	// 	Connector:                g.WsFuturesConnect,
+	// 	BespokeGenerateMessageID: g.GenerateWebsocketMessageID,
+	// })
+	// if err != nil {
+	// 	return err
+	// }
 
-	// Futures connection - BTC margined
-	err = g.Websocket.SetupNewConnection(&stream.ConnectionSetup{
-		URL:                  futuresWebsocketBtcURL,
-		RateLimit:            request.NewWeightedRateLimitByDuration(gateioWebsocketRateLimit),
-		ResponseCheckTimeout: exch.WebsocketResponseCheckTimeout,
-		ResponseMaxLimit:     exch.WebsocketResponseMaxLimit,
-		Handler: func(ctx context.Context, incoming []byte) error {
-			return g.WsHandleFuturesData(ctx, incoming, asset.Futures)
-		},
-		Subscriber:               g.FuturesSubscribe,
-		Unsubscriber:             g.FuturesUnsubscribe,
-		GenerateSubscriptions:    func() (subscription.List, error) { return g.GenerateFuturesDefaultSubscriptions(currency.BTC) },
-		Connector:                g.WsFuturesConnect,
-		BespokeGenerateMessageID: g.GenerateWebsocketMessageID,
-	})
-	if err != nil {
-		return err
-	}
+	// // Futures connection - BTC margined
+	// err = g.Websocket.SetupNewConnection(&stream.ConnectionSetup{
+	// 	URL:                  futuresWebsocketBtcURL,
+	// 	RateLimit:            request.NewWeightedRateLimitByDuration(gateioWebsocketRateLimit),
+	// 	ResponseCheckTimeout: exch.WebsocketResponseCheckTimeout,
+	// 	ResponseMaxLimit:     exch.WebsocketResponseMaxLimit,
+	// 	Handler: func(ctx context.Context, incoming []byte) error {
+	// 		return g.WsHandleFuturesData(ctx, incoming, asset.Futures)
+	// 	},
+	// 	Subscriber:               g.FuturesSubscribe,
+	// 	Unsubscriber:             g.FuturesUnsubscribe,
+	// 	GenerateSubscriptions:    func() (subscription.List, error) { return g.GenerateFuturesDefaultSubscriptions(currency.BTC) },
+	// 	Connector:                g.WsFuturesConnect,
+	// 	BespokeGenerateMessageID: g.GenerateWebsocketMessageID,
+	// })
+	// if err != nil {
+	// 	return err
+	// }
 
-	// TODO: Add BTC margined delivery futures.
-	// Futures connection - Delivery - USDT margined
-	err = g.Websocket.SetupNewConnection(&stream.ConnectionSetup{
-		URL:                  deliveryRealUSDTTradingURL,
-		RateLimit:            request.NewWeightedRateLimitByDuration(gateioWebsocketRateLimit),
-		ResponseCheckTimeout: exch.WebsocketResponseCheckTimeout,
-		ResponseMaxLimit:     exch.WebsocketResponseMaxLimit,
-		Handler: func(ctx context.Context, incoming []byte) error {
-			return g.WsHandleFuturesData(ctx, incoming, asset.DeliveryFutures)
-		},
-		Subscriber:               g.DeliveryFuturesSubscribe,
-		Unsubscriber:             g.DeliveryFuturesUnsubscribe,
-		GenerateSubscriptions:    g.GenerateDeliveryFuturesDefaultSubscriptions,
-		Connector:                g.WsDeliveryFuturesConnect,
-		BespokeGenerateMessageID: g.GenerateWebsocketMessageID,
-	})
-	if err != nil {
-		return err
-	}
+	// // TODO: Add BTC margined delivery futures.
+	// // Futures connection - Delivery - USDT margined
+	// err = g.Websocket.SetupNewConnection(&stream.ConnectionSetup{
+	// 	URL:                  deliveryRealUSDTTradingURL,
+	// 	RateLimit:            request.NewWeightedRateLimitByDuration(gateioWebsocketRateLimit),
+	// 	ResponseCheckTimeout: exch.WebsocketResponseCheckTimeout,
+	// 	ResponseMaxLimit:     exch.WebsocketResponseMaxLimit,
+	// 	Handler: func(ctx context.Context, incoming []byte) error {
+	// 		return g.WsHandleFuturesData(ctx, incoming, asset.DeliveryFutures)
+	// 	},
+	// 	Subscriber:               g.DeliveryFuturesSubscribe,
+	// 	Unsubscriber:             g.DeliveryFuturesUnsubscribe,
+	// 	GenerateSubscriptions:    g.GenerateDeliveryFuturesDefaultSubscriptions,
+	// 	Connector:                g.WsDeliveryFuturesConnect,
+	// 	BespokeGenerateMessageID: g.GenerateWebsocketMessageID,
+	// })
+	// if err != nil {
+	// 	return err
+	// }
 
-	// Futures connection - Options
-	return g.Websocket.SetupNewConnection(&stream.ConnectionSetup{
-		URL:                      optionsWebsocketURL,
-		RateLimit:                request.NewWeightedRateLimitByDuration(gateioWebsocketRateLimit),
-		ResponseCheckTimeout:     exch.WebsocketResponseCheckTimeout,
-		ResponseMaxLimit:         exch.WebsocketResponseMaxLimit,
-		Handler:                  g.WsHandleOptionsData,
-		Subscriber:               g.OptionsSubscribe,
-		Unsubscriber:             g.OptionsUnsubscribe,
-		GenerateSubscriptions:    g.GenerateOptionsDefaultSubscriptions,
-		Connector:                g.WsOptionsConnect,
-		BespokeGenerateMessageID: g.GenerateWebsocketMessageID,
-	})
+	// // Futures connection - Options
+	// return g.Websocket.SetupNewConnection(&stream.ConnectionSetup{
+	// 	URL:                      optionsWebsocketURL,
+	// 	RateLimit:                request.NewWeightedRateLimitByDuration(gateioWebsocketRateLimit),
+	// 	ResponseCheckTimeout:     exch.WebsocketResponseCheckTimeout,
+	// 	ResponseMaxLimit:         exch.WebsocketResponseMaxLimit,
+	// 	Handler:                  g.WsHandleOptionsData,
+	// 	Subscriber:               g.OptionsSubscribe,
+	// 	Unsubscriber:             g.OptionsUnsubscribe,
+	// 	GenerateSubscriptions:    g.GenerateOptionsDefaultSubscriptions,
+	// 	Connector:                g.WsOptionsConnect,
+	// 	BespokeGenerateMessageID: g.GenerateWebsocketMessageID,
+	// })
+	return nil
 }
 
 // UpdateTicker updates and returns the ticker for a currency pair
