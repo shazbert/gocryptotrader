@@ -377,6 +377,11 @@ func (w *Websocket) connect() error {
 		if err != nil {
 			return fmt.Errorf("%s websocket: %w", w.exchangeName, common.AppendError(ErrSubscriptionFailure, err))
 		}
+
+		if w.subscriptionFilter != nil {
+			subs = w.subscriptionFilter(w.defaultURL, subs)
+		}
+
 		if len(subs) != 0 {
 			if err := w.SubscribeToChannels(nil, subs); err != nil {
 				return err
@@ -405,6 +410,10 @@ func (w *Websocket) connect() error {
 		if err != nil {
 			multiConnectFatalError = fmt.Errorf("%s websocket: %w", w.exchangeName, common.AppendError(ErrSubscriptionFailure, err))
 			break
+		}
+
+		if w.subscriptionFilter != nil {
+			subs = w.subscriptionFilter(w.connectionManager[i].Setup.URL, subs)
 		}
 
 		if len(subs) == 0 {
@@ -634,6 +643,9 @@ func (w *Websocket) FlushChannels() error {
 		if err != nil {
 			return err
 		}
+		if w.subscriptionFilter != nil {
+			newSubs = w.subscriptionFilter(w.Conn.GetURL(), newSubs)
+		}
 		subs, unsubs := w.GetChannelDifference(nil, newSubs)
 		if err := w.UnsubscribeChannels(nil, unsubs); err != nil {
 			return err
@@ -648,6 +660,10 @@ func (w *Websocket) FlushChannels() error {
 		newSubs, err := w.connectionManager[x].Setup.GenerateSubscriptions()
 		if err != nil {
 			return err
+		}
+
+		if w.subscriptionFilter != nil {
+			newSubs = w.subscriptionFilter(w.connectionManager[x].Setup.URL, newSubs)
 		}
 
 		// Case if there is nothing to unsubscribe from and the connection is nil
@@ -1327,4 +1343,11 @@ func (w *Websocket) GetConnection(ctx context.Context, messageFilter any) (Conne
 	}
 
 	return nil, fmt.Errorf("%s: %w associated with message filter: '%v'", w.exchangeName, ErrRequestRouteNotFound, messageFilter)
+}
+
+// SetSubscriptionFilter filters subscriptions before they are sent to the exchange
+func (w *Websocket) SetSubscriptionFilter(filter subscription.FilterHook) {
+	w.m.Lock()
+	defer w.m.Unlock()
+	w.subscriptionFilter = filter
 }

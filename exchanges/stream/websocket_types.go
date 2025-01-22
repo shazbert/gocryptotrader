@@ -110,6 +110,7 @@ type Websocket struct {
 	// endpoints.
 	rateLimitDefinitions request.RateLimitDefinitions
 	processReporter      ProcessReporterManager
+	subscriptionFilter   subscription.FilterHook
 }
 
 // WebsocketSetup defines variables for setting up a websocket connection
