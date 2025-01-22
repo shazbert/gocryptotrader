@@ -49,7 +49,7 @@ var (
 )
 
 // FilterHook is a function that can be used to filter a list of subscriptions
-type FilterHook func(List) List
+type FilterHook func(connectionURL string, subs List) List
 
 // State tracks the status of a subscription channel
 type State uint8
