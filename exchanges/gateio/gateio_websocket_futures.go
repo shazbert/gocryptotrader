@@ -114,7 +114,7 @@ func (g *Gateio) GenerateFuturesDefaultSubscriptions(settlement currency.Code) (
 			params := make(map[string]any)
 			switch channelsToSubscribe[i] {
 			case futuresOrderbookChannel:
-				params["limit"] = 100
+				params["limit"] = 20
 				params["interval"] = "0"
 			case futuresCandlesticksChannel:
 				params["interval"] = kline.FiveMin
