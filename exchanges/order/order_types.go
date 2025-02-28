@@ -203,7 +203,6 @@ type ModifyResponse struct {
 type Detail struct {
 	HiddenOrder          bool
 	TimeInForce          TimeInForce
-	PostOnly             bool
 	ReduceOnly           bool
 	Leverage             float64
 	Price                float64
@@ -273,6 +272,7 @@ type Cancel struct {
 	AssetType     asset.Item
 	Pair          currency.Pair
 	MarginType    margin.Type
+	TimeInForce   TimeInForce
 }
 
 // CancelAllResponse returns the status from attempting to
@@ -308,12 +308,13 @@ type TradeHistory struct {
 type MultiOrderRequest struct {
 	// Currencies Empty array = all currencies. Some endpoints only support
 	// singular currency enquiries
-	Pairs     currency.Pairs
-	AssetType asset.Item
-	Type      Type
-	Side      Side
-	StartTime time.Time
-	EndTime   time.Time
+	Pairs       currency.Pairs
+	AssetType   asset.Item
+	Type        Type
+	Side        Side
+	TimeInForce TimeInForce
+	StartTime   time.Time
+	EndTime     time.Time
 	// FromOrderID for some APIs require order history searching
 	// from a specific orderID rather than via timestamps
 	FromOrderID string
@@ -358,15 +359,12 @@ const (
 	UnknownType Type = 0
 	Limit       Type = 1 << iota
 	Market
-	PostOnly
-	ImmediateOrCancel
 	Stop
 	StopLimit
 	StopMarket
 	TakeProfit
 	TakeProfitMarket
 	TrailingStop
-	FillOrKill
 	IOS
 	AnyType
 	Liquidation
@@ -409,18 +407,23 @@ const (
 // TimeInForce enforces a standard for time-in-force values across the code base.
 type TimeInForce uint16
 
+// Is checks to see if the enum contains the flag
+func (t TimeInForce) Is(in TimeInForce) bool {
+	return in != 0 && t&in == in
+}
+
 // TimeInForce types
 const (
 	UnsetTIF       TimeInForce = 0
 	GoodTillCancel TimeInForce = 1 << iota
 	GoodTillDay
 	GoodTillTime
-	FOK         // FOK represents FillOrKill
-	IOC         // IOC represents ImmediateOrCancel
-	PostOnlyGTC // PostOnlyGCT represents PostOnlyGoodTilCancelled
+	FillOrKill        // FOK represents FillOrKill
+	ImmediateOrCancel // IOC represents ImmediateOrCancel
+	PostOnly          // PostOnlyGCT represents PostOnlyGoodTilCancelled
 	UnknownTIF
 
-	supportedTimeInForceFlag = GoodTillCancel | GoodTillDay | GoodTillTime | FOK | IOC | PostOnlyGTC
+	supportedTimeInForceFlag = GoodTillCancel | GoodTillDay | GoodTillTime | FillOrKill | ImmediateOrCancel | PostOnly
 )
 
 // ByPrice used for sorting orders by price
