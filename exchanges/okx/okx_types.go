@@ -2,8 +2,10 @@ package okx
 
 import (
 	"errors"
-	"reflect"
+	"fmt"
+	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/thrasher-corp/gocryptotrader/common"
@@ -81,7 +83,6 @@ var (
 	errMissingExpiryTimeParameter           = errors.New("missing expiry date parameter")
 	errInvalidTradeModeValue                = errors.New("invalid trade mode value")
 	errCurrencyQuantityTypeRequired         = errors.New("only base_ccy and quote_ccy quantity types are supported")
-	errWebsocketStreamNotAuthenticated      = errors.New("websocket stream not authenticated")
 	errInvalidNewSizeOrPriceInformation     = errors.New("invalid new size or price information")
 	errSizeOrPriceIsRequired                = errors.New("either size or price is required")
 	errInvalidPriceLimit                    = errors.New("invalid price limit value")
@@ -114,8 +115,6 @@ var (
 	errMissingSubOrderType                  = errors.New("missing sub order type")
 	errMissingQuantity                      = errors.New("invalid quantity to buy or sell")
 	errAddressRequired                      = errors.New("address is required")
-	errInvalidWebsocketEvent                = errors.New("invalid websocket event")
-	errMissingValidChannelInformation       = errors.New("missing channel information")
 	errMaxRFQOrdersToCancel                 = errors.New("no more than 100 RFQ cancel order parameter is allowed")
 	errInvalidUnderlying                    = errors.New("invalid underlying")
 	errInstrumentFamilyOrUnderlyingRequired = errors.New("either underlying or instrument family is required")
@@ -797,22 +796,59 @@ type PlaceOrderRequestParam struct {
 	ExpiryTime types.Time `json:"expTime,omitempty"`
 }
 
+// Validate validates the PlaceOrderRequestParam
+func (arg *PlaceOrderRequestParam) Validate() error {
+	if arg == nil {
+		return common.ErrNilPointer
+	}
+	if arg.InstrumentID == "" {
+		return errMissingInstrumentID
+	}
+	if arg.AssetType == asset.Spot || arg.AssetType == asset.Margin || arg.AssetType == asset.Empty {
+		arg.Side = strings.ToLower(arg.Side)
+		if arg.Side != order.Buy.Lower() && arg.Side != order.Sell.Lower() {
+			return fmt.Errorf("%w %s", order.ErrSideIsInvalid, arg.Side)
+		}
+	}
+	if !slices.Contains([]string{"", TradeModeCross, TradeModeIsolated, TradeModeCash}, arg.TradeMode) {
+		return fmt.Errorf("%w %s", errInvalidTradeModeValue, arg.TradeMode)
+	}
+	if arg.AssetType == asset.Futures || arg.AssetType == asset.PerpetualSwap {
+		arg.PositionSide = strings.ToLower(arg.PositionSide)
+		if !slices.Contains([]string{"long", "short"}, arg.PositionSide) {
+			return fmt.Errorf("%w: `%s`, 'long' or 'short' supported", order.ErrSideIsInvalid, arg.PositionSide)
+		}
+	}
+	arg.OrderType = strings.ToLower(arg.OrderType)
+	if !slices.Contains([]string{orderMarket, orderLimit, orderPostOnly, orderFOK, orderIOC, orderOptimalLimitIOC, "mmp", "mmp_and_post_only"}, arg.OrderType) {
+		return fmt.Errorf("%w: '%v'", order.ErrTypeIsInvalid, arg.OrderType)
+	}
+	if arg.Amount <= 0 {
+		return order.ErrAmountBelowMin
+	}
+	if !slices.Contains([]string{"", "base_ccy", "quote_ccy"}, arg.QuantityType) {
+		return errCurrencyQuantityTypeRequired
+	}
+	return nil
+}
+
 // OrderData response message for place, cancel, and amend an order requests.
 type OrderData struct {
-	OrderID       string `json:"ordId,omitempty"`
-	RequestID     string `json:"reqId,omitempty"`
-	ClientOrderID string `json:"clOrdId,omitempty"`
-	Tag           string `json:"tag,omitempty"`
-	StatusCode    string `json:"sCode,omitempty"`
-	StatusMessage string `json:"sMsg,omitempty"`
+	OrderID       string `json:"ordId"`
+	RequestID     string `json:"reqId"`
+	ClientOrderID string `json:"clOrdId"`
+	Tag           string `json:"tag"`
+	StatusCode    int64  `json:"sCode,string"` // Anything above 0 is an error with an attached message
+	StatusMessage string `json:"sMsg"`
+	Timestamp     string `json:"ts"`
 }
 
 // ResponseSuccess holds responses having a status result value
+// TODO: RM?
 type ResponseSuccess struct {
-	Result bool `json:"result"`
-
-	StatusCode    string `json:"sCode,omitempty"`
-	StatusMessage string `json:"sMsg,omitempty"`
+	Result        bool   `json:"result"`
+	StatusCode    int64  `json:"sCode,string"`
+	StatusMessage string `json:"sMsg"`
 }
 
 // CancelOrderRequestParam represents order parameters to cancel an order
@@ -2931,9 +2967,35 @@ type SpreadOrderParam struct {
 	Tag           string  `json:"tag,omitempty"`
 }
 
+// Validate checks if the parameters are valid
+func (arg *SpreadOrderParam) Validate() error {
+	if arg == nil {
+		return fmt.Errorf("%T: %w", arg, common.ErrNilPointer)
+	}
+	if arg.SpreadID == "" {
+		return fmt.Errorf("%w, spread ID missing", errMissingInstrumentID)
+	}
+	if arg.OrderType == "" {
+		return fmt.Errorf("%w spread order type is required", order.ErrTypeIsInvalid)
+	}
+	if arg.Size <= 0 {
+		return order.ErrAmountBelowMin
+	}
+	if arg.Price <= 0 {
+		return order.ErrPriceBelowMin
+	}
+	arg.Side = strings.ToLower(arg.Side)
+	switch arg.Side {
+	case order.Buy.Lower(), order.Sell.Lower():
+	default:
+		return fmt.Errorf("%w %s", order.ErrSideIsInvalid, arg.Side)
+	}
+	return nil
+}
+
 // SpreadOrderResponse represents a spread create order response
 type SpreadOrderResponse struct {
-	StatusCode    string `json:"sCode"`
+	StatusCode    int64  `json:"sCode,string"` // Anything above 0 is an error with an attached message
 	StatusMessage string `json:"sMsg"`
 	ClientOrderID string `json:"clOrdId"`
 	OrderID       string `json:"ordId"`
@@ -3110,20 +3172,6 @@ type WSSubscriptionInformationList struct {
 	Arguments []SubscriptionInfo `json:"args"`
 }
 
-// OperationResponse holds common operation identification
-type OperationResponse struct {
-	ID        string `json:"id"`
-	Operation string `json:"op"`
-	Code      string `json:"code"`
-	Msg       string `json:"msg"`
-}
-
-// WsPlaceOrderResponse place order response thought the websocket connection
-type WsPlaceOrderResponse struct {
-	OperationResponse
-	Data []OrderData `json:"data"`
-}
-
 // SpreadOrderInfo holds spread order response information
 type SpreadOrderInfo struct {
 	ClientOrderID string `json:"clOrdId"`
@@ -3131,15 +3179,6 @@ type SpreadOrderInfo struct {
 	Tag           string `json:"tag"`
 	StatusCode    string `json:"sCode"`
 	StatusMessage string `json:"sMsg"`
-}
-
-type wsRequestInfo struct {
-	ID             string
-	Chan           chan *wsIncomingData
-	Event          string
-	Channel        string
-	InstrumentType string
-	InstrumentID   string
 }
 
 type wsIncomingData struct {
@@ -3152,37 +3191,6 @@ type wsIncomingData struct {
 	ID        string          `json:"id,omitempty"`
 	Operation string          `json:"op,omitempty"`
 	Data      json.RawMessage `json:"data,omitempty"`
-}
-
-// copyToPlaceOrderResponse returns WSPlaceOrderResponse struct instance
-func (w *wsIncomingData) copyToPlaceOrderResponse() (*WsPlaceOrderResponse, error) {
-	if len(w.Data) == 0 {
-		return nil, common.ErrNoResponse
-	}
-	var placeOrds []OrderData
-	err := json.Unmarshal(w.Data, &placeOrds)
-	if err != nil {
-		return nil, err
-	}
-	return &WsPlaceOrderResponse{
-		OperationResponse: OperationResponse{
-			Operation: w.Operation,
-			ID:        w.ID,
-		},
-		Data: placeOrds,
-	}, nil
-}
-
-// copyResponseToInterface unmarshals the response data into the dataHolder interface.
-func (w *wsIncomingData) copyResponseToInterface(dataHolder interface{}) error {
-	rv := reflect.ValueOf(dataHolder)
-	if rv.Kind() != reflect.Pointer {
-		return errInvalidResponseParam
-	}
-	if len(w.Data) == 0 {
-		return common.ErrNoResponse
-	}
-	return json.Unmarshal(w.Data, &[]any{dataHolder})
 }
 
 // WSInstrumentResponse represents websocket instruments push message
@@ -3217,17 +3225,6 @@ type WsOrderActionResponse struct {
 	Data      []OrderData `json:"data"`
 	Code      string      `json:"code"`
 	Msg       string      `json:"msg"`
-}
-
-func (a *WsOrderActionResponse) populateFromIncomingData(incoming *wsIncomingData) error {
-	if incoming == nil {
-		return common.ErrNilPointer
-	}
-	a.ID = incoming.ID
-	a.Code = incoming.StatusCode
-	a.Operation = incoming.Operation
-	a.Msg = incoming.Message
-	return nil
 }
 
 // SubscriptionOperationInput represents the account channel input data
@@ -4311,24 +4308,6 @@ type PurchaseRedeemHistory struct {
 type APYItem struct {
 	Rate      types.Number `json:"rate"`
 	Timestamp types.Time   `json:"ts"`
-}
-
-// wsRequestDataChannelsMultiplexer a single multiplexer instance to multiplex websocket messages multiplexer channels
-type wsRequestDataChannelsMultiplexer struct {
-	// To Synchronize incoming messages coming through the websocket channel
-	WsResponseChannelsMap map[string]*wsRequestInfo
-	Register              chan *wsRequestInfo
-	Unregister            chan string
-	Message               chan *wsIncomingData
-	shutdown              chan bool
-}
-
-// wsSubscriptionParameters represents toggling boolean values for subscription parameters
-type wsSubscriptionParameters struct {
-	InstrumentType bool
-	InstrumentID   bool
-	Underlying     bool
-	Currency       bool
 }
 
 // WsOrderbook5 stores the orderbook data for orderbook 5 websocket

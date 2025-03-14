@@ -32,15 +32,7 @@ import (
 // Okx is the overarching type across this package
 type Okx struct {
 	exchange.Base
-	WsResponseMultiplexer wsRequestDataChannelsMultiplexer
-
-	// WsRequestSemaphore channel is used to block write operation on the websocket connection to reduce contention; a kind of bounded parallelism.
-	// it is made to hold up to 20 integers so that up to 20 write operations can be called over the websocket connection at a time.
-	// and when the operation is completed the thread releases (consumes) one value from the channel so that the other waiting operation can enter.
-	// ok.WsRequestSemaphore <- 1
-	// defer func() { <-ok.WsRequestSemaphore }()
-	WsRequestSemaphore chan int
-
+	counter                common.Counter
 	instrumentsInfoMapLock sync.Mutex
 	instrumentsInfoMap     map[string][]Instrument
 }
@@ -60,15 +52,14 @@ const (
 
 // PlaceOrder places an order
 func (ok *Okx) PlaceOrder(ctx context.Context, arg *PlaceOrderRequestParam) (*OrderData, error) {
-	err := ok.validatePlaceOrderParams(arg)
-	if err != nil {
+	if err := arg.Validate(); err != nil {
 		return nil, err
 	}
 	var resp *OrderData
-	err = ok.SendHTTPRequest(ctx, exchange.RestSpot, placeOrderEPL, http.MethodPost, "trade/order", &arg, &resp, request.AuthenticatedRequest)
+	err := ok.SendHTTPRequest(ctx, exchange.RestSpot, placeOrderEPL, http.MethodPost, "trade/order", &arg, &resp, request.AuthenticatedRequest)
 	if err != nil {
 		if resp != nil && resp.StatusMessage != "" {
-			return nil, fmt.Errorf("%w, error code: %s error message: %s", err, resp.StatusCode, resp.StatusMessage)
+			return nil, fmt.Errorf("%w, status code: %d error message: %s", err, resp.StatusCode, resp.StatusMessage)
 		}
 		return nil, err
 	}
@@ -80,22 +71,20 @@ func (ok *Okx) PlaceMultipleOrders(ctx context.Context, args []PlaceOrderRequest
 	if len(args) == 0 {
 		return nil, order.ErrSubmissionIsNil
 	}
-	var err error
 	for x := range args {
-		err = ok.validatePlaceOrderParams(&args[x])
-		if err != nil {
+		if err := args[x].Validate(); err != nil {
 			return nil, err
 		}
 	}
 	var resp []OrderData
-	err = ok.SendHTTPRequest(ctx, exchange.RestSpot, placeMultipleOrdersEPL, http.MethodPost, "trade/batch-orders", &args, &resp, request.AuthenticatedRequest)
+	err := ok.SendHTTPRequest(ctx, exchange.RestSpot, placeMultipleOrdersEPL, http.MethodPost, "trade/batch-orders", &args, &resp, request.AuthenticatedRequest)
 	if err != nil {
 		if len(resp) == 0 {
 			return nil, err
 		}
 		var errs error
 		for x := range resp {
-			errs = common.AppendError(errs, fmt.Errorf("error code:%s error message: %v", resp[x].StatusCode, resp[x].StatusMessage))
+			errs = common.AppendError(errs, fmt.Errorf("status code:%d error message: %v", resp[x].StatusCode, resp[x].StatusMessage))
 		}
 		return nil, errs
 	}
@@ -117,7 +106,7 @@ func (ok *Okx) CancelSingleOrder(ctx context.Context, arg *CancelOrderRequestPar
 	err := ok.SendHTTPRequest(ctx, exchange.RestSpot, cancelOrderEPL, http.MethodPost, "trade/cancel-order", &arg, &resp, request.AuthenticatedRequest)
 	if err != nil {
 		if resp != nil && resp.StatusMessage != "" {
-			return nil, fmt.Errorf("%w,  error code: %s and  error message: %s", err, resp.StatusCode, resp.StatusMessage)
+			return nil, fmt.Errorf("%w,  status code: %d and  error message: %s", err, resp.StatusCode, resp.StatusMessage)
 		}
 		return nil, err
 	}
@@ -140,16 +129,15 @@ func (ok *Okx) CancelMultipleOrders(ctx context.Context, args []CancelOrderReque
 		}
 	}
 	var resp []OrderData
-	err := ok.SendHTTPRequest(ctx, exchange.RestSpot, cancelMultipleOrdersEPL,
-		http.MethodPost, "trade/cancel-batch-orders", args, &resp, request.AuthenticatedRequest)
+	err := ok.SendHTTPRequest(ctx, exchange.RestSpot, cancelMultipleOrdersEPL, http.MethodPost, "trade/cancel-batch-orders", args, &resp, request.AuthenticatedRequest)
 	if err != nil {
 		if len(resp) == 0 {
 			return nil, err
 		}
 		var errs error
 		for x := range resp {
-			if resp[x].StatusCode != "0" {
-				errs = common.AppendError(errs, fmt.Errorf("error code:%s message: %v", resp[x].StatusCode, resp[x].StatusMessage))
+			if resp[x].StatusCode != 0 {
+				errs = common.AppendError(errs, fmt.Errorf("error code:%d message: %v", resp[x].StatusCode, resp[x].StatusMessage))
 			}
 		}
 		return nil, errs
@@ -3054,7 +3042,7 @@ func (ok *Okx) StopGridAlgoOrder(ctx context.Context, arg []StopGridAlgoOrderReq
 		if len(resp) == 0 {
 			return nil, err
 		}
-		return nil, fmt.Errorf("error code:%s error message: %v", resp[0].StatusCode, resp[0].StatusMessage)
+		return nil, fmt.Errorf("status code:%s error message: %v", resp[0].StatusCode, resp[0].StatusMessage)
 	}
 	return resp, nil
 }
