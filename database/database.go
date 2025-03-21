@@ -3,7 +3,8 @@ package database
 import (
 	"database/sql"
 	"fmt"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 // SetConfig safely sets the global database instance's config with some

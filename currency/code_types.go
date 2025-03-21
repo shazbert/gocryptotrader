@@ -2,7 +2,8 @@ package currency
 
 import (
 	"sync"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 // Bitmasks const for currency roles

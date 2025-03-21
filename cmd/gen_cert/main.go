@@ -12,7 +12,8 @@ import (
 	"math/big"
 	"net"
 	"os"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/common/file"
 )

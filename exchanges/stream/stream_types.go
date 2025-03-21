@@ -3,7 +3,8 @@ package stream
 import (
 	"context"
 	"net/http"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/gorilla/websocket"
 	"github.com/thrasher-corp/gocryptotrader/currency"

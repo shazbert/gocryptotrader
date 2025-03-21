@@ -1,7 +1,7 @@
 package request
 
 import (
-	"time"
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 // DefaultBackoff is a default strategy for backoff after a retryable request failure.

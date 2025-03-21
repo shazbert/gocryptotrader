@@ -2,7 +2,8 @@ package timedmutex
 
 import (
 	"testing"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 // 1000000	        1074 ns/op	     136 B/op	       4 allocs/op (prev)

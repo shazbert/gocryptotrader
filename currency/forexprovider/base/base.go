@@ -1,7 +1,7 @@
 package base
 
 import (
-	"time"
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 // Base enforces standard variables across the provider packages

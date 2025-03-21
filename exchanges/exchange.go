@@ -12,8 +12,9 @@ import (
 	"strings"
 	"sync"
 	"text/template"
-	"time"
 	"unicode"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/common/key"

@@ -3,7 +3,8 @@ package core
 import (
 	"fmt"
 	"runtime"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 // const vars related to the app version

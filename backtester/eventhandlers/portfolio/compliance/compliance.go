@@ -2,7 +2,8 @@ package compliance
 
 import (
 	"fmt"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 // AddSnapshot creates a snapshot in time of the orders placed to allow for finer detail tracking

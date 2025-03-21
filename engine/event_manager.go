@@ -6,7 +6,8 @@ import (
 	"slices"
 	"strings"
 	"sync/atomic"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/communications/base"
 	"github.com/thrasher-corp/gocryptotrader/currency"

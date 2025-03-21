@@ -2,7 +2,8 @@ package connchecker
 
 import (
 	"testing"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 func TestConnection(t *testing.T) {

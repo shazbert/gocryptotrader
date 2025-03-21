@@ -15,7 +15,8 @@ import (
 	"net/url"
 	"strings"
 	"sync/atomic"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/gorilla/websocket"
 	"github.com/thrasher-corp/gocryptotrader/encoding/json"

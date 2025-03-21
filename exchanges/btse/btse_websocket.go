@@ -7,7 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/gorilla/websocket"
 	"github.com/thrasher-corp/gocryptotrader/common/crypto"

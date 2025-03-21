@@ -10,7 +10,8 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/gorilla/websocket"
 	"github.com/thrasher-corp/gocryptotrader/common"

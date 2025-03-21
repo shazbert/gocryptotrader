@@ -9,7 +9,8 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/gofrs/uuid"
 	grpcauth "github.com/grpc-ecosystem/go-grpc-middleware/auth"

@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"strconv"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/buger/jsonparser"
 )

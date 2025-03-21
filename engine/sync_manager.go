@@ -8,7 +8,8 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/common/key"

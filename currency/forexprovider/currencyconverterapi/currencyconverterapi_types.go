@@ -1,7 +1,7 @@
 package currencyconverter
 
 import (
-	"time"
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/currency/forexprovider/base"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/request"

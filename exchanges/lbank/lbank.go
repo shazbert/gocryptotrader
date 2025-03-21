@@ -14,7 +14,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	gctcrypto "github.com/thrasher-corp/gocryptotrader/common/crypto"
 	"github.com/thrasher-corp/gocryptotrader/encoding/json"

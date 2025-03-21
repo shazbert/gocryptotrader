@@ -2,7 +2,8 @@ package versions
 
 import (
 	"context"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/buger/jsonparser"
 	"github.com/thrasher-corp/gocryptotrader/encoding/json"

@@ -6,7 +6,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	objects "github.com/d5/tengo/v2"
 	"github.com/thrasher-corp/gocryptotrader/common"

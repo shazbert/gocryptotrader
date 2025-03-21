@@ -8,7 +8,8 @@ import (
 	"os"
 	"reflect"
 	"testing"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"

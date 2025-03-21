@@ -3,7 +3,8 @@ package bithumb
 import (
 	"errors"
 	"testing"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

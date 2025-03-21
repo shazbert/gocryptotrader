@@ -1,7 +1,7 @@
 package coinmarketcap
 
 import (
-	"time"
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/exchanges/request"
 )

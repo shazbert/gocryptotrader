@@ -12,7 +12,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/communications/base"

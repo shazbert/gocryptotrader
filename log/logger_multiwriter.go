@@ -6,7 +6,8 @@ import (
 	"io"
 	"log"
 	"slices"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/encoding/json"
 )

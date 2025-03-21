@@ -3,7 +3,6 @@ package config
 import (
 	"errors"
 	"sync"
-	"time"
 
 	"github.com/thrasher-corp/gocryptotrader/communications/base"
 	"github.com/thrasher-corp/gocryptotrader/currency"
@@ -14,6 +13,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/log"
 	"github.com/thrasher-corp/gocryptotrader/portfolio"
 	"github.com/thrasher-corp/gocryptotrader/portfolio/banking"
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 // Constants declared here are filename strings and test strings

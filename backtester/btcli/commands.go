@@ -4,7 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/backtester/btrpc"
 	"github.com/thrasher-corp/gocryptotrader/backtester/config"

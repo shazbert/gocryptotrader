@@ -2,7 +2,8 @@ package base
 
 import (
 	"testing"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 var b Base

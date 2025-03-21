@@ -3,7 +3,8 @@ package stream
 import (
 	"sync"
 	"sync/atomic"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/gorilla/websocket"
 	"github.com/thrasher-corp/gocryptotrader/config"

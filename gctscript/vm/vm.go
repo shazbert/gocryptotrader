@@ -8,7 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync/atomic"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/d5/tengo/v2"
 	"github.com/gofrs/uuid"

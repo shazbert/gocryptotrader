@@ -3,7 +3,8 @@ package nonce
 import (
 	"strconv"
 	"sync"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 // UnixNano and Unix are default nonce setters

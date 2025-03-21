@@ -5,7 +5,8 @@ import (
 	"log"
 	"os"
 	"testing"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/currency/forexprovider/base"
 )

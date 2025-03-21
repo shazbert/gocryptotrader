@@ -2,7 +2,8 @@ package timeperiods
 
 import (
 	"testing"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 func TestFindTimeRangesContainingData(t *testing.T) {

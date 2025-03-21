@@ -7,7 +7,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/buger/jsonparser"
 	"github.com/gorilla/websocket"

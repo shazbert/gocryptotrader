@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/pkg/errors"
 	"github.com/thrasher-corp/sqlboiler/boil"

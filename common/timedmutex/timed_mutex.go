@@ -3,7 +3,8 @@ package timedmutex
 import (
 	"sync"
 	"sync/atomic"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 // TimedMutex is a blocking mutex which will unlock after a specified time

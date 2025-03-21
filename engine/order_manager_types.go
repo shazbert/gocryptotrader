@@ -3,7 +3,8 @@ package engine
 import (
 	"errors"
 	"sync"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/futures"

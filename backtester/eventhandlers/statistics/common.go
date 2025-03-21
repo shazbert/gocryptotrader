@@ -3,7 +3,8 @@ package statistics
 import (
 	"errors"
 	"fmt"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/shopspring/decimal"
 	"github.com/thrasher-corp/gocryptotrader/backtester/common"

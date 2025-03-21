@@ -1,7 +1,7 @@
 package timeperiods
 
 import (
-	"time"
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 // TimePeriodCalculator is able analyse

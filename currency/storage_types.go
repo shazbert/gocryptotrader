@@ -2,7 +2,8 @@ package currency
 
 import (
 	"sync"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/currency/coinmarketcap"
 	"github.com/thrasher-corp/gocryptotrader/currency/forexprovider"

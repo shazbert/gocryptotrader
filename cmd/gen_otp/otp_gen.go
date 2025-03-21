@@ -4,7 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/pquerna/otp/totp"
 	"github.com/thrasher-corp/gocryptotrader/config"

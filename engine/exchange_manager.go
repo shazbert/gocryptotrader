@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	exchange "github.com/thrasher-corp/gocryptotrader/exchanges"
 	"github.com/thrasher-corp/gocryptotrader/log"

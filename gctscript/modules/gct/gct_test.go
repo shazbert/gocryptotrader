@@ -5,7 +5,8 @@ import (
 	"os"
 	"reflect"
 	"testing"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	objects "github.com/d5/tengo/v2"
 	"github.com/stretchr/testify/assert"

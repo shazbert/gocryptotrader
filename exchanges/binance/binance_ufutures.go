@@ -8,7 +8,8 @@ import (
 	"net/url"
 	"slices"
 	"strconv"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/common/convert"
 	"github.com/thrasher-corp/gocryptotrader/currency"

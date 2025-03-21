@@ -5,7 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/database"
 	"github.com/thrasher-corp/gocryptotrader/database/models/postgres"

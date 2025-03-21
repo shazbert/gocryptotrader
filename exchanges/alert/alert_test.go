@@ -5,7 +5,8 @@ import (
 	"log"
 	"sync"
 	"testing"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 func TestWait(t *testing.T) {

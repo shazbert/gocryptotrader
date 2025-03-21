@@ -12,7 +12,8 @@ import (
 	"strings"
 	"sync"
 	"text/template"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/shopspring/decimal"
 	"github.com/thrasher-corp/gocryptotrader/common/file"

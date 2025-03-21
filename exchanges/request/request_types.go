@@ -3,7 +3,8 @@ package request
 import (
 	"io"
 	"net/http"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/common/timedmutex"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/nonce"

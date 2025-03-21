@@ -8,7 +8,8 @@ import (
 	"reflect"
 	"slices"
 	"sync"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/config"

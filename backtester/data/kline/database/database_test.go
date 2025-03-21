@@ -6,7 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/backtester/common"
 	"github.com/thrasher-corp/gocryptotrader/config"

@@ -5,7 +5,8 @@ import (
 	"math"
 	"strconv"
 	"strings"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/shopspring/decimal"
 )

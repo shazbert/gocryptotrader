@@ -5,7 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"sync/atomic"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"golang.org/x/time/rate"
 )

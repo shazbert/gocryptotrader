@@ -4,7 +4,8 @@ import (
 	"errors"
 	"math"
 	"testing"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/stretchr/testify/assert"
 )

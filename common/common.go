@@ -19,11 +19,11 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 	"unicode"
 
 	"github.com/thrasher-corp/gocryptotrader/common/file"
 	"github.com/thrasher-corp/gocryptotrader/log"
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 const (

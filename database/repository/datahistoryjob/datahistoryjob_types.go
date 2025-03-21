@@ -2,7 +2,8 @@ package datahistoryjob
 
 import (
 	"errors"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/database"
 	"github.com/thrasher-corp/gocryptotrader/database/repository/datahistoryjobresult"

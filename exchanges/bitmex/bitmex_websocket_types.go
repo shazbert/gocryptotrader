@@ -1,7 +1,7 @@
 package bitmex
 
 import (
-	"time"
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 // WebsocketRequest is the main request type

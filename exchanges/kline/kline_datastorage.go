@@ -7,7 +7,8 @@ import (
 	"io"
 	"os"
 	"strconv"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/gofrs/uuid"
 	"github.com/thrasher-corp/gocryptotrader/currency"

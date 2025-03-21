@@ -16,7 +16,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thrasher-corp/gocryptotrader/common/convert"

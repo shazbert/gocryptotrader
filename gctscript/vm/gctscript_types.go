@@ -2,7 +2,8 @@ package vm
 
 import (
 	"errors"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 const (

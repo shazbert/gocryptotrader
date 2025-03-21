@@ -11,7 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/buger/jsonparser"

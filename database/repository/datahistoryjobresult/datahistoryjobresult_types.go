@@ -1,7 +1,7 @@
 package datahistoryjobresult
 
 import (
-	"time"
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/database"
 )

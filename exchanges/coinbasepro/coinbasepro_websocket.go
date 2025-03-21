@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/gorilla/websocket"
 	"github.com/thrasher-corp/gocryptotrader/common/convert"

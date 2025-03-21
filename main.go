@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"runtime"
-	"time"
 
 	"github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/config"
@@ -22,6 +21,7 @@ import (
 	gctlog "github.com/thrasher-corp/gocryptotrader/log"
 	"github.com/thrasher-corp/gocryptotrader/portfolio/withdraw"
 	"github.com/thrasher-corp/gocryptotrader/signaler"
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 func main() {

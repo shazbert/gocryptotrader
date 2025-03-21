@@ -3,7 +3,8 @@ package trade
 import (
 	"errors"
 	"sync"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/gofrs/uuid"
 	"github.com/thrasher-corp/gocryptotrader/currency"

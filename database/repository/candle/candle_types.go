@@ -2,7 +2,8 @@ package candle
 
 import (
 	"errors"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 var (

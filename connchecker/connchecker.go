@@ -5,7 +5,8 @@ import (
 	"net"
 	"strings"
 	"sync"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/log"
 )

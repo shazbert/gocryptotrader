@@ -3,7 +3,8 @@ package fill
 import (
 	"errors"
 	"testing"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 // TestSetup tests the setup function of the Fills struct

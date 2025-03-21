@@ -3,7 +3,8 @@ package compliance
 import (
 	"errors"
 	"testing"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/shopspring/decimal"
 	gctorder "github.com/thrasher-corp/gocryptotrader/exchanges/order"

@@ -5,7 +5,8 @@ import (
 	"math"
 	"strconv"
 	"strings"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 // Time represents a time.Time object that can be unmarshalled from a float64 or string.

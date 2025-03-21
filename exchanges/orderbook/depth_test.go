@@ -6,7 +6,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/gofrs/uuid"
 	"github.com/stretchr/testify/assert"

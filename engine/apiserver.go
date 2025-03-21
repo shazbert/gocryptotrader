@@ -10,7 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"

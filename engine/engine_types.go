@@ -2,7 +2,8 @@ package engine
 
 import (
 	"sync"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 // Settings stores engine params. Please define a settings struct for automatic

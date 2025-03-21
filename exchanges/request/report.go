@@ -1,7 +1,7 @@
 package request
 
 import (
-	"time"
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 // Reporter interface groups observability functionality over

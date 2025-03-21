@@ -4,7 +4,8 @@ import (
 	"net"
 	"net/http"
 	"strconv"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 const (

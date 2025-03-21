@@ -9,7 +9,8 @@ import (
 	"strconv"
 	"sync"
 	"testing"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/buger/jsonparser"
 	"github.com/gorilla/websocket"

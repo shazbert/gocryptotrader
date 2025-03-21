@@ -6,7 +6,8 @@ import (
 	"net/url"
 	"slices"
 	"sync"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 )
 
 var (

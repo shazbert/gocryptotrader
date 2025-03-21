@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/spf13/viper"
 	"github.com/thrasher-corp/sqlboiler/boil"

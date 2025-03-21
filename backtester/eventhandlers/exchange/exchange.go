@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/gofrs/uuid"
 	"github.com/shopspring/decimal"

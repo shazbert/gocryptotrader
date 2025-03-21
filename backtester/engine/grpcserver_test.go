@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/backtester/btrpc"
 	"github.com/thrasher-corp/gocryptotrader/backtester/common"

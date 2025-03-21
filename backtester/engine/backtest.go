@@ -3,7 +3,8 @@ package engine
 import (
 	"errors"
 	"fmt"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/gofrs/uuid"
 	"github.com/thrasher-corp/gocryptotrader/backtester/common"

@@ -6,7 +6,8 @@ import (
 	"net/url"
 	"slices"
 	"testing"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/common"
 )

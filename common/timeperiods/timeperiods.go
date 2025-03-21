@@ -3,7 +3,8 @@ package timeperiods
 import (
 	"errors"
 	"sort"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/common"
 )

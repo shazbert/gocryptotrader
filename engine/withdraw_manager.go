@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
+
+	"github.com/thrasher-corp/gocryptotrader/time"
 
 	"github.com/thrasher-corp/gocryptotrader/common"
 	dbwithdraw "github.com/thrasher-corp/gocryptotrader/database/repository/withdraw"
