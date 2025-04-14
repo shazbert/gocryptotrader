@@ -2,7 +2,6 @@ package bitstamp
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,16 +11,17 @@ import (
 	"time"
 
 	"github.com/buger/jsonparser"
-	"github.com/gorilla/websocket"
+	gws "github.com/gorilla/websocket"
 	"github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/currency"
+	"github.com/thrasher-corp/gocryptotrader/encoding/json"
+	"github.com/thrasher-corp/gocryptotrader/exchange/websocket"
 	exchange "github.com/thrasher-corp/gocryptotrader/exchanges"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/orderbook"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/request"
-	"github.com/thrasher-corp/gocryptotrader/exchanges/stream"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/subscription"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/trade"
 	"github.com/thrasher-corp/gocryptotrader/log"
@@ -33,7 +33,6 @@ const (
 )
 
 var (
-	errParsingWSField     = errors.New("error parsing WS field")
 	errParsingWSPair      = errors.New("unable to parse currency pair from wsResponse.Channel")
 	errChannelHyphens     = errors.New("channel name does not contain exactly 0 or 2 hyphens")
 	errChannelUnderscores = errors.New("channel name does not contain exactly 2 underscores")
@@ -58,9 +57,9 @@ var subscriptionNames = map[string]string{
 // WsConnect connects to a websocket feed
 func (b *Bitstamp) WsConnect() error {
 	if !b.Websocket.IsEnabled() || !b.IsEnabled() {
-		return stream.ErrWebsocketNotEnabled
+		return websocket.ErrWebsocketNotEnabled
 	}
-	var dialer websocket.Dialer
+	var dialer gws.Dialer
 	err := b.Websocket.Conn.Dial(&dialer, http.Header{})
 	if err != nil {
 		return err
@@ -68,8 +67,8 @@ func (b *Bitstamp) WsConnect() error {
 	if b.Verbose {
 		log.Debugf(log.ExchangeSys, "%s Connected to Websocket.\n", b.Name)
 	}
-	b.Websocket.Conn.SetupPingHandler(request.Unset, stream.PingHandler{
-		MessageType: websocket.TextMessage,
+	b.Websocket.Conn.SetupPingHandler(request.Unset, websocket.PingHandler{
+		MessageType: gws.TextMessage,
 		Message:     hbMsg,
 		Delay:       hbInterval,
 	})
@@ -102,7 +101,7 @@ func (b *Bitstamp) wsReadData() {
 func (b *Bitstamp) wsHandleData(respRaw []byte) error {
 	event, err := jsonparser.GetUnsafeString(respRaw, "event")
 	if err != nil {
-		return fmt.Errorf("%w `event`: %w", errParsingWSField, err)
+		return fmt.Errorf("%w `event`: %w", common.ErrParsingWSField, err)
 	}
 
 	event = strings.TrimPrefix(event, "bts:")
@@ -124,7 +123,7 @@ func (b *Bitstamp) wsHandleData(respRaw []byte) error {
 			}
 		}()
 	default:
-		b.Websocket.DataHandler <- stream.UnhandledMessageWarning{Message: b.Name + stream.UnhandledMessage + string(respRaw)}
+		b.Websocket.DataHandler <- websocket.UnhandledMessageWarning{Message: b.Name + websocket.UnhandledMessage + string(respRaw)}
 	}
 	return nil
 }
@@ -132,7 +131,7 @@ func (b *Bitstamp) wsHandleData(respRaw []byte) error {
 func (b *Bitstamp) handleWSSubscription(event string, respRaw []byte) error {
 	channel, err := jsonparser.GetUnsafeString(respRaw, "channel")
 	if err != nil {
-		return fmt.Errorf("%w `channel`: %w", errParsingWSField, err)
+		return fmt.Errorf("%w `channel`: %w", common.ErrParsingWSField, err)
 	}
 	event = strings.TrimSuffix(event, "scription_succeeded")
 	return b.Websocket.Match.RequireMatchWithData(event+":"+channel, respRaw)
@@ -157,7 +156,7 @@ func (b *Bitstamp) handleWSTrade(msg []byte) error {
 	if wsTradeTemp.Data.Type == 1 {
 		side = order.Sell
 	}
-	return trade.AddTradesToBuffer(b.Name, trade.Data{
+	return trade.AddTradesToBuffer(trade.Data{
 		Timestamp:    time.Unix(wsTradeTemp.Data.Timestamp, 0),
 		CurrencyPair: p,
 		AssetType:    asset.Spot,
@@ -402,7 +401,7 @@ func (b *Bitstamp) FetchWSAuth(ctx context.Context) (*WebsocketAuthResponse, err
 func (b *Bitstamp) parseChannelName(respRaw []byte) (string, currency.Pair, error) {
 	channel, err := jsonparser.GetUnsafeString(respRaw, "channel")
 	if err != nil {
-		return "", currency.EMPTYPAIR, fmt.Errorf("%w `channel`: %w", errParsingWSField, err)
+		return "", currency.EMPTYPAIR, fmt.Errorf("%w `channel`: %w", common.ErrParsingWSField, err)
 	}
 
 	authParts := strings.Split(channel, "-")

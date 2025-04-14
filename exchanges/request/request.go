@@ -2,10 +2,10 @@ package request
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -13,6 +13,7 @@ import (
 
 	"github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/common/timedmutex"
+	"github.com/thrasher-corp/gocryptotrader/encoding/json"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/mock"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/nonce"
 	"github.com/thrasher-corp/gocryptotrader/log"
@@ -204,7 +205,7 @@ func (r *Requester) doRequest(ctx context.Context, endpoint EndpointLimit, newRe
 			return checkErr
 		} else if retry {
 			if err == nil {
-				// If the body isn't fully read, the connection cannot be re-used
+				// If the body isn't fully read, the connection cannot be reused
 				r.drainBody(resp.Body)
 			}
 
@@ -217,10 +218,7 @@ func (r *Requester) doRequest(ctx context.Context, endpoint EndpointLimit, newRe
 
 			after := RetryAfter(resp, time.Now())
 			backoff := r.backoff(attempt)
-			delay := backoff
-			if after > backoff {
-				delay = after
-			}
+			delay := max(backoff, after)
 
 			if dl, ok := req.Context().Deadline(); ok && dl.Before(time.Now().Add(delay)) {
 				if err != nil {
@@ -265,9 +263,7 @@ func (r *Requester) doRequest(ctx context.Context, endpoint EndpointLimit, newRe
 		}
 
 		if p.HeaderResponse != nil {
-			for k, v := range resp.Header {
-				(*p.HeaderResponse)[k] = v
-			}
+			maps.Copy(*p.HeaderResponse, resp.Header)
 		}
 
 		if resp.StatusCode < http.StatusOK ||
@@ -383,10 +379,8 @@ func WithVerbose(ctx context.Context) context.Context {
 // IsVerbose checks main verbosity first then checks context verbose values
 // for specific request verbosity.
 func IsVerbose(ctx context.Context, verbose bool) bool {
-	if verbose {
-		return true
+	if !verbose {
+		verbose, _ = ctx.Value(contextVerboseFlag).(bool)
 	}
-
-	isCtxVerbose, _ := ctx.Value(contextVerboseFlag).(bool)
-	return isCtxVerbose
+	return verbose
 }

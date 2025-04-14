@@ -2,7 +2,6 @@ package bybit
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -10,10 +9,12 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/gorilla/websocket"
+	gws "github.com/gorilla/websocket"
 	"github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/common/crypto"
 	"github.com/thrasher-corp/gocryptotrader/currency"
+	"github.com/thrasher-corp/gocryptotrader/encoding/json"
+	"github.com/thrasher-corp/gocryptotrader/exchange/websocket"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/account"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/fill"
@@ -21,7 +22,6 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/orderbook"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/request"
-	"github.com/thrasher-corp/gocryptotrader/exchanges/stream"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/subscription"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/ticker"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/trade"
@@ -65,7 +65,6 @@ var defaultSubscriptions = subscription.List{
 	{Enabled: true, Asset: asset.Spot, Authenticated: true, Channel: subscription.MyOrdersChannel},
 	{Enabled: true, Asset: asset.Spot, Authenticated: true, Channel: subscription.MyWalletChannel},
 	{Enabled: true, Asset: asset.Spot, Authenticated: true, Channel: subscription.MyTradesChannel},
-	{Enabled: true, Asset: asset.Spot, Authenticated: true, Channel: chanPositions},
 }
 
 var subscriptionNames = map[string]string{
@@ -81,15 +80,15 @@ var subscriptionNames = map[string]string{
 // WsConnect connects to a websocket feed
 func (by *Bybit) WsConnect() error {
 	if !by.Websocket.IsEnabled() || !by.IsEnabled() || !by.IsAssetWebsocketSupported(asset.Spot) {
-		return stream.ErrWebsocketNotEnabled
+		return websocket.ErrWebsocketNotEnabled
 	}
-	var dialer websocket.Dialer
+	var dialer gws.Dialer
 	err := by.Websocket.Conn.Dial(&dialer, http.Header{})
 	if err != nil {
 		return err
 	}
-	by.Websocket.Conn.SetupPingHandler(request.Unset, stream.PingHandler{
-		MessageType: websocket.TextMessage,
+	by.Websocket.Conn.SetupPingHandler(request.Unset, websocket.PingHandler{
+		MessageType: gws.TextMessage,
 		Message:     []byte(`{"op": "ping"}`),
 		Delay:       bybitWebsocketTimer,
 	})
@@ -108,14 +107,14 @@ func (by *Bybit) WsConnect() error {
 
 // WsAuth sends an authentication message to receive auth data
 func (by *Bybit) WsAuth(ctx context.Context) error {
-	var dialer websocket.Dialer
+	var dialer gws.Dialer
 	err := by.Websocket.AuthConn.Dial(&dialer, http.Header{})
 	if err != nil {
 		return err
 	}
 
-	by.Websocket.AuthConn.SetupPingHandler(request.Unset, stream.PingHandler{
-		MessageType: websocket.TextMessage,
+	by.Websocket.AuthConn.SetupPingHandler(request.Unset, websocket.PingHandler{
+		MessageType: gws.TextMessage,
 		Message:     []byte(`{"op":"ping"}`),
 		Delay:       bybitWebsocketTimer,
 	})
@@ -140,7 +139,7 @@ func (by *Bybit) WsAuth(ctx context.Context) error {
 	req := Authenticate{
 		RequestID: strconv.FormatInt(by.Websocket.AuthConn.GenerateMessageID(false), 10),
 		Operation: "auth",
-		Args:      []interface{}{creds.Key, intNonce, sign},
+		Args:      []any{creds.Key, intNonce, sign},
 	}
 	resp, err := by.Websocket.AuthConn.SendMessageReturnResponse(context.TODO(), request.Unset, req.RequestID, req)
 	if err != nil {
@@ -167,30 +166,19 @@ func (by *Bybit) handleSubscriptions(operation string, subs subscription.List) (
 	if err != nil {
 		return
 	}
-	chans := []string{}
-	authChans := []string{}
-	for _, s := range subs {
-		if s.Authenticated {
-			authChans = append(authChans, s.QualifiedChannel)
-		} else {
-			chans = append(chans, s.QualifiedChannel)
+
+	for _, list := range []subscription.List{subs.Public(), subs.Private()} {
+		for _, b := range common.Batch(list, 10) {
+			args = append(args, SubscriptionArgument{
+				auth:           b[0].Authenticated,
+				Operation:      operation,
+				RequestID:      strconv.FormatInt(by.Websocket.Conn.GenerateMessageID(false), 10),
+				Arguments:      b.QualifiedChannels(),
+				associatedSubs: b,
+			})
 		}
 	}
-	for _, b := range common.Batch(chans, 10) {
-		args = append(args, SubscriptionArgument{
-			Operation: operation,
-			RequestID: strconv.FormatInt(by.Websocket.Conn.GenerateMessageID(false), 10),
-			Arguments: b,
-		})
-	}
-	if len(authChans) != 0 {
-		args = append(args, SubscriptionArgument{
-			auth:      true,
-			Operation: operation,
-			RequestID: strconv.FormatInt(by.Websocket.Conn.GenerateMessageID(false), 10),
-			Arguments: authChans,
-		})
-	}
+
 	return
 }
 
@@ -225,6 +213,22 @@ func (by *Bybit) handleSpotSubscription(operation string, channelsToSubscribe su
 		if !resp.Success {
 			return fmt.Errorf("%s with request ID %s msg: %s", resp.Operation, resp.RequestID, resp.RetMsg)
 		}
+
+		var conn websocket.Connection
+		if payloads[a].auth {
+			conn = by.Websocket.AuthConn
+		} else {
+			conn = by.Websocket.Conn
+		}
+
+		if operation == "unsubscribe" {
+			err = by.Websocket.RemoveSubscriptions(conn, payloads[a].associatedSubs...)
+		} else {
+			err = by.Websocket.AddSubscriptions(conn, payloads[a].associatedSubs...)
+		}
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -237,14 +241,16 @@ func (by *Bybit) generateSubscriptions() (subscription.List, error) {
 // GetSubscriptionTemplate returns a subscription channel template
 func (by *Bybit) GetSubscriptionTemplate(_ *subscription.Subscription) (*template.Template, error) {
 	return template.New("master.tmpl").Funcs(template.FuncMap{
-		"channelName":      channelName,
-		"isSymbolChannel":  isSymbolChannel,
-		"intervalToString": intervalToString,
+		"channelName":          channelName,
+		"isSymbolChannel":      isSymbolChannel,
+		"intervalToString":     intervalToString,
+		"getCategoryName":      getCategoryName,
+		"isCategorisedChannel": isCategorisedChannel,
 	}).Parse(subTplText)
 }
 
 // wsReadData receives and passes on websocket messages for processing
-func (by *Bybit) wsReadData(assetType asset.Item, ws stream.Connection) {
+func (by *Bybit) wsReadData(assetType asset.Item, ws websocket.Connection) {
 	defer by.Websocket.Wg.Done()
 	for {
 		select {
@@ -279,7 +285,7 @@ func (by *Bybit) wsHandleData(assetType asset.Item, respRaw []byte) error {
 			}
 		case "ping", "pong":
 		default:
-			by.Websocket.DataHandler <- stream.UnhandledMessageWarning{
+			by.Websocket.DataHandler <- websocket.UnhandledMessageWarning{
 				Message: string(respRaw),
 			}
 			return nil
@@ -481,13 +487,13 @@ func (by *Bybit) wsProcessLeverageTokenKline(assetType asset.Item, resp *Websock
 	if err != nil {
 		return err
 	}
-	ltKline := make([]stream.KlineData, len(result))
+	ltKline := make([]websocket.KlineData, len(result))
 	for x := range result {
 		interval, err := stringToInterval(result[x].Interval)
 		if err != nil {
 			return err
 		}
-		ltKline[x] = stream.KlineData{
+		ltKline[x] = websocket.KlineData{
 			Timestamp:  result[x].Timestamp.Time(),
 			Pair:       cp,
 			AssetType:  assetType,
@@ -525,13 +531,13 @@ func (by *Bybit) wsProcessKline(assetType asset.Item, resp *WebsocketResponse, t
 	if err != nil {
 		return err
 	}
-	spotCandlesticks := make([]stream.KlineData, len(result))
+	spotCandlesticks := make([]websocket.KlineData, len(result))
 	for x := range result {
 		interval, err := stringToInterval(result[x].Interval)
 		if err != nil {
 			return err
 		}
-		spotCandlesticks[x] = stream.KlineData{
+		spotCandlesticks[x] = websocket.KlineData{
 			Timestamp:  result[x].Timestamp.Time(),
 			Pair:       cp,
 			AssetType:  assetType,
@@ -676,7 +682,7 @@ func (by *Bybit) wsProcessPublicTrade(assetType asset.Item, resp *WebsocketRespo
 			TID:          result[x].TradeID,
 		}
 	}
-	return trade.AddTradesToBuffer(by.Name, tradeDatas...)
+	return trade.AddTradesToBuffer(tradeDatas...)
 }
 
 func (by *Bybit) wsProcessOrderbook(assetType asset.Item, resp *WebsocketResponse) error {
@@ -754,6 +760,14 @@ func isSymbolChannel(name string) bool {
 	return true
 }
 
+func isCategorisedChannel(name string) bool {
+	switch name {
+	case chanPositions, chanExecution, chanOrder:
+		return true
+	}
+	return false
+}
+
 const subTplText = `
 {{ with $name := channelName $.S }}
 	{{- range $asset, $pairs := $.AssetPairs }}
@@ -767,6 +781,7 @@ const subTplText = `
 			{{- end }}
 		{{- else }}
 			{{- $name }}
+			{{- if and (isCategorisedChannel $name) ($categoryName := getCategoryName $asset) -}} . {{- $categoryName -}} {{- end }}
 		{{- end }}
 	{{- end }}
 	{{- $.AssetSeparator }}

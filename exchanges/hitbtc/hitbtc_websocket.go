@@ -2,7 +2,6 @@ package hitbtc
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,16 +11,17 @@ import (
 	"time"
 
 	"github.com/Masterminds/sprig/v3"
-	"github.com/gorilla/websocket"
+	gws "github.com/gorilla/websocket"
 	"github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/common/crypto"
 	"github.com/thrasher-corp/gocryptotrader/currency"
+	"github.com/thrasher-corp/gocryptotrader/encoding/json"
+	"github.com/thrasher-corp/gocryptotrader/exchange/websocket"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/kline"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/orderbook"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/request"
-	"github.com/thrasher-corp/gocryptotrader/exchanges/stream"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/subscription"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/ticker"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/trade"
@@ -53,9 +53,9 @@ var defaultSubscriptions = subscription.List{
 // WsConnect starts a new connection with the websocket API
 func (h *HitBTC) WsConnect() error {
 	if !h.Websocket.IsEnabled() || !h.IsEnabled() {
-		return stream.ErrWebsocketNotEnabled
+		return websocket.ErrWebsocketNotEnabled
 	}
-	var dialer websocket.Dialer
+	var dialer gws.Dialer
 	err := h.Websocket.Conn.Dial(&dialer, http.Header{})
 	if err != nil {
 		return err
@@ -117,7 +117,7 @@ func (h *HitBTC) wsGetTableName(respRaw []byte) (string, error) {
 		return init.Method, nil
 	}
 	switch resultType := init.Result.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		if reportType, ok := resultType["reportType"].(string); ok {
 			return reportType, nil
 		}
@@ -128,13 +128,13 @@ func (h *HitBTC) wsGetTableName(respRaw []byte) (string, error) {
 				return "", nil
 			}
 		}
-	case []interface{}:
+	case []any:
 		if len(resultType) == 0 {
 			h.Websocket.DataHandler <- fmt.Sprintf("No data returned. ID: %v", init.ID)
 			return "", nil
 		}
 
-		data, ok := resultType[0].(map[string]interface{})
+		data, ok := resultType[0].(map[string]any)
 		if !ok {
 			return "", errors.New("unable to type assert data")
 		}
@@ -144,7 +144,7 @@ func (h *HitBTC) wsGetTableName(respRaw []byte) (string, error) {
 			return "trading", nil
 		}
 	}
-	h.Websocket.DataHandler <- stream.UnhandledMessageWarning{Message: h.Name + stream.UnhandledMessage + string(respRaw)}
+	h.Websocket.DataHandler <- websocket.UnhandledMessageWarning{Message: h.Name + websocket.UnhandledMessage + string(respRaw)}
 	return "", nil
 }
 
@@ -250,7 +250,7 @@ func (h *HitBTC) wsHandleData(respRaw []byte) error {
 				TID:          strconv.FormatInt(tradeSnapshot.Params.Data[i].ID, 10),
 			})
 		}
-		return trade.AddTradesToBuffer(h.Name, trades...)
+		return trade.AddTradesToBuffer(trades...)
 	case "activeOrders":
 		var o wsActiveOrdersResponse
 		err := json.Unmarshal(respRaw, &o)
@@ -292,10 +292,7 @@ func (h *HitBTC) wsHandleData(respRaw []byte) error {
 				return err
 			}
 		}
-	case
-		"replaced",
-		"canceled",
-		"new":
+	case "replaced", "canceled", "new":
 		var o wsOrderResponse
 		err := json.Unmarshal(respRaw, &o)
 		if err != nil {
@@ -306,7 +303,7 @@ func (h *HitBTC) wsHandleData(respRaw []byte) error {
 			return err
 		}
 	default:
-		h.Websocket.DataHandler <- stream.UnhandledMessageWarning{Message: h.Name + stream.UnhandledMessage + string(respRaw)}
+		h.Websocket.DataHandler <- websocket.UnhandledMessageWarning{Message: h.Name + websocket.UnhandledMessage + string(respRaw)}
 		return nil
 	}
 	return nil
