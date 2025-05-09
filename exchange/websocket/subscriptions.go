@@ -280,6 +280,9 @@ func (m *Manager) FlushChannels() error {
 		if err != nil {
 			return err
 		}
+		if m.subscriptionFilter != nil {
+			newSubs = m.subscriptionFilter(m.Conn.GetURL(), newSubs)
+		}
 		return m.updateChannelSubscriptions(nil, m.subscriptions, newSubs)
 	}
 
@@ -287,6 +290,10 @@ func (m *Manager) FlushChannels() error {
 		newSubs, err := m.connectionManager[x].setup.GenerateSubscriptions()
 		if err != nil {
 			return err
+		}
+
+		if m.subscriptionFilter != nil {
+			newSubs = m.subscriptionFilter(m.connectionManager[x].setup.URL, newSubs)
 		}
 
 		// Case if there is nothing to unsubscribe from and the connection is nil
