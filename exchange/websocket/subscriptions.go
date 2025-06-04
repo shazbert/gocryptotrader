@@ -340,7 +340,7 @@ func (m *Manager) updateChannelSubscriptions(c Connection, store *subscription.S
 		}
 
 		if contained := store.Contained(unsubs); len(contained) > 0 {
-			return fmt.Errorf("%v %w `%s`", m.exchangeName, ErrSubscriptionsNotRemoved, contained)
+			return fmt.Errorf("%v %w %q", m.exchangeName, ErrSubscriptionsNotRemoved, contained)
 		}
 	}
 	if len(subs) != 0 {
@@ -349,7 +349,7 @@ func (m *Manager) updateChannelSubscriptions(c Connection, store *subscription.S
 		}
 
 		if missing := store.Missing(subs); len(missing) > 0 {
-			return fmt.Errorf("%v %w `%s`", m.exchangeName, ErrSubscriptionsNotAdded, missing)
+			return fmt.Errorf("%v %w %q", m.exchangeName, ErrSubscriptionsNotAdded, missing)
 		}
 	}
 	return nil
