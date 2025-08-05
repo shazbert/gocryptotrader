@@ -699,21 +699,6 @@ func (e *Exchange) fetchOrderbook(ctx context.Context, p currency.Pair, a asset.
 	if err != nil {
 		return nil, err
 	}
-
-	bids := make(orderbook.Levels, len(o.Bids))
-	for x := range o.Bids {
-		bids[x] = orderbook.Level{
-			Amount: o.Bids[x].Amount.Float64(),
-			Price:  o.Bids[x].Price.Float64(),
-		}
-	}
-	asks := make(orderbook.Levels, len(o.Asks))
-	for x := range o.Asks {
-		asks[x] = orderbook.Level{
-			Amount: o.Asks[x].Amount.Float64(),
-			Price:  o.Asks[x].Price.Float64(),
-		}
-	}
 	return &orderbook.Book{
 		Exchange:          e.Name,
 		Asset:             a,
@@ -722,8 +707,8 @@ func (e *Exchange) fetchOrderbook(ctx context.Context, p currency.Pair, a asset.
 		LastUpdateID:      o.ID,
 		LastUpdated:       o.Update.Time(),
 		LastPushed:        o.Current.Time(),
-		Bids:              bids,
-		Asks:              asks,
+		Bids:              o.Bids.Levels(),
+		Asks:              o.Asks.Levels(),
 	}, nil
 }
 
