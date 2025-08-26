@@ -2571,38 +2571,35 @@ func TestUpdateOrderExecutionLimits(t *testing.T) {
 	err = e.UpdateOrderExecutionLimits(t.Context(), asset.Options)
 	require.ErrorIs(t, err, common.ErrNotYetImplemented)
 
-	err = e.UpdateOrderExecutionLimits(t.Context(), asset.Spot)
-	if err != nil {
-		t.Fatal(err)
-	}
+	for _, a := range []asset.Item{asset.Spot, asset.USDTMarginedFutures} {
+		err = e.UpdateOrderExecutionLimits(t.Context(), a)
+		require.NoErrorf(t, err, "UpdateOrderExecutionLimits must not error %s", a)
 
-	avail, err := e.GetAvailablePairs(asset.Spot)
-	if err != nil {
-		t.Fatal(err)
-	}
+		avail, err := e.GetAvailablePairs(a)
+		require.NoError(t, err, "GetAvailablePairs must not error")
 
-	for i := range avail {
-		mm, err := e.GetOrderExecutionLimits(asset.Spot, avail[i])
-		if err != nil {
-			t.Fatal(err)
-		}
+		for _, pair := range avail {
+			mm, err := e.GetOrderExecutionLimits(a, pair)
+			require.NoError(t, err, "GetOrderExecutionLimits must not error")
 
-		if mm == (order.MinMaxLevel{}) {
-			t.Fatal("expected a value")
-		}
+			assert.Equal(t, a, mm.Asset, "asset should equal")
+			assert.True(t, pair.Equal(mm.Pair), "pair should equal")
+			assert.Positive(t, mm.MinimumBaseAmount, "MinimumBaseAmount should be positive")
+			assert.Positive(t, mm.AmountStepIncrementSize, "AmountStepIncrementSize should be positive")
 
-		if mm.MinimumBaseAmount <= 0 {
-			t.Fatalf("MinimumBaseAmount expected 0 but received %v for %v", mm.MinimumBaseAmount, avail[i])
-		}
+			if mm.Delisting {
+				fmt.Println("Delisting", mm.Pair, mm.DelistingAt)
+				assert.NotZero(t, mm.DelistingAt, "DelistingAt should be populated")
+			}
 
-		// 1INCH_TRY no minimum quote or base values are returned.
+			if a == asset.Spot {
+				assert.Positive(t, mm.MinimumQuoteAmount, "MinimumQuoteAmount should be positive")
+				assert.Positive(t, mm.QuoteStepIncrementSize, "QuoteStepIncrementSize should be positive")
+			}
 
-		if mm.QuoteStepIncrementSize <= 0 {
-			t.Fatalf("QuoteStepIncrementSize expected 0 but received %v for %v", mm.QuoteStepIncrementSize, avail[i])
-		}
-
-		if mm.AmountStepIncrementSize <= 0 {
-			t.Fatalf("AmountStepIncrementSize expected 0 but received %v for %v", mm.AmountStepIncrementSize, avail[i])
+			if a == asset.USDTMarginedFutures {
+				assert.Positive(t, mm.MultiplierDecimal, "MultiplierDecimal should be positive")
+			}
 		}
 	}
 }

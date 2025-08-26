@@ -421,15 +421,7 @@ func (e *Exchange) FetchTradablePairs(ctx context.Context, a asset.Item) (curren
 			if tradables[x].TradeStatus == "untradable" {
 				continue
 			}
-			p := strings.ToUpper(tradables[x].ID)
-			if !e.IsValidPairString(p) {
-				continue
-			}
-			cp, err := currency.NewPairFromString(p)
-			if err != nil {
-				return nil, err
-			}
-			pairs = append(pairs, cp)
+			pairs = append(pairs, currency.NewPair(tradables[x].Base, tradables[x].Quote))
 		}
 		return pairs, nil
 	case asset.Margin, asset.CrossMargin:
@@ -464,18 +456,10 @@ func (e *Exchange) FetchTradablePairs(ctx context.Context, a asset.Item) (curren
 		}
 		pairs := make([]currency.Pair, 0, len(contracts))
 		for i := range contracts {
-			if contracts[i].InDelisting {
+			if !contracts[i].DelistedTime.Time().IsZero() {
 				continue
 			}
-			p := strings.ToUpper(contracts[i].Name)
-			if !e.IsValidPairString(p) {
-				continue
-			}
-			cp, err := currency.NewPairFromString(p)
-			if err != nil {
-				return nil, err
-			}
-			pairs = append(pairs, cp)
+			pairs = append(pairs, contracts[i].Name)
 		}
 		return slices.Clip(pairs), nil
 	case asset.DeliveryFutures:
@@ -1820,23 +1804,19 @@ func (e *Exchange) GetFuturesContractDetails(ctx context.Context, a asset.Item) 
 		}
 		resp := make([]futures.Contract, len(contracts))
 		for i := range contracts {
-			name, err := currency.NewPairFromString(contracts[i].Name)
-			if err != nil {
-				return nil, err
-			}
 			contractSettlementType := futures.Linear
 			switch {
-			case name.Base.Equal(currency.BTC) && settle.Equal(currency.BTC):
+			case contracts[i].Name.Base.Equal(currency.BTC) && settle.Equal(currency.BTC):
 				contractSettlementType = futures.Inverse
-			case !name.Base.Equal(settle) && !settle.Equal(currency.USDT):
+			case !contracts[i].Name.Base.Equal(settle) && !settle.Equal(currency.USDT):
 				contractSettlementType = futures.Quanto
 			}
 			c := futures.Contract{
 				Exchange:             e.Name,
-				Name:                 name,
-				Underlying:           name,
+				Name:                 contracts[i].Name,
+				Underlying:           contracts[i].Name,
 				Asset:                a,
-				IsActive:             !contracts[i].InDelisting,
+				IsActive:             !contracts[i].DelistedTime.Time().IsZero(),
 				Type:                 futures.Perpetual,
 				SettlementType:       contractSettlementType,
 				SettlementCurrencies: currency.Currencies{settle},
@@ -1844,7 +1824,7 @@ func (e *Exchange) GetFuturesContractDetails(ctx context.Context, a asset.Item) 
 				MaxLeverage:          contracts[i].LeverageMax.Float64(),
 			}
 			c.LatestRate = fundingrate.Rate{
-				Time: contracts[i].FundingNextApply.Time().Add(-time.Duration(contracts[i].FundingInterval) * time.Second),
+				Time: contracts[i].FundingNextApply.Time().Add(-contracts[i].FundingIntervalSeconds * time.Second),
 				Rate: contracts[i].FundingRate.Decimal(),
 			}
 			resp[i] = c
@@ -1924,10 +1904,6 @@ func (e *Exchange) UpdateOrderExecutionLimits(ctx context.Context, a asset.Item)
 			if pairsData[i].TradeStatus == "untradable" {
 				continue
 			}
-			pair, err := e.MatchSymbolWithAvailablePairs(pairsData[i].ID, a, true)
-			if err != nil {
-				return err
-			}
 
 			// Minimum base amounts are not always provided this will default to
 			// precision for base deployment. This can't be done for quote.
@@ -1936,13 +1912,45 @@ func (e *Exchange) UpdateOrderExecutionLimits(ctx context.Context, a asset.Item)
 				minBaseAmount = math.Pow10(-int(pairsData[i].AmountPrecision))
 			}
 
+			delistingTime := pairsData[i].DelistingTime.Time()
+
 			limits = append(limits, order.MinMaxLevel{
 				Asset:                   a,
-				Pair:                    pair,
+				Pair:                    currency.NewPair(pairsData[i].Base, pairsData[i].Quote),
 				QuoteStepIncrementSize:  math.Pow10(-int(pairsData[i].Precision)),
 				AmountStepIncrementSize: math.Pow10(-int(pairsData[i].AmountPrecision)),
 				MinimumBaseAmount:       minBaseAmount,
 				MinimumQuoteAmount:      pairsData[i].MinQuoteAmount.Float64(),
+				Delisting:               !delistingTime.IsZero(),
+				DelistingAt:             delistingTime,
+			})
+		}
+	case asset.USDTMarginedFutures:
+		contractInfo, err := e.GetAllFutureContracts(ctx, currency.USDT.Lower())
+		if err != nil {
+			return err
+		}
+
+		limits = make([]order.MinMaxLevel, 0, len(contractInfo))
+
+		// MBABYDOGE price is 1e6 x spot price
+		divCurrency := currency.NewCode("MBABYDOGE")
+
+		for i := range contractInfo {
+			priceDiv := 1.0
+			if contractInfo[i].Name.Base.Equal(divCurrency) {
+				priceDiv = 1e6
+			}
+
+			limits = append(limits, order.MinMaxLevel{
+				Asset:                   a,
+				Pair:                    contractInfo[i].Name,
+				MultiplierDecimal:       contractInfo[i].QuantoMultiplier.Float64(),
+				AmountStepIncrementSize: 1, // 1 Contract
+				MinimumBaseAmount:       1, // 1 Contract
+				PriceDivisor:            priceDiv,
+				Delisting:               contractInfo[i].InDelisting,
+				DelistingAt:             contractInfo[i].DelistingTime.Time(),
 			})
 		}
 	default:
@@ -2073,18 +2081,10 @@ func (e *Exchange) GetLatestFundingRates(ctx context.Context, r *fundingrate.Lat
 	}
 	resp := make([]fundingrate.LatestRateResponse, 0, len(contracts))
 	for i := range contracts {
-		p := strings.ToUpper(contracts[i].Name)
-		if !e.IsValidPairString(p) {
+		if !pairs.Contains(contracts[i].Name, false) {
 			continue
 		}
-		cp, err := currency.NewPairFromString(p)
-		if err != nil {
-			return nil, err
-		}
-		if !pairs.Contains(cp, false) {
-			continue
-		}
-		resp = append(resp, contractToFundingRate(e.Name, r.Asset, cp, &contracts[i], r.IncludePredictedRate))
+		resp = append(resp, contractToFundingRate(e.Name, r.Asset, contracts[i].Name, &contracts[i], r.IncludePredictedRate))
 	}
 
 	return slices.Clip(resp), nil
@@ -2096,7 +2096,7 @@ func contractToFundingRate(name string, item asset.Item, fPair currency.Pair, co
 		Asset:    item,
 		Pair:     fPair,
 		LatestRate: fundingrate.Rate{
-			Time: contract.FundingNextApply.Time().Add(-time.Duration(contract.FundingInterval) * time.Second),
+			Time: contract.FundingNextApply.Time().Add(-contract.FundingIntervalSeconds * time.Second),
 			Rate: contract.FundingRate.Decimal(),
 		},
 		TimeOfNextRate: contract.FundingNextApply.Time(),
@@ -2192,7 +2192,7 @@ func (c *FuturesContract) openInterest() float64 {
 }
 
 func (c *FuturesContract) contractName() string {
-	return c.Name
+	return c.Name.String()
 }
 
 func (c *DeliveryContract) openInterest() float64 {
