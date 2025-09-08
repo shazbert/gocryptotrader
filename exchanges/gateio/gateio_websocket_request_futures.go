@@ -12,10 +12,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
 )
 
-var (
-	errInvalidAutoSize = errors.New("invalid auto size")
-	errStatusNotSet    = errors.New("status not set")
-)
+var errStatusNotSet = errors.New("status not set")
 
 // authenticateFutures sends an authentication message to the websocket connection
 func (e *Exchange) authenticateFutures(ctx context.Context, conn websocket.Connection) error {
@@ -23,53 +20,39 @@ func (e *Exchange) authenticateFutures(ctx context.Context, conn websocket.Conne
 }
 
 // WebsocketFuturesSubmitOrder submits an order via the websocket connection
-func (e *Exchange) WebsocketFuturesSubmitOrder(ctx context.Context, a asset.Item, order *ContractOrderCreateParams) (*WebsocketFuturesOrderResponse, error) {
-	resps, err := e.WebsocketFuturesSubmitOrders(ctx, a, order)
+func (e *Exchange) WebsocketFuturesSubmitOrder(ctx context.Context, a asset.Item, o *ContractOrderCreateParams) (*WebsocketFuturesOrderResponse, error) {
+	resps, err := e.WebsocketFuturesSubmitOrders(ctx, a, o)
 	if err != nil {
 		return nil, err
 	}
 	if len(resps) != 1 {
 		return nil, common.ErrInvalidResponse
 	}
-	return &resps[0], err
+	return resps[0], err
 }
 
 // WebsocketFuturesSubmitOrders submits orders via the websocket connection. All orders must be for the same asset.
-func (e *Exchange) WebsocketFuturesSubmitOrders(ctx context.Context, a asset.Item, orders ...*ContractOrderCreateParams) ([]WebsocketFuturesOrderResponse, error) {
+func (e *Exchange) WebsocketFuturesSubmitOrders(ctx context.Context, a asset.Item, orders ...*ContractOrderCreateParams) ([]*WebsocketFuturesOrderResponse, error) {
 	if len(orders) == 0 {
 		return nil, errOrdersEmpty
 	}
 
 	for _, o := range orders {
-		if err := validateFuturesPairAsset(o.Contract, a); err != nil {
+		if err := o.validate(false); err != nil {
 			return nil, err
 		}
-
-		if o.Price == "" && o.TimeInForce != "ioc" {
-			return nil, fmt.Errorf("%w: cannot be zero when time in force is not IOC", errInvalidPrice)
-		}
-
-		if o.Size == 0 && o.AutoSize == "" {
-			return nil, fmt.Errorf("%w: size cannot be zero", errInvalidAmount)
-		}
-
-		if o.AutoSize != "" {
-			if o.AutoSize != "close_long" && o.AutoSize != "close_short" {
-				return nil, fmt.Errorf("%w: %s", errInvalidAutoSize, o.AutoSize)
-			}
-			if o.Size != 0 {
-				return nil, fmt.Errorf("%w: size needs to be zero when auto size is set", errInvalidAmount)
-			}
+		if _, err := getSettlementCurrency(o.Contract, a); err != nil {
+			return nil, err
 		}
 	}
 
 	if len(orders) == 1 {
-		var singleResponse WebsocketFuturesOrderResponse
+		var singleResponse *WebsocketFuturesOrderResponse
 		err := e.SendWebsocketRequest(ctx, perpetualSubmitOrderEPL, "futures.order_place", a, orders[0], &singleResponse, 2)
-		return []WebsocketFuturesOrderResponse{singleResponse}, err
+		return []*WebsocketFuturesOrderResponse{singleResponse}, err
 	}
 
-	var resp []WebsocketFuturesOrderResponse
+	var resp []*WebsocketFuturesOrderResponse
 	return resp, e.SendWebsocketRequest(ctx, perpetualSubmitBatchOrdersEPL, "futures.order_batch_place", a, orders, &resp, 2)
 }
 
