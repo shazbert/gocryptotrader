@@ -397,7 +397,7 @@ func orderCloseRateLimit() *request.RateLimiterWithWeight {
 }
 
 func spotOrderPlacementRateLimit() *request.RateLimiterWithWeight {
-	return request.NewRateLimitWithWeight(time.Second, 10, 1)
+	return request.NewRateLimitWithWeight(time.Second, 9, 1)
 }
 
 func otherPrivateEndpointRateLimit() *request.RateLimiterWithWeight {
