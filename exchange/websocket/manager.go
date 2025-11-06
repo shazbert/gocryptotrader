@@ -123,6 +123,8 @@ type Manager struct {
 	// If an exchange does not require such differentiation, all connections may be managed under a single connectionWrapper.
 
 	connectionManager []*connectionWrapper
+
+	subscriptionFilter subscription.FilterHook
 }
 
 // ManagerSetup defines variables for setting up a websocket manager
@@ -464,6 +466,11 @@ func (m *Manager) connect() error {
 		if err != nil {
 			return fmt.Errorf("%s websocket: %w", m.exchangeName, common.AppendError(ErrSubscriptionFailure, err))
 		}
+
+		if m.subscriptionFilter != nil {
+			subs = m.subscriptionFilter(m.defaultURL, subs)
+		}
+
 		if len(subs) != 0 {
 			if err := m.SubscribeToChannels(nil, subs); err != nil {
 				return err
@@ -502,6 +509,10 @@ func (m *Manager) connect() error {
 			if err != nil {
 				multiConnectFatalError = fmt.Errorf("%s websocket: %w", m.exchangeName, common.AppendError(ErrSubscriptionFailure, err))
 				break
+			}
+
+			if m.subscriptionFilter != nil {
+				subs = m.subscriptionFilter(m.connectionManager[i].setup.URL, subs)
 			}
 
 			if len(subs) == 0 {
