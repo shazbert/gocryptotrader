@@ -696,3 +696,36 @@ func SetIfZero[T comparable](p *T, def T) bool {
 	*p = def
 	return true
 }
+
+// ElementProcessor defines the function signature for processing an individual element with its index.
+// Index required in old subscription matching // TODO: Remove this when gateio templates are updated to all assets.
+type ElementProcessor[E any] func(index int, element E) error
+
+// ThrottledBatch takes a slice of elements and processes them in batches of `batchSize` concurrently.
+// For example, if batchSize = 10 and list has 100 elements, 10 goroutines will process 10 elements concurrently
+// in each batch. Each batch completes before the next batch begins.
+// `process` is a function called for each individual element with its index and value.
+func ThrottledBatch[S ~[]E, E any](batchSize int, list S, process ElementProcessor[E]) error {
+	var errs ErrorCollector
+	for i, s := range Batch(list, batchSize) {
+		for j, e := range s {
+			errs.Go(func() error { return process((i*batchSize)+j, e) })
+		}
+	}
+	return errs.Collect()
+}
+
+// BatchProcessor defines the function signature for processing a batch of elements.
+type BatchProcessor[S ~[]E, E any] func(ctx context.Context, batch S) error
+
+// ProcessBatches processes `S` concurrently in batches of `batchSize`
+// For example, if batchSize = 10 and list has 100 elements, 10 goroutines will be created to process
+// 10 batches. Each batch is processed sequentially by the `process` function, and batches are processed
+// in parallel.
+func ProcessBatches[S ~[]E, E any](ctx context.Context, batchSize int, list S, process BatchProcessor[S, E]) error {
+	var errs ErrorCollector
+	for _, s := range Batch(list, batchSize) {
+		errs.Go(func() error { return process(ctx, s) })
+	}
+	return errs.Collect()
+}
