@@ -684,6 +684,16 @@ func (c *Counter) IncrementAndGet() int64 {
 	return newID
 }
 
+// SetIfZero sets the value of p to def if p is the zero value for its type and returns true if it was set
+func SetIfZero[T comparable](p *T, def T) bool {
+	var zero T
+	if *p != zero {
+		return false
+	}
+	*p = def
+	return true
+}
+
 // ElementProcessor defines the function signature for processing an individual element with its index.
 // Index required in old subscription matching // TODO: Remove this when gateio templates are updated to all assets.
 type ElementProcessor[E any] func(index int, element E) error
