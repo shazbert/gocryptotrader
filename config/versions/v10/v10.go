@@ -4,31 +4,19 @@ import (
 	"context"
 
 	"github.com/buger/jsonparser"
-	"github.com/thrasher-corp/gocryptotrader/encoding/json"
 )
 
-// Version is an ExchangeVersion to add the websocketMetricsLogging field
+// Version implements ConfigVersion
 type Version struct{}
 
-// Exchanges returns all exchanges: "*"
-func (v *Version) Exchanges() []string { return []string{"*"} }
-
-// UpgradeExchange will upgrade the exchange config with the websocketMetricsLogging field
-func (v *Version) UpgradeExchange(_ context.Context, e []byte) ([]byte, error) {
-	if len(e) == 0 {
-		return e, nil
-	}
-	if _, _, _, err := jsonparser.Get(e, "websocketMetricsLogging"); err == nil {
-		return e, nil
-	}
-	val, err := json.Marshal(false)
-	if err != nil {
-		return nil, err
-	}
-	return jsonparser.Set(e, val, "websocketMetricsLogging")
+// UpgradeConfig checks and removes the deprecatedRPC and websocketRPC fields from the remoteControl config
+func (*Version) UpgradeConfig(_ context.Context, e []byte) ([]byte, error) {
+	e = jsonparser.Delete(e, "remoteControl", "deprecatedRPC")
+	e = jsonparser.Delete(e, "remoteControl", "websocketRPC")
+	return e, nil
 }
 
-// DowngradeExchange will downgrade the exchange config by removing the websocketMetricsLogging field
-func (v *Version) DowngradeExchange(_ context.Context, e []byte) ([]byte, error) {
-	return jsonparser.Delete(e, "websocketMetricsLogging"), nil
+// DowngradeConfig is a no-op. It does not restore deprecatedRPC or websocketRPC on downgrade as their removal is permanent
+func (*Version) DowngradeConfig(_ context.Context, e []byte) ([]byte, error) {
+	return e, nil
 }

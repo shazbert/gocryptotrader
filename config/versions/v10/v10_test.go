@@ -1,47 +1,27 @@
 package v10_test
 
 import (
+	"bytes"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	v10 "github.com/thrasher-corp/gocryptotrader/config/versions/v10"
 )
 
-func TestVersion10UpgradeExchange(t *testing.T) {
+func TestUpgradeConfig(t *testing.T) {
 	t.Parallel()
-
-	got, err := (&v10.Version{}).UpgradeExchange(t.Context(), nil)
+	in := []byte(`{"remoteControl":{"enabled":true,"deprecatedRPC":{"enabled":true,"listenAddress":"localhost:9050"},"websocketRPC":{"enabled":true,"listenAddress":"localhost:9051","connectionLimit":1,"maxAuthFailures":3,"allowInsecureOrigin":true}}}`)
+	out, err := new(v10.Version).UpgradeConfig(t.Context(), in)
 	require.NoError(t, err)
-	require.Nil(t, got)
-
-	payload := []byte(`{"name":"test"}`)
-	expected := []byte(`{"name":"test","websocketMetricsLogging":false}`)
-	got, err = (&v10.Version{}).UpgradeExchange(t.Context(), payload)
-	require.NoError(t, err)
-	require.Equal(t, expected, got)
-
-	payload = []byte(`{"name":"test","websocketMetricsLogging":true}`)
-	got, err = (&v10.Version{}).UpgradeExchange(t.Context(), payload)
-	require.NoError(t, err)
-	require.Equal(t, payload, got)
+	const expected = `{"remoteControl":{"enabled":true}}`
+	assert.JSONEq(t, expected, string(out))
 }
 
-func TestVersion10DowngradeExchange(t *testing.T) {
+func TestDowngradeConfig(t *testing.T) {
 	t.Parallel()
-
-	got, err := (&v10.Version{}).DowngradeExchange(t.Context(), nil)
+	in := []byte("meow, moocow, woof, quack")
+	out, err := new(v10.Version).DowngradeConfig(t.Context(), bytes.Clone(in))
 	require.NoError(t, err)
-	require.Nil(t, got)
-
-	payload := []byte(`{"name":"test","websocketMetricsLogging":false}`)
-	expected := []byte(`{"name":"test"}`)
-	got, err = (&v10.Version{}).DowngradeExchange(t.Context(), payload)
-	require.NoError(t, err)
-	require.Equal(t, expected, got)
-}
-
-func TestVersion10Exchanges(t *testing.T) {
-	t.Parallel()
-	assert := require.New(t)
-	assert.Equal([]string{"*"}, (&v10.Version{}).Exchanges())
+	assert.Equal(t, out, in)
 }

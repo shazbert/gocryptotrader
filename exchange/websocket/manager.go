@@ -314,7 +314,7 @@ func (m *Manager) SetupNewConnection(c *ConnectionSetup) error {
 		return err
 	}
 
-	if c.ResponseCheckTimeout == 0 && c.ResponseMaxLimit == 0 && c.RateLimit == nil && c.URL == "" && c.ConnectionLevelReporter == nil && c.RequestIDGenerator == nil {
+	if c.ResponseCheckTimeout == 0 && c.ResponseMaxLimit == 0 && c.RateLimit == nil && c.URL == "" && c.ConnectionLevelReporter == nil {
 		return fmt.Errorf("%w: %w", errConnSetup, errExchangeConfigEmpty)
 	}
 
@@ -410,7 +410,6 @@ func (m *Manager) getConnectionFromSetup(c *ConnectionSetup) *connection {
 		Match:                match,
 		RateLimit:            c.RateLimit,
 		Reporter:             c.ConnectionLevelReporter,
-		requestIDGenerator:   c.RequestIDGenerator,
 		RateLimitDefinitions: m.rateLimitDefinitions,
 	}
 }
@@ -642,13 +641,12 @@ func (m *Manager) Shutdown() error {
 }
 
 func (m *Manager) shutdown() error {
-	if !m.IsConnected() {
-		return fmt.Errorf("%v %w: %w", m.exchangeName, errCannotShutdown, ErrNotConnected)
-	}
-
-	// TODO: Interrupt connection and or close connection when it is re-established.
 	if m.IsConnecting() {
 		return fmt.Errorf("%v %w: %w ", m.exchangeName, errCannotShutdown, errAlreadyReconnecting)
+	}
+
+	if !m.IsConnected() {
+		return fmt.Errorf("%v %w: %w", m.exchangeName, errCannotShutdown, ErrNotConnected)
 	}
 
 	if m.verbose {
@@ -691,11 +689,22 @@ func (m *Manager) shutdown() error {
 	// flush any subscriptions from last connection if needed
 	m.subscriptions.Clear()
 
-	m.setState(disconnectedState)
-
 	close(m.ShutdownC)
+	m.setState(disconnectedState)
 	m.Wg.Wait()
 	m.ShutdownC = make(chan struct{})
+
+	for _, conn := range []Connection{m.Conn, m.AuthConn} {
+		if conn == nil {
+			continue
+		}
+		conn, ok := conn.(*connection)
+		if !ok {
+			return fmt.Errorf("%s websocket: %w", m.exchangeName, common.GetTypeAssertError("*connection", conn))
+		}
+		conn.shutdown = m.ShutdownC
+	}
+
 	if m.verbose {
 		log.Debugf(log.WebsocketMgr, "%v websocket: completed websocket shutdown", m.exchangeName)
 	}
