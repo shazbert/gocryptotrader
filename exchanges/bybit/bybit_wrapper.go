@@ -532,9 +532,9 @@ func (e *Exchange) UpdateTickers(ctx context.Context, assetType asset.Item) erro
 			if err != nil {
 				continue
 			}
-			if !enabled.Contains(pair, true) {
-				continue
-			}
+			// if !enabled.Contains(pair, true) {
+			// 	continue
+			// }
 			err = ticker.ProcessTicker(&ticker.Price{
 				Last:         ticks.List[x].LastPrice.Float64(),
 				High:         ticks.List[x].HighPrice24H.Float64(),
