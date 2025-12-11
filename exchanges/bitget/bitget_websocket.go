@@ -141,7 +141,7 @@ var defaultSubscriptions = subscription.List{
 
 // wsConnect connects to a websocket feed
 func (e *Exchange) wsConnect(ctx context.Context, conn websocket.Connection) error {
-	if err := conn.Dial(ctx, &gws.Dialer{}, nil); err != nil {
+	if err := conn.Dial(ctx, &gws.Dialer{}, nil, nil); err != nil {
 		return err
 	}
 	conn.SetupPingHandler(request.Unset, websocket.PingHandler{
