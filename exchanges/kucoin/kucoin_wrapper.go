@@ -301,8 +301,7 @@ func (e *Exchange) UpdateTickers(ctx context.Context, assetType asset.Item) erro
 			return err
 		}
 		for x := range ticks {
-			pair := currency.NewPair(ticks[x].BaseCurrency,
-				currency.NewCode(ticks[x].Symbol[len(ticks[x].BaseCurrency.String()):]))
+			pair := currency.NewPair(ticks[x].BaseCurrency, currency.NewCode(ticks[x].Symbol[len(ticks[x].BaseCurrency.String()):]))
 			if !pairs.Contains(pair, true) {
 				continue
 			}
@@ -1844,9 +1843,8 @@ func (e *Exchange) GetFuturesContractDetails(ctx context.Context, item asset.Ite
 		}
 		timeOfCurrentFundingRate := time.Now().Add((time.Duration(contracts[i].NextFundingRateTime) * time.Millisecond) - fri).Truncate(time.Hour).UTC()
 		resp[i] = futures.Contract{
-			Exchange: e.Name,
-			Name: currency.NewPair(contracts[i].BaseCurrency,
-				currency.NewCode(contracts[i].Symbol[len(contracts[i].BaseCurrency.String()):])),
+			Exchange:           e.Name,
+			Name:               currency.NewPair(contracts[i].BaseCurrency, currency.NewCode(contracts[i].Symbol[len(contracts[i].BaseCurrency.String()):])),
 			Underlying:         currency.NewPair(contracts[i].BaseCurrency, contracts[i].QuoteCurrency),
 			SettlementCurrency: contracts[i].SettleCurrency,
 			MarginCurrency:     contracts[i].SettleCurrency,
@@ -1892,8 +1890,7 @@ func (e *Exchange) GetLatestFundingRates(ctx context.Context, r *fundingrate.Lat
 		resp := make([]fundingrate.LatestRateResponse, 0, len(contracts))
 		for i := range contracts {
 			timeOfNextFundingRate := time.Now().Add(time.Duration(contracts[i].NextFundingRateTime) * time.Millisecond).Truncate(time.Hour).UTC()
-			cp := currency.NewPair(contracts[i].BaseCurrency,
-				currency.NewCode(contracts[i].Symbol[len(contracts[i].BaseCurrency.String()):]))
+			cp := currency.NewPair(contracts[i].BaseCurrency, currency.NewCode(contracts[i].Symbol[len(contracts[i].BaseCurrency.String()):]))
 			var isPerp bool
 			isPerp, err = e.IsPerpetualFutureCurrency(r.Asset, cp)
 			if err != nil {
