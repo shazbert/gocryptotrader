@@ -90,7 +90,7 @@ var subscriptionNames = map[asset.Item]map[string]string{
 
 var defaultSubscriptions = subscription.List{
 	{Enabled: true, Asset: asset.All, Channel: subscription.TickerChannel},
-	{Enabled: true, Asset: asset.All, Channel: subscription.OrderbookChannel, Interval: kline.HundredMilliseconds},
+	{Enabled: true, Asset: asset.All, Channel: subscription.OrderbookChannel, Interval: kline.HundredMilliseconds}, // Upgraded to realtime feeds when authenticated.
 	{Enabled: false, Asset: asset.Spot, Channel: marketOrderbookChannel},     // Full orderbook depth requires REST snapshot which is an authenticated request.
 	{Enabled: false, Asset: asset.Futures, Channel: futuresOrderbookChannel}, // Full orderbook depth requires REST snapshot which is an authenticated request.
 	{Enabled: true, Asset: asset.Spot, Channel: subscription.AllTradesChannel},
@@ -1040,13 +1040,13 @@ func (e *Exchange) generateSubscriptions() (subscription.List, error) {
 func (e *Exchange) GetSubscriptionTemplate(_ *subscription.Subscription) (*template.Template, error) {
 	return template.New("master.tmpl").
 		Funcs(template.FuncMap{
-			"channelName":           channelName,
+			"channelName":           e.channelName,
 			"mergeMarginPairs":      e.mergeMarginPairs,
 			"isCurrencyChannel":     isCurrencyChannel,
 			"isSymbolChannel":       isSymbolChannel,
 			"channelInterval":       channelInterval,
 			"assetCurrencies":       assetCurrencies,
-			"joinPairsWithInterval": joinPairsWithInterval,
+			"joinPairsWithInterval": e.joinPairsWithInterval,
 			"batch":                 common.Batch[currency.Pairs],
 		}).
 		Parse(subTplText)
@@ -1147,6 +1147,18 @@ func channelName(s *subscription.Subscription, a asset.Item) string {
 	return s.Channel
 }
 
+func (e *Exchange) channelName(s *subscription.Subscription, a asset.Item) string {
+	// Realtime orderbooks require authenticated REST snapshots, so only upgrade
+	// the generic default when authenticated websocket support is enabled.
+	if e.Websocket.CanUseAuthenticatedEndpoints() && s.Channel == subscription.OrderbookChannel {
+		if a == asset.Futures {
+			return futuresOrderbookChannel
+		}
+		return marketOrderbookChannel
+	}
+	return channelName(s, a)
+}
+
 // mergeMarginPairs merges margin pairs into spot pairs for shared subs (ticker, orderbook, etc) if Spot asset and sub are enabled,
 // because Kucoin errors on duplicate pairs in separate subs, and doesn't have separate subs for spot and margin
 func (e *Exchange) mergeMarginPairs(s *subscription.Subscription, ap map[asset.Item]currency.Pairs) string {
@@ -1239,6 +1251,14 @@ func joinPairsWithInterval(b currency.Pairs, s *subscription.Subscription) strin
 		out[i] = p.String() + suffix
 	}
 	return strings.Join(out, ",")
+}
+
+func (e *Exchange) joinPairsWithInterval(b currency.Pairs, s *subscription.Subscription) string {
+	if e.Websocket.CanUseAuthenticatedEndpoints() && s.Channel == subscription.OrderbookChannel {
+		// Realtime level2 topics do not accept the depth-5 feed's interval suffix.
+		return b.Join()
+	}
+	return joinPairsWithInterval(b, s)
 }
 
 const subTplText = `

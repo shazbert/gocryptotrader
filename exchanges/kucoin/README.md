@@ -31,6 +31,8 @@ Default Public Subscriptions:
 - Orderbook for spot, margin and futures
 - All trades for spot and margin
 
+When authenticated websocket support is enabled, the default orderbook subscription automatically uses the realtime spot and futures feeds, which require authenticated REST snapshots.
+
 Default Authenticated Subscriptions:
 - All trades for futures
 - Stop Order Lifecycle events for futures
