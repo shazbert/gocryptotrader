@@ -20,6 +20,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/exchanges/subscription"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/trade"
 	"github.com/thrasher-corp/gocryptotrader/log"
+	"github.com/thrasher-corp/gocryptotrader/metrics"
 )
 
 // Public websocket errors
@@ -114,6 +115,7 @@ type Manager struct {
 	AuthConn                      Connection // Authenticated Private connection
 	ExchangeLevelReporter         Reporter   // Latency reporter
 	MaxSubscriptionsPerConnection int
+	readerMetrics                 *metrics.WebsocketReader
 
 	// connectionManager stores all *potential* connections for the exchange, organised within connectionWrapper structs.
 	// Each connectionWrapper one connection (will be expanded soon) tailored for specific exchange functionalities or asset types. // TODO: Expand this to support multiple connections per connectionWrapper
@@ -188,6 +190,7 @@ func NewManager() *Manager {
 		features:          &protocol.Features{},
 		Orderbook:         buffer.Orderbook{},
 		connections:       make(map[Connection]*connectionWrapper),
+		readerMetrics:     metrics.NewWebsocketReader(metrics.DefaultWebsocketReaderWindow),
 	}
 }
 
@@ -883,11 +886,25 @@ func checkWebsocketURL(s string) error {
 func (m *Manager) Reader(ctx context.Context, conn Connection, handler func(ctx context.Context, conn Connection, message []byte) error) {
 	defer m.Wg.Done()
 	for {
+		start := time.Now()
 		resp := conn.ReadMessage()
 		if resp.Raw == nil {
 			return // Connection has been closed
 		}
-		if err := handler(ctx, conn, resp.Raw); err != nil {
+		err := handler(ctx, conn, resp.Raw)
+		if m.readerMetrics != nil {
+			snapshot, ready := m.readerMetrics.Record(ctx, m.exchangeName, conn.GetURL(), time.Since(start), err, "")
+			if ready {
+				log.Debugf(log.WebsocketMgr, "Connection: %v Operations/Second: %.2f, Avg Processing/Operation: %v, Errors: %v Peak: %v Cause: %v",
+					conn.GetURL(),
+					snapshot.OpsPerSecond,
+					snapshot.AverageProcessing,
+					snapshot.Errors,
+					snapshot.Peak,
+					snapshot.PeakCause)
+			}
+		}
+		if err != nil {
 			err = fmt.Errorf("connection URL:[%v] error: %w", conn.GetURL(), err)
 			if errSend := m.DataHandler.Send(ctx, err); errSend != nil {
 				log.Errorf(log.WebsocketMgr, "%s: %s %s", m.exchangeName, errSend, err)

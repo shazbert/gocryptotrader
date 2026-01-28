@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -20,6 +21,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/gctscript"
 	gctscriptVM "github.com/thrasher-corp/gocryptotrader/gctscript/vm"
 	gctlog "github.com/thrasher-corp/gocryptotrader/log"
+	"github.com/thrasher-corp/gocryptotrader/metrics"
 	"github.com/thrasher-corp/gocryptotrader/portfolio/withdraw"
 	"github.com/thrasher-corp/gocryptotrader/signaler"
 )
@@ -129,6 +131,15 @@ func main() {
 		// If config file is not explicitly set, fall back to default path resolution
 		settings.ConfigFile = ""
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	mp, err := metrics.RunPrometheus(ctx)
+	if err != nil {
+		log.Fatalf("Unable to start Prometheus metrics server. Error: %s\n", err)
+	}
+
+	defer mp.Shutdown(ctx)
 
 	settings.Shutdown = make(chan struct{})
 	engine.Bot, err = engine.NewFromSettings(&settings, flagSet)
