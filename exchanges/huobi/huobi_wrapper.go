@@ -1233,39 +1233,15 @@ func (e *Exchange) GetOrderInfo(ctx context.Context, orderID string, pair curren
 		typeDetails := strings.Split(respData.Type, "-")
 		orderSide, err := order.StringToOrderSide(typeDetails[0])
 		if err != nil {
-			if e.Websocket.IsConnected() {
-				e.Websocket.DataHandler <- order.ClassificationError{
-					Exchange: e.Name,
-					OrderID:  orderID,
-					Err:      err,
-				}
-			} else {
-				return nil, err
-			}
+			return nil, err
 		}
 		orderType, err := order.StringToOrderType(typeDetails[1])
 		if err != nil {
-			if e.Websocket.IsConnected() {
-				e.Websocket.DataHandler <- order.ClassificationError{
-					Exchange: e.Name,
-					OrderID:  orderID,
-					Err:      err,
-				}
-			} else {
-				return nil, err
-			}
+			return nil, err
 		}
 		orderStatus, err := order.StringToOrderStatus(respData.State)
 		if err != nil {
-			if e.Websocket.IsConnected() {
-				e.Websocket.DataHandler <- order.ClassificationError{
-					Exchange: e.Name,
-					OrderID:  orderID,
-					Err:      err,
-				}
-			} else {
-				return nil, err
-			}
+			return nil, err
 		}
 		var p currency.Pair
 		var a asset.Item
@@ -2009,16 +1985,16 @@ func (e *Exchange) GetFuturesContractDetails(ctx context.Context, item asset.Ite
 			}
 
 			resp = append(resp, futures.Contract{
-				Exchange:             e.Name,
-				Name:                 cp,
-				Underlying:           underlying,
-				Asset:                item,
-				StartDate:            s,
-				SettlementType:       futures.Inverse,
-				IsActive:             result[x].ContractStatus == 1,
-				Type:                 futures.Perpetual,
-				SettlementCurrencies: currency.Currencies{currency.USD},
-				Multiplier:           result[x].ContractSize,
+				Exchange:           e.Name,
+				Name:               cp,
+				Underlying:         underlying,
+				Asset:              item,
+				StartDate:          s,
+				SettlementType:     futures.Inverse,
+				IsActive:           result[x].ContractStatus == 1,
+				Type:               futures.Perpetual,
+				SettlementCurrency: currency.USD,
+				Multiplier:         result[x].ContractSize,
 			})
 		}
 		return resp, nil
@@ -2065,17 +2041,17 @@ func (e *Exchange) GetFuturesContractDetails(ctx context.Context, item asset.Ite
 			}
 
 			resp = append(resp, futures.Contract{
-				Exchange:             e.Name,
-				Name:                 cp,
-				Underlying:           underlying,
-				Asset:                item,
-				StartDate:            startTime,
-				EndDate:              endTime,
-				SettlementType:       futures.Linear,
-				IsActive:             result.Data[x].ContractStatus == 1,
-				Type:                 ct,
-				SettlementCurrencies: currency.Currencies{currency.USD},
-				Multiplier:           result.Data[x].ContractSize,
+				Exchange:           e.Name,
+				Name:               cp,
+				Underlying:         underlying,
+				Asset:              item,
+				StartDate:          startTime,
+				EndDate:            endTime,
+				SettlementType:     futures.Linear,
+				IsActive:           result.Data[x].ContractStatus == 1,
+				Type:               ct,
+				SettlementCurrency: currency.USD,
+				Multiplier:         result.Data[x].ContractSize,
 			})
 		}
 		return resp, nil
