@@ -91,7 +91,7 @@ func (e *Exchange) WsConnectSpot(ctx context.Context, conn websocket.Connection)
 	if err := e.CurrencyPairs.IsAssetEnabled(asset.Spot); err != nil {
 		return err
 	}
-	if err := conn.Dial(ctx, &gws.Dialer{}, http.Header{}, nil); err != nil {
+	if err := conn.Dial(ctx, &gws.Dialer{}, http.Header{"X-Gate-Size-Decimal": []string{"1"}}, nil); err != nil {
 		return err
 	}
 	pingHandler, err := getWSPingHandler(spotPingChannel)
@@ -680,7 +680,7 @@ func (e *Exchange) manageSubs(ctx context.Context, event string, conn websocket.
 				if err != nil {
 					return err
 				}
-				result, err := conn.SendMessageReturnResponse(request.WithVerbose(ctx), websocketRateLimitNotNeededEPL, msg.ID, msg)
+				result, err := conn.SendMessageReturnResponse(ctx, websocketRateLimitNotNeededEPL, msg.ID, msg)
 				if err != nil {
 					return err
 				}
