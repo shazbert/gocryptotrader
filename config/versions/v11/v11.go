@@ -2,33 +2,33 @@ package v11
 
 import (
 	"context"
+	"errors"
 
 	"github.com/buger/jsonparser"
-	"github.com/thrasher-corp/gocryptotrader/encoding/json"
 )
 
-// Version is an ExchangeVersion to add the websocketMetricsLogging field
+// Version is an ExchangeVersion to replace deprecated WS and REST endpoints for Poloniex
 type Version struct{}
 
-// Exchanges returns all exchanges: "*"
-func (v *Version) Exchanges() []string { return []string{"*"} }
+// Exchanges returns just Poloniex
+func (v *Version) Exchanges() []string { return []string{"Poloniex"} }
 
-// UpgradeExchange will upgrade the exchange config with the websocketMetricsLogging field
+// UpgradeExchange replaces deprecated WS and REST endpoints
 func (v *Version) UpgradeExchange(_ context.Context, e []byte) ([]byte, error) {
-	if len(e) == 0 {
-		return e, nil
+	for _, key := range []string{"WebsocketSpotURL", "RestSpotURL"} {
+		url, err := jsonparser.GetString(e, "api", "urlEndpoints", key)
+		if err != nil && !errors.Is(err, jsonparser.KeyPathNotFoundError) {
+			return e, err
+		}
+		switch url {
+		case "wss://api2.poloniex.com", "https://poloniex.com":
+			e = jsonparser.Delete(e, "api", "urlEndpoints", key)
+		}
 	}
-	if _, _, _, err := jsonparser.Get(e, "websocketMetricsLogging"); err == nil {
-		return e, nil
-	}
-	val, err := json.Marshal(false)
-	if err != nil {
-		return nil, err
-	}
-	return jsonparser.Set(e, val, "websocketMetricsLogging")
+	return e, nil
 }
 
-// DowngradeExchange will downgrade the exchange config by removing the websocketMetricsLogging field
+// DowngradeExchange is a no-op for v11
 func (v *Version) DowngradeExchange(_ context.Context, e []byte) ([]byte, error) {
-	return jsonparser.Delete(e, "websocketMetricsLogging"), nil
+	return e, nil
 }

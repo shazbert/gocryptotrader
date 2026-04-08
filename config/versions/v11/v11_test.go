@@ -3,45 +3,52 @@ package v11_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	v11 "github.com/thrasher-corp/gocryptotrader/config/versions/v11"
 )
 
-func TestVersion11UpgradeExchange(t *testing.T) {
+func TestExchanges(t *testing.T) {
 	t.Parallel()
-
-	got, err := (&v11.Version{}).UpgradeExchange(t.Context(), nil)
-	require.NoError(t, err)
-	require.Nil(t, got)
-
-	payload := []byte(`{"name":"test"}`)
-	expected := []byte(`{"name":"test","websocketMetricsLogging":false}`)
-	got, err = (&v11.Version{}).UpgradeExchange(t.Context(), payload)
-	require.NoError(t, err)
-	require.Equal(t, expected, got)
-
-	payload = []byte(`{"name":"test","websocketMetricsLogging":true}`)
-	got, err = (&v11.Version{}).UpgradeExchange(t.Context(), payload)
-	require.NoError(t, err)
-	require.Equal(t, payload, got)
+	assert.Equal(t, []string{"Poloniex"}, new(v11.Version).Exchanges())
 }
 
-func TestVersion11DowngradeExchange(t *testing.T) {
+func TestUpgradeExchange(t *testing.T) {
 	t.Parallel()
 
-	got, err := (&v11.Version{}).DowngradeExchange(t.Context(), nil)
-	require.NoError(t, err)
-	require.Nil(t, got)
+	for _, tt := range []struct {
+		in      string
+		urlType string
+		exp     string
+	}{
+		{"https://poloniex.com", "RestSpotURL", ""},
+		{"https://poloniex.private-proxy.com", "RestSpotURL", `"RestSpotURL": "https://poloniex.private-proxy.com"`},
+		{"wss://api2.poloniex.com", "WebsocketSpotURL", ""},
+		{"wss://poloniex.private-proxy.com", "WebsocketSpotURL", `"WebsocketSpotURL": "wss://poloniex.private-proxy.com"`},
+	} {
+		t.Run(tt.in, func(t *testing.T) {
+			t.Parallel()
+			in := []byte(`{"name":"Poloniex","api":{"urlEndpoints":{"` + tt.urlType + `": "` + tt.in + `"}}}`)
+			out, err := new(v11.Version).UpgradeExchange(t.Context(), in)
+			require.NoError(t, err)
+			exp := `{"name":"Poloniex","api":{"urlEndpoints":{` + tt.exp + `}}}`
+			assert.Equal(t, exp, string(out))
+		})
+	}
 
-	payload := []byte(`{"name":"test","websocketMetricsLogging":false}`)
-	expected := []byte(`{"name":"test"}`)
-	got, err = (&v11.Version{}).DowngradeExchange(t.Context(), payload)
-	require.NoError(t, err)
-	require.Equal(t, expected, got)
+	in := []byte(`{"name":"Poloniex","api":{}`)
+	out, err := new(v11.Version).UpgradeExchange(t.Context(), in)
+	require.NoError(t, err, "UpgradeExchange must not error when urlEndpoints is missing")
+	assert.Equal(t, string(in), string(out), "UpgradeExchange should return same input and no error when urlEndpoints is missing")
+
+	_, err = new(v11.Version).UpgradeExchange(t.Context(), []byte(`{"name":"Poloniex","api":{"urlEndpoints":{"WebsocketSpotURL": 42}}}`))
+	require.ErrorContains(t, err, "Value is not a string", "UpgradeExchange must error correctly on string value")
 }
 
-func TestVersion11Exchanges(t *testing.T) {
+func TestDowngradeExchange(t *testing.T) {
 	t.Parallel()
-	assert := require.New(t)
-	assert.Equal([]string{"*"}, (&v11.Version{}).Exchanges())
+	in := []byte(`{"name":"Poloniex","api":{"urlEndpoints":{"WebsocketSpotURL": 42}}}`)
+	out, err := new(v11.Version).DowngradeExchange(t.Context(), in)
+	require.NoError(t, err)
+	require.Equal(t, string(in), string(out), "DowngradeExchange must not change json")
 }
