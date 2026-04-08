@@ -94,7 +94,7 @@ func syncLeadTraderUniqueID(t *testing.T) error {
 	}
 
 	loadLeadTraderOnce.Do(func() {
-		result, err := e.GetLeadTradersRanks(contextGenerate(), &LeadTraderRanksRequest{
+		result, err := e.GetLeadTradersRanks(request.WithVerbose(contextGenerate()), &LeadTraderRanksRequest{
 			InstrumentType: instTypeSwap,
 			SortType:       "pnl_ratio",
 			HasVacancy:     true,
@@ -3559,6 +3559,10 @@ func TestUpdateTickers(t *testing.T) {
 
 	for _, a := range e.GetAssetTypes(false) {
 		err := e.UpdateTickers(contextGenerate(), a)
+		if a == asset.Spread {
+			require.ErrorIs(t, err, common.ErrFunctionNotSupported, "spread asset must return not supported error")
+			continue
+		}
 		require.NoErrorf(t, err, "UpdateTickers for asset %s must not error", a)
 	}
 
