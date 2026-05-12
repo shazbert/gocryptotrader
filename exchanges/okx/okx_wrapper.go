@@ -352,7 +352,7 @@ func (e *Exchange) UpdateOrderExecutionLimits(ctx context.Context, a asset.Item)
 		}
 		l := make([]limits.MinMaxLevel, len(insts))
 		for i := range insts {
-			delistingAt, delistedAt := deriveDelistingWindow(insts[i], time.Now().UTC())
+			delistingAt, delistedAt := deriveDelistingWindow(&insts[i], time.Now().UTC())
 			l[i] = limits.MinMaxLevel{
 				Key:                     key.NewExchangeAssetPair(e.Name, a, insts[i].InstrumentID),
 				PriceStepIncrementSize:  insts[i].TickSize.Float64(),
@@ -394,14 +394,14 @@ func (e *Exchange) UpdateOrderExecutionLimits(ctx context.Context, a asset.Item)
 	}
 }
 
-func deriveDelistingWindow(inst Instrument, now time.Time) (time.Time, time.Time) {
+func deriveDelistingWindow(inst *Instrument, now time.Time) (delistingAt, delistedAt time.Time) {
 	if !inst.ExpTime.Time().IsZero() {
 		return inst.ExpTime.Time(), inst.ExpTime.Time()
 	}
 	if strings.EqualFold(inst.State, "live") || inst.State == "" {
 		return time.Time{}, time.Time{}
 	}
-	delistedAt := now
+	delistedAt = now
 	return delistedAt.Add(-30 * time.Minute), delistedAt
 }
 
