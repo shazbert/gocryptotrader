@@ -2,6 +2,7 @@ package request
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/thrasher-corp/gocryptotrader/common"
 )
@@ -10,10 +11,10 @@ const contextVerboseFlag verbosity = "verbose"
 
 type verbosity string
 
-type callerNameKey struct{}
+type headersKey struct{}
 
 func init() {
-	common.RegisterContextKey(callerNameKey{})
+	common.RegisterContextKey(headersKey{})
 }
 
 // WithVerbose adds verbosity to a request context so that specific requests
@@ -31,18 +32,17 @@ func IsVerbose(ctx context.Context, verbose bool) bool {
 	return verbose
 }
 
-// WithCallerName adds a diagnostic caller name to the context.
-func WithCallerName(ctx context.Context, name string) context.Context {
-	if name == "" {
+// WithHeaders adds outbound HTTP header overrides to the context.
+func WithHeaders(ctx context.Context, headers http.Header) context.Context {
+	if len(headers) == 0 {
 		return ctx
 	}
-	return context.WithValue(ctx, callerNameKey{}, name)
+	return context.WithValue(ctx, headersKey{}, headers.Clone())
 }
 
-// CallerName returns the diagnostic caller name from the context.
-func CallerName(ctx context.Context) string {
-	name, _ := ctx.Value(callerNameKey{}).(string)
-	return name
+func headersFromContext(ctx context.Context) http.Header {
+	headers, _ := ctx.Value(headersKey{}).(http.Header)
+	return headers
 }
 
 type delayNotAllowedKey struct{}

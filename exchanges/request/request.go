@@ -134,6 +134,12 @@ func (i *Item) validateRequest(ctx context.Context, r *Requester) (*http.Request
 	if r.userAgent != "" && req.Header.Get(userAgent) == "" {
 		req.Header.Add(userAgent, r.userAgent)
 	}
+	for key, values := range headersFromContext(ctx) {
+		req.Header.Del(key)
+		for _, value := range values {
+			req.Header.Add(key, value)
+		}
+	}
 
 	return req, nil
 }
@@ -299,7 +305,11 @@ func (r *Requester) evaluateRetry(ctx context.Context, resp *http.Response, inco
 	}
 
 	if verbose {
-		log.Errorf(log.RequestSys, "%s request has failed. Retrying request in %s, attempt %d", r.name, delay, attempt)
+		if incomingErr != nil {
+			log.Errorf(log.RequestSys, "%s request has failed. Retrying request in %s, attempt %d, cause: %s", r.name, delay, attempt, incomingErr)
+		} else {
+			log.Errorf(log.RequestSys, "%s request has failed. Retrying request in %s, attempt %d, status: %q", r.name, delay, attempt, resp.Status)
+		}
 	}
 
 	if delay > 0 {
