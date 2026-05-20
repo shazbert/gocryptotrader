@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"reflect"
 	"sync"
 	"time"
 
@@ -39,29 +40,25 @@ func NewDefaultProcessReporterManager() ProcessReporterManager {
 
 // defaultProcessReporterManager is a default implementation of ProcessReporter
 type defaultProcessReporterManager struct {
-	period           time.Duration
-	connectionCounts map[string]int
-	m                sync.Mutex
+	period time.Duration
 }
 
 // New returns a new DefaultProcessReporter instance for a connection
 func (d *defaultProcessReporterManager) New(conn Connection) ProcessReporter {
 	reporter := &defaultProcessReporter{
 		ch:           make(chan struct{}),
-		connectionID: d.nextConnectionID(conn.GetURL()),
+		connectionID: nextConnectionID(conn),
 	}
 	go reporter.collectMetrics(conn, d.period)
 	return reporter
 }
 
-func (d *defaultProcessReporterManager) nextConnectionID(url string) int {
-	d.m.Lock()
-	defer d.m.Unlock()
-	if d.connectionCounts == nil {
-		d.connectionCounts = make(map[string]int)
+func nextConnectionID(conn Connection) int64 {
+	val := reflect.ValueOf(conn)
+	if val.IsValid() && val.Kind() == reflect.Ptr && !val.IsNil() {
+		return int64(val.Pointer())
 	}
-	d.connectionCounts[url]++
-	return d.connectionCounts[url]
+	return 0
 }
 
 // DefaultProcessReporter provides a thread-safe implementation of the ProcessReporter interface.
@@ -72,7 +69,7 @@ type defaultProcessReporter struct {
 	totalProcessingTime time.Duration
 	peakProcessingTime  time.Duration
 	peakCause           []byte
-	connectionID        int
+	connectionID        int64
 	ch                  chan struct{}
 	m                   sync.Mutex
 }
