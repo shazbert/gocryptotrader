@@ -1,8 +1,8 @@
 package websocket
 
 import (
-	"reflect"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/thrasher-corp/gocryptotrader/log"
@@ -41,24 +41,17 @@ func NewDefaultProcessReporterManager() ProcessReporterManager {
 // defaultProcessReporterManager is a default implementation of ProcessReporter
 type defaultProcessReporterManager struct {
 	period time.Duration
+	nextID atomic.Int64
 }
 
 // New returns a new DefaultProcessReporter instance for a connection
 func (d *defaultProcessReporterManager) New(conn Connection) ProcessReporter {
 	reporter := &defaultProcessReporter{
 		ch:           make(chan struct{}),
-		connectionID: nextConnectionID(conn),
+		connectionID: d.nextID.Add(1),
 	}
 	go reporter.collectMetrics(conn, d.period)
 	return reporter
-}
-
-func nextConnectionID(conn Connection) int64 {
-	val := reflect.ValueOf(conn)
-	if val.IsValid() && val.Kind() == reflect.Ptr && !val.IsNil() {
-		return int64(val.Pointer())
-	}
-	return 0
 }
 
 // DefaultProcessReporter provides a thread-safe implementation of the ProcessReporter interface.
