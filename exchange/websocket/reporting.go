@@ -34,17 +34,34 @@ func (m *Manager) SetProcessReportManager(rm ProcessReporterManager) {
 
 // NewDefaultProcessReporterManager returns a new defaultProcessReporterManager instance
 func NewDefaultProcessReporterManager() ProcessReporterManager {
-	return defaultProcessReporterManager{period: time.Minute}
+	return &defaultProcessReporterManager{period: time.Minute}
 }
 
 // defaultProcessReporterManager is a default implementation of ProcessReporter
-type defaultProcessReporterManager struct{ period time.Duration }
+type defaultProcessReporterManager struct {
+	period           time.Duration
+	connectionCounts map[string]int
+	m                sync.Mutex
+}
 
 // New returns a new DefaultProcessReporter instance for a connection
-func (d defaultProcessReporterManager) New(conn Connection) ProcessReporter {
-	reporter := &defaultProcessReporter{ch: make(chan struct{})}
+func (d *defaultProcessReporterManager) New(conn Connection) ProcessReporter {
+	reporter := &defaultProcessReporter{
+		ch:           make(chan struct{}),
+		connectionID: d.nextConnectionID(conn.GetURL()),
+	}
 	go reporter.collectMetrics(conn, d.period)
 	return reporter
+}
+
+func (d *defaultProcessReporterManager) nextConnectionID(url string) int {
+	d.m.Lock()
+	defer d.m.Unlock()
+	if d.connectionCounts == nil {
+		d.connectionCounts = make(map[string]int)
+	}
+	d.connectionCounts[url]++
+	return d.connectionCounts[url]
 }
 
 // DefaultProcessReporter provides a thread-safe implementation of the ProcessReporter interface.
@@ -55,6 +72,7 @@ type defaultProcessReporter struct {
 	totalProcessingTime time.Duration
 	peakProcessingTime  time.Duration
 	peakCause           []byte
+	connectionID        int
 	ch                  chan struct{}
 	m                   sync.Mutex
 }
@@ -109,7 +127,7 @@ func (r *defaultProcessReporter) collectMetrics(conn Connection, period time.Dur
 					peakCause = append(peakCause[:100], []byte("...")...)
 				}
 				// Log metrics outside of the critical section to avoid blocking other threads.
-				log.Debugf(log.WebsocketMgr, "Connection: %v Operations/Second: %.2f, Avg Processing/Operation: %v, Errors: %v Peak: %v Cause: %v", conn.GetURL(), avgOperationsPerSecond, avgProcessingTime, errors, peakTime, string(peakCause))
+				log.Debugf(log.WebsocketMgr, "Connection: %v #%d Operations/Second: %.2f, Avg Processing/Operation: %v, Errors: %v Peak: %v Cause: %v", conn.GetURL(), r.connectionID, avgOperationsPerSecond, avgProcessingTime, errors, peakTime, string(peakCause))
 			} else {
 				r.m.Unlock()
 			}
