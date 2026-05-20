@@ -2,9 +2,9 @@ package v12
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/buger/jsonparser"
+	"github.com/thrasher-corp/gocryptotrader/encoding/json"
 )
 
 // Version is an ExchangeVersion to add the websocketMetricsLogging field
