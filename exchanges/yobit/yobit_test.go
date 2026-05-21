@@ -1,6 +1,7 @@
 package yobit
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -99,6 +100,7 @@ func TestUpdateTickersMapsEveryField(t *testing.T) {
 	ex := new(Exchange)
 	require.NoError(t, testexch.Setup(ex), "Setup must not error")
 	ex.Name = t.Name()
+	require.NoError(t, ex.CurrencyPairs.StorePairs(asset.Spot, currency.Pairs{testPair}, false), "StorePairs must set available pairs")
 	require.NoError(t, ex.CurrencyPairs.StorePairs(asset.Spot, currency.Pairs{testPair}, true), "StorePairs must not error")
 
 	server := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -563,6 +565,9 @@ func TestGetHistoricTrades(t *testing.T) {
 func TestUpdateTicker(t *testing.T) {
 	t.Parallel()
 	_, err := e.UpdateTicker(t.Context(), testPair, asset.Spot)
+	if errors.Is(err, ticker.ErrTickerNotFound) {
+		t.Skipf("UpdateTicker should skip when pair %s is unavailable in live ticker feed", testPair)
+	}
 	assert.NoError(t, err, "UpdateTicker should not error")
 }
 
