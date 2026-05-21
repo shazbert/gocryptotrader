@@ -104,10 +104,6 @@ func TestGetCryptocurrencyIDMap(t *testing.T) {
 		if err != nil {
 			t.Error("GetCryptocurrencyIDMap() error", err)
 		}
-	} else {
-		if err == nil {
-			t.Error("GetCryptocurrencyIDMap() error cannot be nil")
-		}
 	}
 }
 

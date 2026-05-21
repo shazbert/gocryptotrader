@@ -21,45 +21,13 @@ type fixtureConnection struct {
 func (c fixtureConnection) RequireMatchWithData(any, []byte) error { return nil }
 
 func TestWsConnect(t *testing.T) {
-	// exch := &Exchange{}
-	// exch.Websocket = sharedtestvalues.NewTestWebsocket()
-	// err := exch.Websocket.Disable()
-	// assert.ErrorIs(t, err, websocket.ErrAlreadyDisabled)
-	// err = exch.WsConnect()
-	// assert.ErrorIs(t, err, websocket.ErrWebsocketNotEnabled)
-	// exch.SetDefaults()
-	// err = exchangeBaseHelper(exch)
-	// require.NoError(t, err)
-	// sharedtestvalues.SkipTestIfCredentialsUnset(t, e)
-	// exch.Verbose = true
-	// err = exch.WsConnect()
-	// assert.NoError(t, err)
+	t.Parallel()
+	t.Skip("websocket integration coverage is pending a stable mock upgrader")
 }
 
 func TestWsAuth(t *testing.T) {
-	// e.Websocket.SetCanUseAuthenticatedEndpoints(false)
-	// err := e.WsAuth(t.Context(), nil)
-	// assert.ErrorIs(t, err, errAuthenticatedWebsocketDisabled)
-	// if e.Websocket.IsEnabled() && !e.API.AuthenticatedWebsocketSupport || !sharedtestvalues.AreAPICredentialsSet(e) {
-	// 	t.Skip(websocket.ErrWebsocketNotEnabled.Error())
-	// }
-	// e.Websocket.SetCanUseAuthenticatedEndpoints(true)
-	// var dialer gws.Dialer
-	// go func() {
-	// 	timer := time.NewTimer(sharedtestvalues.WebsocketResponseDefaultTimeout)
-	// 	select {
-	// 	case resp := <-e.Websocket.DataHandler:
-	// 		t.Errorf("%+v\n%T\n", resp, resp)
-	// 	case <-timer.C:
-	// 	}
-	// 	timer.Stop()
-	// 	for {
-	// 		<-e.Websocket.DataHandler
-	// 	}
-	// }()
-	// err = e.WsAuth(t.Context(), &dialer)
-	// require.NoError(t, err)
-	// time.Sleep(sharedtestvalues.WebsocketResponseDefaultTimeout)
+	t.Parallel()
+	t.Skip("authenticated websocket integration coverage is pending a stable mock upgrader")
 }
 
 // func TestWsReadData(t *testing.T) {
@@ -87,21 +55,7 @@ func TestWsAuth(t *testing.T) {
 // }
 
 func TestWsHandleData(t *testing.T) {
-	// // Not sure what issues this is preventing. If you figure that out, add a comment about it
-	// ch := make(chan struct{})
-	// t.Cleanup(func() {
-	// 	close(ch)
-	// })
-	// go func() {
-	// 	for {
-	// 		select {
-	// 		case <-e.Websocket.DataHandler.C:
-	// 			continue
-	// 		case <-ch:
-	// 			return
-	// 		}
-	// 	}
-	// }()
+	t.Parallel()
 	verboseTemp := e.Verbose
 	e.Verbose = true
 	t.Cleanup(func() {

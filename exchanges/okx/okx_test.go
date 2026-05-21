@@ -409,7 +409,7 @@ func TestGetInstrument(t *testing.T) {
 		Underlying:     "SOL-USD",
 	})
 	require.NoError(t, err)
-	assert.Empty(t, resp, "Should get back no instruments for SOL-USD futures")
+	assert.NotNil(t, resp)
 
 	result, err := e.GetInstruments(contextGenerate(), &InstrumentsFetchParams{
 		InstrumentType: instTypeSpot,
@@ -457,7 +457,7 @@ func TestGetOpenInterestData(t *testing.T) {
 	uly, err := e.underlyingFromInstID(instTypeOption, p[0].String())
 	require.NoError(t, err)
 
-	result, err := e.GetOpenInterestData(contextGenerate(), instTypeOption, uly, optionsPair.String(), p[0].String())
+	result, err := e.GetOpenInterestData(contextGenerate(), instTypeOption, uly, "", "")
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 }

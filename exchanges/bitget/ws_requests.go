@@ -49,7 +49,7 @@ func (e *Exchange) WebsocketSpotPlaceOrder(ctx context.Context, req *WebsocketSp
 	}
 
 	var result []WebsocketSpotPlaceOrderResponse
-	if err := e.sendWebsocketTradeRequest(ctx, request.Unset, &result, &WebsocketTradeRequest{
+	if err := e.sendWebsocketTradeRequest(ctx, &result, &WebsocketTradeRequest{
 		ID:             strconv.FormatInt(e.GetBase().MessageSequence(), 10),
 		InstrumentType: "SPOT",
 		InstrumentID:   req.Pair.String(),
@@ -82,7 +82,7 @@ func (e *Exchange) WebsocketSpotCancelOrder(ctx context.Context, pair currency.P
 	}
 
 	var result []WebsocketCancelOrderResponse
-	if err := e.sendWebsocketTradeRequest(ctx, request.Unset, &result, &WebsocketTradeRequest{
+	if err := e.sendWebsocketTradeRequest(ctx, &result, &WebsocketTradeRequest{
 		ID:             strconv.FormatInt(e.GetBase().MessageSequence(), 10),
 		InstrumentType: "SPOT",
 		InstrumentID:   pair.String(),
@@ -145,7 +145,7 @@ func (e *Exchange) WebsocketFuturesPlaceOrder(ctx context.Context, req *Websocke
 	}
 
 	var result []WebsocketFuturesPlaceOrderResponse
-	if err := e.sendWebsocketTradeRequest(ctx, request.Unset, &result, &WebsocketTradeRequest{
+	if err := e.sendWebsocketTradeRequest(ctx, &result, &WebsocketTradeRequest{
 		ID:             strconv.FormatInt(e.GetBase().MessageSequence(), 10),
 		InstrumentType: req.InstrumentType,
 		InstrumentID:   req.Contract.String(),
@@ -187,7 +187,7 @@ func (e *Exchange) WebsocketFuturesCancelOrder(ctx context.Context, pair currenc
 	}
 
 	var result []WebsocketCancelOrderResponse
-	if err := e.sendWebsocketTradeRequest(ctx, request.Unset, &result, &WebsocketTradeRequest{
+	if err := e.sendWebsocketTradeRequest(ctx, &result, &WebsocketTradeRequest{
 		ID:             strconv.FormatInt(e.GetBase().MessageSequence(), 10),
 		InstrumentType: instrumentType,
 		InstrumentID:   pair.String(),
@@ -203,7 +203,7 @@ func (e *Exchange) WebsocketFuturesCancelOrder(ctx context.Context, pair currenc
 }
 
 // sendWebsocketTradeRequest sends a trade request via the private websocket connection
-func (e *Exchange) sendWebsocketTradeRequest(ctx context.Context, epl request.EndpointLimit, result any, arg *WebsocketTradeRequest) error {
+func (e *Exchange) sendWebsocketTradeRequest(ctx context.Context, result any, arg *WebsocketTradeRequest) error {
 	if err := common.NilGuard(arg); err != nil {
 		return err
 	}
@@ -221,7 +221,7 @@ func (e *Exchange) sendWebsocketTradeRequest(ctx context.Context, epl request.En
 		Args:      []*WebsocketTradeRequest{arg}, // Batch requests are not currently supported by the exchange
 	}
 
-	got, err := conn.SendMessageReturnResponse(ctx, epl, arg.ID, outbound)
+	got, err := conn.SendMessageReturnResponse(ctx, request.Unset, arg.ID, outbound)
 	if err != nil {
 		return err
 	}
