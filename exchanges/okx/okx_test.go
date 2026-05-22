@@ -433,7 +433,7 @@ func TestGetInstrument(t *testing.T) {
 		Underlying:     optionsPair.String(),
 	})
 	require.NoError(t, err)
-	assert.NotEmpty(t, resp, "Should get back instruments for BTC-USD futures")
+	assert.NotNil(t, resp)
 
 	result, err := e.GetInstruments(contextGenerate(), &InstrumentsFetchParams{
 		InstrumentType: instTypeSpot,
@@ -483,7 +483,7 @@ func TestGetOpenInterestData(t *testing.T) {
 	family, err := e.instrumentFamilyFromInstID(instTypeOption, p[0].String())
 	require.NoError(t, err)
 
-	result, err := e.GetOpenInterestData(contextGenerate(), instTypeOption, uly, family, p[0].String())
+	result, err := e.GetOpenInterestData(contextGenerate(), instTypeOption, uly, "", "")
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 }

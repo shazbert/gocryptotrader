@@ -20,10 +20,14 @@ type fixtureConnection struct {
 
 func (c fixtureConnection) RequireMatchWithData(any, []byte) error { return nil }
 
-func TestWsConnect(_ *testing.T) {
+func TestWsConnect(t *testing.T) {
+	t.Parallel()
+	t.Skip("websocket integration coverage is pending a stable mock upgrader")
 }
 
-func TestWsAuth(_ *testing.T) {
+func TestWsAuth(t *testing.T) {
+	t.Parallel()
+	t.Skip("authenticated websocket integration coverage is pending a stable mock upgrader")
 }
 
 // func TestWsReadData(t *testing.T) {
@@ -51,6 +55,7 @@ func TestWsAuth(_ *testing.T) {
 // }
 
 func TestWsHandleData(t *testing.T) {
+	t.Parallel()
 	verboseTemp := e.Verbose
 	e.Verbose = true
 	t.Cleanup(func() {
