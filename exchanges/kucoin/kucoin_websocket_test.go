@@ -166,12 +166,6 @@ func TestGenerateSubscriptions(t *testing.T) {
 	}
 	pairs["both"] = common.SortStrings(pairs["spot"].Add(pairs["margin"]...))
 
-	exp := append(subscription.List{}, expectedPerPairSubscriptions(subscription.TickerChannel, asset.Spot, pairs["both"], marketTickerChannel, 0, nil)...)
-	exp = append(exp, expectedPerPairSubscriptions(subscription.TickerChannel, asset.Futures, pairs["futures"], futuresTickerChannel, 0, nil)...)
-	exp = append(exp, expectedPerPairSubscriptions(subscription.OrderbookChannel, asset.Spot, pairs["both"], marketOrderbookDepth5Channel, kline.HundredMilliseconds, nil)...)
-	exp = append(exp, expectedPerPairSubscriptions(subscription.OrderbookChannel, asset.Futures, pairs["futures"], futuresOrderbookDepth5Channel, kline.HundredMilliseconds, nil)...)
-	exp = append(exp, expectedPerPairSubscriptions(subscription.AllTradesChannel, asset.Spot, pairs["both"], marketMatchChannel, 0, nil)...)
-
 	subs, err := ku.generateSubscriptions()
 	require.NoError(t, err, "generateSubscriptions must not error")
 	require.NotEmpty(t, subs, "generateSubscriptions must return subscriptions")
