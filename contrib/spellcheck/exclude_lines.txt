@@ -19,3 +19,4 @@
   behavior: default
 	loanCustomiseMarginCall      = "/sapi/v1/loan/customize/margin_call"
 	// unimplemented method is ever invoked, so we test this at initialization
+	Transferred types.Number  `json:"transfered"` //nolint:misspell // Bitget spelling mistake
