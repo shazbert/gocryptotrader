@@ -8,7 +8,6 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/exchange/websocket"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/order"
-	"github.com/thrasher-corp/gocryptotrader/exchanges/request"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/sharedtestvalues"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/subscription"
 	testexch "github.com/thrasher-corp/gocryptotrader/internal/testing/exchange"
@@ -246,8 +245,7 @@ func newExchangeWithWebsocket(t *testing.T, a asset.Item) *Exchange {
 		}
 	}
 
-	connectCtx := request.WithCallerName(t.Context(), t.Name())
-	require.NoError(t, e.Websocket.Connect(connectCtx), "Test instance Websocket Connect must not error")
+	require.NoError(t, e.Websocket.Connect(t.Context()), "Test instance Websocket Connect must not error")
 	t.Cleanup(func() {
 		if e.Websocket.IsConnected() {
 			require.NoError(t, e.Websocket.Shutdown(), "Test instance Websocket Shutdown must not error")

@@ -177,6 +177,17 @@ func TestCheckRequest(t *testing.T) {
 	if req.UserAgent() != "r00t axxs" {
 		t.Fatal(unexpected)
 	}
+
+	ctx = WithHeaders(ctx, http.Header{
+		"Content-Type": {"context override"},
+		"User-Agent":   {"context agent"},
+		"X-Values":     {"one", "two"},
+	})
+	req, err = check.validateRequest(ctx, r)
+	require.NoError(t, err, "validateRequest must not error")
+	assert.Equal(t, "context override", req.Header.Get("Content-Type"), "context header should override item header")
+	assert.Equal(t, "context agent", req.UserAgent(), "context header should override requester user agent")
+	assert.Equal(t, []string{"one", "two"}, req.Header.Values("X-Values"), "context header values should be preserved")
 }
 
 var globalshell = RateLimitDefinitions{
@@ -312,25 +323,12 @@ func TestDoRequest(t *testing.T) {
 
 func TestDoRequest_NoContent(t *testing.T) {
 	t.Parallel()
-	newRequesterWithClient := func(t *testing.T, client *http.Client, opts ...RequesterOption) *Requester {
-		t.Helper()
-
-		r, err := New("test", client, opts...)
-		require.NoError(t, err, "New requester must not error")
-		t.Cleanup(func() {
-			assert.NoError(t, r.Shutdown(), "Shutdown should not error")
-		})
-		return r
-	}
-
-	newRequesterWithOpts := func(t *testing.T, opts ...RequesterOption) *Requester {
-		t.Helper()
-		return newRequesterWithClient(t, common.NewHTTPClientWithTimeout(0), opts...)
-	}
-
 	newRequester := func(t *testing.T) *Requester {
 		t.Helper()
-		return newRequesterWithOpts(t, WithLimiter(globalshell))
+		r, err := New("test", common.NewHTTPClientWithTimeout(0), WithLimiter(globalshell))
+		require.NoError(t, err, "New requester must not error")
+		t.Cleanup(func() { assert.NoError(t, r.Shutdown(), "Shutdown should not error") })
+		return r
 	}
 
 	scenarioTests := []struct {
@@ -557,6 +555,11 @@ func TestEvaluateRetry(t *testing.T) {
 	retry, err = r.evaluateRetry(t.Context(), &http.Response{StatusCode: http.StatusTooManyRequests, Status: "429", Body: io.NopCloser(strings.NewReader(""))}, nil, 1, true)
 	require.NoError(t, err, "must not error")
 	require.True(t, retry, "must retry on 429 response")
+
+	r.backoff = func(int) time.Duration { return 0 }
+	retry, err = r.evaluateRetry(t.Context(), nil, errTimeout, 1, true)
+	require.NoError(t, err, "must not error")
+	require.True(t, retry, "must retry on timeout error")
 }
 
 func TestGetNonce(t *testing.T) {

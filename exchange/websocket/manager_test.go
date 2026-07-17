@@ -719,22 +719,6 @@ func TestCreateConnectAndSubscribe(t *testing.T) {
 	mgr.Wg.Wait()
 }
 
-func TestConnectIncludesCallerName(t *testing.T) {
-	t.Parallel()
-
-	ws := NewManager()
-	ws.setEnabled(true)
-	ws.useMultiConnectionManagement = true
-	ws.connectionManager = []*websocket{{
-		setup:         &ConnectionSetup{URL: "wss://example.invalid/ws"},
-		subscriptions: subscription.NewStore(),
-	}}
-
-	err := ws.Connect(request.WithCallerName(t.Context(), t.Name()))
-	require.ErrorIs(t, err, errWebsocketSubscriptionsGeneratorUnset)
-	assert.ErrorContains(t, err, "cannot connect to [conn:1] [URL:wss://example.invalid/ws]")
-}
-
 func TestObserveConnectionStopsOnShutdown(t *testing.T) {
 	t.Parallel()
 

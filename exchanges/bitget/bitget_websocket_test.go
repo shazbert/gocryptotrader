@@ -30,30 +30,6 @@ func TestWsAuth(t *testing.T) {
 	t.Skip("authenticated websocket integration coverage is pending a stable mock upgrader")
 }
 
-// func TestWsReadData(t *testing.T) {
-// 	mock := func(tb testing.TB, msg []byte, w *gws.Conn) error {
-// 		tb.Helper()
-// 		msg, err := json.Marshal("pong")
-// 		require.NoError(t, err)
-// 		return w.WriteMessage(gws.TextMessage, msg)
-// 	}
-// 	wsTest := testexch.MockWsInstance[Exchange](t, mockws.CurryWsMockUpgrader(t, mock))
-// 	wsTest.Websocket.Enable()
-// 	err := exchangeBaseHelper(wsTest)
-// 	require.NoError(t, err)
-// 	var dialer gws.Dialer
-// 	err = wsTest.Websocket.Conn.Dial(context.TODO(), &dialer, http.Header{})
-// 	require.NoError(t, err)
-// 	err = wsTest.Websocket.AuthConn.Dial(context.TODO(), &dialer, http.Header{})
-// 	require.NoError(t, err)
-// 	// e.Websocket.Wg.Add(1)
-// 	// go e.wsReadData(e.Websocket.Conn)
-// 	err = wsTest.Subscribe(defaultSubscriptions)
-// 	require.NoError(t, err)
-// 	// Implement internal/testing/websocket mockws stuff after merging
-// 	// See: https://github.com/thrasher-corp/gocryptotrader/blob/master/exchanges/kraken/kraken_test.go#L1169
-// }
-
 func TestWsHandleData(t *testing.T) {
 	t.Parallel()
 	verboseTemp := e.Verbose

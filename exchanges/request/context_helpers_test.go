@@ -2,6 +2,7 @@ package request
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -26,18 +27,21 @@ func TestWithDelayNotAllowed(t *testing.T) {
 	assert.False(t, hasDelayNotAllowed(WithRetryNotAllowed(WithVerbose(t.Context()))))
 }
 
-func TestWithCallerName(t *testing.T) {
+func TestWithHeaders(t *testing.T) {
 	t.Parallel()
-	ctx := WithCallerName(t.Context(), t.Name())
-	assert.Equal(t, t.Name(), CallerName(ctx))
-	assert.Empty(t, CallerName(t.Context()))
+	headers := http.Header{"User-Agent": {"custom"}, "X-Values": {"one", "two"}}
+	ctx := WithHeaders(t.Context(), headers)
+	headers.Set("User-Agent", "mutated")
+
+	got := headersFromContext(ctx)
+	assert.Equal(t, "custom", got.Get("User-Agent"))
+	assert.Equal(t, []string{"one", "two"}, got.Values("X-Values"))
+	assert.Nil(t, headersFromContext(t.Context()))
+	assert.Same(t, t.Context(), WithHeaders(t.Context(), nil))
+
 	frozen := common.FreezeContext(ctx)
 	thawed := common.ThawContext(frozen)
-	assert.Equal(t, t.Name(), CallerName(thawed))
-	assert.Empty(t, CallerName(context.WithValue(t.Context(), callerNameKey{}, 1)))
-	ctx = WithCallerName(t.Context(), "meow")
-	ctx = WithCallerName(ctx, "")
-	assert.Equal(t, "meow", CallerName(ctx))
+	assert.Equal(t, "custom", headersFromContext(thawed).Get("User-Agent"))
 }
 
 func TestWithRetryNotAllowed(t *testing.T) {
