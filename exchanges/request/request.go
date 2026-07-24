@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"sync/atomic"
 	"time"
 
 	"github.com/thrasher-corp/gocryptotrader/common"
@@ -395,4 +396,55 @@ func (r *Requester) Shutdown() error {
 		return ErrRequestSystemIsNil
 	}
 	return r._HTTPClient.release()
+}
+
+// InitiateRateLimit sleeps for designated endpoint rate limits and optional additional request-scoped rate limits.
+func (r *Requester) InitiateRateLimit(ctx context.Context, e EndpointLimit, additionalRateLimits ...RateLimitWithWeightOverride) error {
+	return r.initiateRateLimit(ctx, e, 0, additionalRateLimits...)
+}
+
+func (r *Requester) initiateRateLimit(ctx context.Context, e EndpointLimit, endpointWeightOverride Weight, additionalRateLimits ...RateLimitWithWeightOverride) error {
+	if r == nil {
+		return ErrRequestSystemIsNil
+	}
+	if atomic.LoadInt32(&r.disableRateLimiter) == 1 {
+		return nil
+	}
+	if err := common.NilGuard(r.limiter); err != nil {
+		return err
+	}
+	if err := r.limiter[e].RateLimit(ctx, endpointWeightOverride, additionalRateLimits...); err != nil {
+		return fmt.Errorf("cannot rate limit request %w for endpoint %d", err, e)
+	}
+	return nil
+}
+
+// GetRateLimiterDefinitions returns the rate limiter definitions for the requester.
+func (r *Requester) GetRateLimiterDefinitions() RateLimitDefinitions {
+	if r == nil {
+		return nil
+	}
+	return r.limiter
+}
+
+// DisableRateLimiter disables the rate limiting system for the exchange.
+func (r *Requester) DisableRateLimiter() error {
+	if r == nil {
+		return ErrRequestSystemIsNil
+	}
+	if !atomic.CompareAndSwapInt32(&r.disableRateLimiter, 0, 1) {
+		return fmt.Errorf("%s %w", r.name, ErrRateLimiterAlreadyDisabled)
+	}
+	return nil
+}
+
+// EnableRateLimiter enables the rate limiting system for the exchange.
+func (r *Requester) EnableRateLimiter() error {
+	if r == nil {
+		return ErrRequestSystemIsNil
+	}
+	if !atomic.CompareAndSwapInt32(&r.disableRateLimiter, 1, 0) {
+		return fmt.Errorf("%s %w", r.name, ErrRateLimiterAlreadyEnabled)
+	}
+	return nil
 }
