@@ -35,6 +35,25 @@ func hasDelayNotAllowed(ctx context.Context) bool {
 	return ok
 }
 
+type rateLimitsKey struct{}
+
+// WithRateLimits adds request-scoped rate limits to the context.
+func WithRateLimits(ctx context.Context, rateLimits ...RateLimitWithWeightOverride) context.Context {
+	if len(rateLimits) == 0 {
+		return ctx
+	}
+	existing := rateLimitsFromContext(ctx)
+	combined := make([]RateLimitWithWeightOverride, 0, len(existing)+len(rateLimits))
+	combined = append(combined, existing...)
+	combined = append(combined, rateLimits...)
+	return context.WithValue(ctx, rateLimitsKey{}, combined)
+}
+
+func rateLimitsFromContext(ctx context.Context) []RateLimitWithWeightOverride {
+	rateLimits, _ := ctx.Value(rateLimitsKey{}).([]RateLimitWithWeightOverride)
+	return rateLimits
+}
+
 type retryNotAllowedKey struct{}
 
 // WithRetryNotAllowed adds a value to the context that indicates that no retries are allowed for requests.

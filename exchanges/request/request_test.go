@@ -324,10 +324,12 @@ func TestSendPayload_AdditionalRateLimits(t *testing.T) {
 		}
 
 		additionalRateLimits := []RateLimitWithWeightOverride{{Limiter: extra, WeightOverride: 1}}
-		err = r.SendPayload(t.Context(), Unset, newRequest, UnauthenticatedRequest, additionalRateLimits...)
+		ctx := WithRateLimits(t.Context(), additionalRateLimits...)
+		err = r.SendPayload(ctx, Unset, newRequest, UnauthenticatedRequest)
 		require.ErrorIs(t, err, requestErr, "first call must reach request generation")
 
-		err = r.SendPayload(WithDelayNotAllowed(t.Context()), Unset, newRequest, UnauthenticatedRequest, additionalRateLimits...)
+		ctx = WithRateLimits(WithDelayNotAllowed(t.Context()), additionalRateLimits...)
+		err = r.SendPayload(ctx, Unset, newRequest, UnauthenticatedRequest)
 		require.ErrorIs(t, err, ErrDelayNotAllowed, "second call must apply additional request-scoped rate limit")
 	})
 }

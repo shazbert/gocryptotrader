@@ -100,16 +100,19 @@ func NewBasicRateLimit(interval time.Duration, actions int, weight Weight) RateL
 // RateLimit throttles a request based on weight, delaying the request.
 // Errors if no delay is permitted via the context and a delay is required.
 func (r *RateLimiterWithWeight) RateLimit(ctx context.Context) error {
-	if err := common.NilGuard(r); err != nil {
-		return err
-	}
-	return r.rateLimit(ctx, r.weight)
+	return r.RateLimitWithWeight(ctx, 0)
 }
 
 // RateLimitWithWeight applies a request-specific endpoint weight and any additional request-scoped limits.
 func (r *RateLimiterWithWeight) RateLimitWithWeight(ctx context.Context, endpointWeightOverride Weight, additionalRateLimits ...RateLimitWithWeightOverride) error {
 	if err := common.NilGuard(r); err != nil {
 		return err
+	}
+	contextRateLimits := rateLimitsFromContext(ctx)
+	if len(contextRateLimits) > 0 {
+		combined := make([]RateLimitWithWeightOverride, 0, len(contextRateLimits)+len(additionalRateLimits))
+		combined = append(combined, contextRateLimits...)
+		additionalRateLimits = append(combined, additionalRateLimits...)
 	}
 	if len(additionalRateLimits) == 0 {
 		weight := endpointWeightOverride

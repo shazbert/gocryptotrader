@@ -156,6 +156,26 @@ func TestRateLimitWithWeight(t *testing.T) {
 		})
 	})
 
+	t.Run("context limits", func(t *testing.T) {
+		t.Parallel()
+
+		synctest.Test(t, func(t *testing.T) { //nolint:thelper,nolintlint // false positive
+			endpoint := NewRateLimitWithWeight(100*time.Millisecond, 1, 1)
+			short := NewRateLimitWithWeight(200*time.Millisecond, 1, 1)
+			long := NewRateLimitWithWeight(300*time.Millisecond, 1, 1)
+			explicit := NewRateLimitWithWeight(400*time.Millisecond, 1, 1)
+			ctx := WithRateLimits(t.Context(), RateLimitWithWeightOverride{Limiter: short})
+			ctx = WithRateLimits(ctx, RateLimitWithWeightOverride{Limiter: long})
+			require.NoError(t, endpoint.RateLimitWithWeight(ctx, 0, RateLimitWithWeightOverride{Limiter: explicit}), "first reservation must not error")
+
+			start := time.Now()
+			err := endpoint.RateLimitWithWeight(ctx, 0, RateLimitWithWeightOverride{Limiter: explicit})
+			elapsed := time.Since(start)
+			require.NoError(t, err, "context rate limits must not error")
+			assert.Equal(t, 400*time.Millisecond, elapsed, "context and explicit rate limits should wait for the longest limiter only")
+		})
+	})
+
 	t.Run("weight override", func(t *testing.T) {
 		t.Parallel()
 
@@ -363,15 +383,16 @@ func TestInitiateRateLimit(t *testing.T) {
 		require.NoError(t, err, "requester must initialise")
 		extra := NewRateLimitWithWeight(300*time.Millisecond, 1, 1)
 		additionalRateLimits := []RateLimitWithWeightOverride{{Limiter: extra, WeightOverride: 1}}
-		require.NoError(t, r.InitiateRateLimit(t.Context(), Unset, additionalRateLimits...), "first reservation must not error")
+		ctx := WithRateLimits(t.Context(), additionalRateLimits...)
+		require.NoError(t, r.InitiateRateLimit(ctx, Unset), "first reservation must not error")
 
 		start := time.Now()
-		err = r.InitiateRateLimit(t.Context(), Unset, additionalRateLimits...)
+		err = r.InitiateRateLimit(ctx, Unset)
 		elapsed := time.Since(start)
 		require.NoError(t, err, "additional rate limit must not error")
 		assert.Equal(t, 300*time.Millisecond, elapsed, "endpoint and additional rate limits should wait for the longest limiter only")
 
-		err = r.InitiateRateLimit(t.Context(), Unset, RateLimitWithWeightOverride{WeightOverride: 1})
+		err = r.InitiateRateLimit(WithRateLimits(t.Context(), RateLimitWithWeightOverride{WeightOverride: 1}), Unset)
 		assert.ErrorContains(t, err, "nil pointer: *request.RateLimiterWithWeight", "nil additional limiter should return a nil guard error")
 	})
 }
