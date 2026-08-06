@@ -111,13 +111,6 @@ func (r *RateLimiterWithWeight) RateLimitWithWeight(ctx context.Context, endpoin
 		return err
 	}
 	additionalRateLimits := additionalRateLimitsFromContext(ctx)
-	if len(additionalRateLimits) == 0 {
-		weight := endpointWeightOverride
-		if weight == 0 {
-			weight = r.weight
-		}
-		return r.rateLimit(ctx, weight)
-	}
 
 	tn := time.Now()
 	reserved := make([]rateLimitReservation, 0, len(additionalRateLimits)+1)
@@ -173,6 +166,9 @@ func (r *RateLimiterWithWeight) RateLimitWithWeight(ctx context.Context, endpoin
 	if hasDelayNotAllowed(ctx) {
 		if finalDelay > 0 {
 			cancelReservations(tn)
+			if len(additionalRateLimits) == 0 {
+				return ErrDelayNotAllowed
+			}
 			return fmt.Errorf("%w for rate-limit scope %q", ErrDelayNotAllowed, limitingScope)
 		}
 		return nil
@@ -180,69 +176,22 @@ func (r *RateLimiterWithWeight) RateLimitWithWeight(ctx context.Context, endpoin
 
 	if dl, ok := ctx.Deadline(); ok && dl.Before(tn.Add(finalDelay)) {
 		cancelReservations(tn)
+		if len(additionalRateLimits) == 0 {
+			return fmt.Errorf("rate limit delay of %s will exceed deadline: %w", finalDelay, context.DeadlineExceeded)
+		}
 		return fmt.Errorf("rate limit delay of %s for scope %q will exceed deadline: %w", finalDelay, limitingScope, context.DeadlineExceeded)
 	}
 
 	if finalDelay == 0 {
 		return nil
 	}
-	if IsVerbose(ctx, false) {
+	if len(additionalRateLimits) > 0 && IsVerbose(ctx, false) {
 		log.Debugf(log.RequestSys, "Rate limit scope %q requires a %s delay", limitingScope, finalDelay)
 	}
 
 	select {
 	case <-ctx.Done():
 		cancelReservations(time.Now())
-		return ctx.Err()
-	case <-time.After(finalDelay):
-		return nil
-	}
-}
-
-func (r *RateLimiterWithWeight) rateLimit(ctx context.Context, weight Weight) error {
-	r.m.Lock()
-	if weight == 0 {
-		r.m.Unlock()
-		return errInvalidWeight
-	}
-
-	tn := time.Now()
-	reserved := make([]*rate.Reservation, 0, weight)
-	for range weight {
-		// Reserving one token at a time avoids requiring burst capacity.
-		reserved = append(reserved, r.limiter.ReserveN(tn, 1))
-	}
-	finalDelay := reserved[len(reserved)-1].DelayFrom(tn)
-
-	if finalDelay == 0 {
-		r.m.Unlock()
-		return nil
-	}
-
-	if hasDelayNotAllowed(ctx) {
-		for i := len(reserved) - 1; i >= 0; i-- {
-			reserved[i].CancelAt(tn)
-		}
-		r.m.Unlock()
-		return ErrDelayNotAllowed
-	}
-
-	if dl, ok := ctx.Deadline(); ok && dl.Before(tn.Add(finalDelay)) {
-		for i := len(reserved) - 1; i >= 0; i-- {
-			reserved[i].CancelAt(tn)
-		}
-		r.m.Unlock()
-		return fmt.Errorf("rate limit delay of %s will exceed deadline: %w", finalDelay, context.DeadlineExceeded)
-	}
-	r.m.Unlock()
-
-	select {
-	case <-ctx.Done():
-		r.m.Lock()
-		for i := len(reserved) - 1; i >= 0; i-- {
-			reserved[i].CancelAt(time.Now())
-		}
-		r.m.Unlock()
 		return ctx.Err()
 	case <-time.After(finalDelay):
 		return nil
