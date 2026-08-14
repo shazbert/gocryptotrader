@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/thrasher-corp/gocryptotrader/log"
@@ -34,15 +35,21 @@ func (m *Manager) SetProcessReportManager(rm ProcessReporterManager) {
 
 // NewDefaultProcessReporterManager returns a new defaultProcessReporterManager instance
 func NewDefaultProcessReporterManager() ProcessReporterManager {
-	return defaultProcessReporterManager{period: time.Minute}
+	return &defaultProcessReporterManager{period: time.Minute}
 }
 
 // defaultProcessReporterManager is a default implementation of ProcessReporter
-type defaultProcessReporterManager struct{ period time.Duration }
+type defaultProcessReporterManager struct {
+	period time.Duration
+	nextID atomic.Int64
+}
 
 // New returns a new DefaultProcessReporter instance for a connection
-func (d defaultProcessReporterManager) New(conn Connection) ProcessReporter {
-	reporter := &defaultProcessReporter{ch: make(chan struct{})}
+func (d *defaultProcessReporterManager) New(conn Connection) ProcessReporter {
+	reporter := &defaultProcessReporter{
+		ch:           make(chan struct{}),
+		connectionID: d.nextID.Add(1),
+	}
 	go reporter.collectMetrics(conn, d.period)
 	return reporter
 }
@@ -55,6 +62,7 @@ type defaultProcessReporter struct {
 	totalProcessingTime time.Duration
 	peakProcessingTime  time.Duration
 	peakCause           []byte
+	connectionID        int64
 	ch                  chan struct{}
 	m                   sync.Mutex
 }
@@ -87,6 +95,7 @@ func (r *defaultProcessReporter) collectMetrics(conn Connection, period time.Dur
 	if period == 0 {
 		panic("period duration for collecting metrics must be greater than 0")
 	}
+	windowStart := time.Now()
 	timer := time.NewTimer(time.Until(time.Now().Truncate(period).Add(period)))
 	defer timer.Stop()
 
@@ -96,8 +105,9 @@ func (r *defaultProcessReporter) collectMetrics(conn Connection, period time.Dur
 			return
 		case <-timer.C:
 			r.m.Lock()
+			windowEnd := time.Now()
 			if r.operations > 0 {
-				avgOperationsPerSecond := float64(r.operations) / 60
+				avgOperationsPerSecond := operationsPerSecond(r.operations, windowStart, windowEnd)
 				avgProcessingTime := r.totalProcessingTime / time.Duration(r.operations)
 				peakTime := r.peakProcessingTime
 				peakCause := r.peakCause
@@ -109,11 +119,20 @@ func (r *defaultProcessReporter) collectMetrics(conn Connection, period time.Dur
 					peakCause = append(peakCause[:100], []byte("...")...)
 				}
 				// Log metrics outside of the critical section to avoid blocking other threads.
-				log.Debugf(log.WebsocketMgr, "Connection: %v Operations/Second: %.2f, Avg Processing/Operation: %v, Errors: %v Peak: %v Cause: %v", conn.GetURL(), avgOperationsPerSecond, avgProcessingTime, errors, peakTime, string(peakCause))
+				log.Debugf(log.WebsocketMgr, "Connection: %v #%d Operations/Second: %.2f, Avg Processing/Operation: %v, Errors: %v Peak: %v Cause: %v", conn.GetURL(), r.connectionID, avgOperationsPerSecond, avgProcessingTime, errors, peakTime, string(peakCause))
 			} else {
 				r.m.Unlock()
 			}
+			windowStart = windowEnd
 			timer.Reset(time.Until(time.Now().Truncate(period).Add(period)))
 		}
 	}
+}
+
+func operationsPerSecond(operations int64, windowStart, windowEnd time.Time) float64 {
+	elapsed := windowEnd.Sub(windowStart).Seconds()
+	if elapsed <= 0 {
+		return 0
+	}
+	return float64(operations) / elapsed
 }

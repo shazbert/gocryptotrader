@@ -4,11 +4,15 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type DummyConnection struct {
 	Connection
 	ch chan []byte
+	u  string
 }
 
 func (d *DummyConnection) ReadMessage() Response {
@@ -20,6 +24,9 @@ func (d *DummyConnection) Push(data []byte) {
 }
 
 func (d *DummyConnection) GetURL() string {
+	if d.u != "" {
+		return d.u
+	}
 	return "ws://test"
 }
 
@@ -41,4 +48,35 @@ func TestDefaultProcessReporter(t *testing.T) {
 		conn.Push([]byte("test"))
 	}
 	conn.Push(nil)
+}
+
+func TestDefaultProcessReporterManagerConnectionIDs(t *testing.T) {
+	t.Parallel()
+
+	reporterManager := &defaultProcessReporterManager{period: time.Millisecond * 10}
+	first := reporterManager.New(&DummyConnection{u: "ws://same"})
+	second := reporterManager.New(&DummyConnection{u: "ws://same"})
+	third := reporterManager.New(&DummyConnection{u: "ws://other"})
+
+	firstReporter, ok := first.(*defaultProcessReporter)
+	require.True(t, ok, "first reporter type assertion failed")
+	secondReporter, ok := second.(*defaultProcessReporter)
+	require.True(t, ok, "second reporter type assertion failed")
+	thirdReporter, ok := third.(*defaultProcessReporter)
+	require.True(t, ok, "third reporter type assertion failed")
+	require.Equal(t, int64(1), firstReporter.connectionID, "unexpected first reporter connection id")
+	require.Equal(t, int64(2), secondReporter.connectionID, "unexpected second reporter connection id")
+	require.Equal(t, int64(3), thirdReporter.connectionID, "unexpected third reporter connection id")
+
+	first.Close()
+	second.Close()
+	third.Close()
+}
+
+func TestOperationsPerSecond(t *testing.T) {
+	t.Parallel()
+
+	start := time.Unix(0, 0)
+	assert.InDelta(t, 100, operationsPerSecond(3000, start, start.Add(30*time.Second)), 0.0001, "partial-window rate should use elapsed time")
+	assert.Zero(t, operationsPerSecond(3000, start, start), "zero-length window should return zero")
 }
