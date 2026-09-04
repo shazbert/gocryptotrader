@@ -3559,10 +3559,6 @@ func TestUpdateTickers(t *testing.T) {
 
 	for _, a := range e.GetAssetTypes(false) {
 		err := e.UpdateTickers(contextGenerate(), a)
-		if a == asset.Spread {
-			require.ErrorIs(t, err, common.ErrFunctionNotSupported, "spread asset must return not supported error")
-			continue
-		}
 		require.NoErrorf(t, err, "UpdateTickers for asset %s must not error", a)
 	}
 
