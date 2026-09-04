@@ -59,6 +59,7 @@ Refer to the [ADD_NEW_EXCHANGE.md](/docs/ADD_NEW_EXCHANGE.md) document for compr
         } `json:"brackets"`
     }
 ```
+- Use a dedicated currency pair constructor when one exists (for example, `currency.NewBTCUSD()` or `currency.NewBTCUSDT()`) instead of constructing the same pair with `currency.NewPair`. Use `currency.NewPair` when no dedicated constructor exists or the currencies are selected at runtime.
 
 ### TestMain usage
 
