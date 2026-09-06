@@ -13,7 +13,7 @@ import (
 var (
 	// ErrInvalidRateLimitBarrierParticipants is returned when a barrier cannot coordinate at least two requests.
 	ErrInvalidRateLimitBarrierParticipants = errors.New("rate limit barrier requires at least two participants")
-	// ErrRateLimitBarrierParticipantUsed is returned when a one-use participant context reaches a limiter more than once.
+	// ErrRateLimitBarrierParticipantUsed is returned when a participant context reaches a limiter again before its barrier resolves.
 	ErrRateLimitBarrierParticipantUsed = errors.New("rate limit barrier participant already used")
 )
 
@@ -83,8 +83,10 @@ type rateLimitBarrierParticipant struct {
 	used    atomic.Bool
 }
 
-// NewRateLimitBarrierContexts returns distinct one-use contexts whose rate-limit calls proceed only when every participant can proceed immediately.
-// Each request owner must defer AbortRateLimitBarrier so a failure before reaching the limiter releases the other participants.
+// NewRateLimitBarrierContexts returns distinct contexts whose first rate-limit calls proceed only when every participant can proceed immediately.
+// Each request owner must defer AbortRateLimitBarrier so a failure before reaching the limiter releases the other participants. After acceptance,
+// subsequent rate-limit calls using a participant context proceed normally, including retries. Participants sharing a limiter are paced normally
+// after the barrier accepts them and therefore might not execute simultaneously.
 func NewRateLimitBarrierContexts(ctx context.Context, participants uint) ([]context.Context, error) {
 	if participants < 2 {
 		return nil, ErrInvalidRateLimitBarrierParticipants
@@ -122,11 +124,18 @@ func rateLimitBarrierParticipantFromContext(ctx context.Context) *rateLimitBarri
 
 func (p *rateLimitBarrierParticipant) wait(ctx context.Context, immediate bool) error {
 	if !p.used.CompareAndSwap(false, true) {
-		return ErrRateLimitBarrierParticipantUsed
+		return p.barrier.reuseResult()
+	}
+	if closed, err := p.barrier.closedResult(); closed {
+		return err
 	}
 	if !immediate {
 		p.barrier.reject()
 		return ErrDelayNotAllowed
+	}
+	if err := ctx.Err(); err != nil {
+		p.barrier.reject()
+		return err
 	}
 	if p.barrier.arrive() {
 		return nil
@@ -176,6 +185,26 @@ func (b *rateLimitBarrier) result() error {
 		return ErrDelayNotAllowed
 	}
 	return nil
+}
+
+func (b *rateLimitBarrier) closedResult() (bool, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if !b.closed {
+		return false, nil
+	}
+	if b.rejected {
+		return true, ErrDelayNotAllowed
+	}
+	return true, nil
+}
+
+func (b *rateLimitBarrier) reuseResult() error {
+	closed, err := b.closedResult()
+	if !closed {
+		return ErrRateLimitBarrierParticipantUsed
+	}
+	return err
 }
 
 type retryNotAllowedKey struct{}

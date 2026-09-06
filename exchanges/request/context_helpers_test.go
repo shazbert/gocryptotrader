@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -51,6 +52,35 @@ func TestWaitForRateLimitBarrier(t *testing.T) {
 	go func() { errs <- WaitForRateLimitBarrier(contexts[1]) }()
 	require.NoError(t, <-errs)
 	require.NoError(t, <-errs)
+}
+
+func TestWaitForRateLimitBarrierRejectsCancelledFinalParticipant(t *testing.T) {
+	t.Parallel()
+	contexts, err := NewRateLimitBarrierContexts(t.Context(), 2)
+	require.NoError(t, err)
+	errCh := make(chan error, 1)
+	go func() { errCh <- WaitForRateLimitBarrier(contexts[0]) }()
+	require.Eventually(t, rateLimitBarrierParticipantFromContext(contexts[0]).used.Load,
+		time.Second, time.Millisecond, "first participant must reach the barrier")
+
+	cancelledContext, cancel := context.WithCancel(contexts[1])
+	cancel()
+	require.ErrorIs(t, WaitForRateLimitBarrier(cancelledContext), context.Canceled)
+	require.ErrorIs(t, <-errCh, ErrDelayNotAllowed)
+}
+
+func TestWaitForRateLimitBarrierRejectsReuseBeforeResolution(t *testing.T) {
+	t.Parallel()
+	contexts, err := NewRateLimitBarrierContexts(t.Context(), 2)
+	require.NoError(t, err)
+	errCh := make(chan error, 1)
+	go func() { errCh <- WaitForRateLimitBarrier(contexts[0]) }()
+	require.Eventually(t, rateLimitBarrierParticipantFromContext(contexts[0]).used.Load,
+		time.Second, time.Millisecond, "first participant must reach the barrier")
+
+	require.ErrorIs(t, WaitForRateLimitBarrier(contexts[0]), ErrRateLimitBarrierParticipantUsed)
+	AbortRateLimitBarrier(contexts[1])
+	require.ErrorIs(t, <-errCh, ErrDelayNotAllowed)
 }
 
 func TestAbortRateLimitBarrier(t *testing.T) {

@@ -124,6 +124,10 @@ func (r *Requester) GetRateLimiterDefinitions() RateLimitDefinitions {
 // RateLimit throttles a request based on weight, delaying the request.
 // Errors if no delay is permitted via the context and a delay is required.
 func (r *RateLimiterWithWeight) RateLimit(ctx context.Context) error {
+	return r.rateLimit(ctx, true)
+}
+
+func (r *RateLimiterWithWeight) rateLimit(ctx context.Context, coordinate bool) error {
 	if err := common.NilGuard(r); err != nil {
 		return err
 	}
@@ -141,16 +145,20 @@ func (r *RateLimiterWithWeight) RateLimit(ctx context.Context) error {
 		reserved = append(reserved, r.limiter.ReserveN(tn, 1))
 	}
 	finalDelay := reserved[len(reserved)-1].DelayFrom(tn)
-	barrierParticipant := rateLimitBarrierParticipantFromContext(ctx)
+	var barrierParticipant *rateLimitBarrierParticipant
+	if coordinate {
+		barrierParticipant = rateLimitBarrierParticipantFromContext(ctx)
+	}
 	if barrierParticipant != nil {
+		// Reservations only probe immediate availability. Restore them before
+		// parking so rejection cannot consume capacity and acceptance is charged
+		// when the request is ready to proceed.
+		cancelAll(reserved, tn)
 		r.m.Unlock()
 		if err := barrierParticipant.wait(ctx, finalDelay == 0); err != nil {
-			r.m.Lock()
-			cancelAll(reserved, tn)
-			r.m.Unlock()
 			return err
 		}
-		return nil
+		return r.rateLimit(ctx, false)
 	}
 
 	if finalDelay == 0 {
