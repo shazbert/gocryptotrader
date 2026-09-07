@@ -87,7 +87,7 @@ func TestResubscribe(t *testing.T) {
 	assert.True(t, m.IsResubscribing(currency.NewBTCUSDT(), asset.Spot), "manager should mark the pair as resubscribing immediately")
 	assert.Eventually(t,
 		func() bool {
-			sub := e.Websocket.GetSubscription(qualifiedChannelKey{&subscription.Subscription{QualifiedChannel: qualifiedChannel}})
+			sub := e.Websocket.GetSubscription(qualifiedChannelKey{&subscription.Subscription{QualifiedChannel: qualifiedChannel, Asset: asset.Spot}})
 			return sub != nil && sub.State() == subscription.SubscribedState
 		},
 		time.Second,
@@ -123,8 +123,9 @@ func TestQualifiedChannelKey_Match(t *testing.T) {
 
 	require.Implements(t, (*subscription.MatchableKey)(nil), new(qualifiedChannelKey))
 
-	k := qualifiedChannelKey{&subscription.Subscription{QualifiedChannel: "test.channel"}}
+	k := qualifiedChannelKey{&subscription.Subscription{QualifiedChannel: "test.channel", Asset: asset.Spot}}
 	require.True(t, k.Match(k))
-	require.False(t, k.Match(qualifiedChannelKey{&subscription.Subscription{QualifiedChannel: "TEST.channel"}}))
+	require.False(t, k.Match(qualifiedChannelKey{&subscription.Subscription{QualifiedChannel: "TEST.channel", Asset: asset.Spot}}))
+	require.False(t, k.Match(qualifiedChannelKey{&subscription.Subscription{QualifiedChannel: "test.channel", Asset: asset.Futures}}))
 	assert.NotNil(t, k.GetSubscription())
 }

@@ -3112,6 +3112,19 @@ func TestGenerateSubscriptionsSpot(t *testing.T) {
 	e.Websocket.SetCanUseAuthenticatedEndpoints(true)
 	subs, err := e.generateSubscriptionsSpot()
 	require.NoError(t, err, "generateSubscriptions must not error")
+	var spotV2Count int
+	for _, sub := range subs {
+		if sub.Asset == asset.Spot && sub.Channel == subscription.OrderbookChannel {
+			assert.Fail(t, "legacy spot orderbook subscription should be disabled")
+		}
+		if sub.Asset == asset.Spot && sub.Channel == spotOrderbookV2 {
+			spotV2Count++
+			assert.Equal(t, 50, sub.Levels, "V2 spot orderbook subscription should request 50 levels")
+		}
+	}
+	spotPairs, err := e.GetEnabledPairs(asset.Spot)
+	require.NoError(t, err, "GetEnabledPairs must not error")
+	assert.Equal(t, len(spotPairs), spotV2Count, "each enabled spot pair should generate one V2 orderbook subscription")
 	exp := subscription.List{}
 	assets := slices.DeleteFunc(e.GetAssetTypes(true), func(a asset.Item) bool { return !e.IsAssetWebsocketSupported(a) })
 	for _, s := range e.Features.Subscriptions {
