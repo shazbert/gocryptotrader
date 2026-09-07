@@ -33,6 +33,21 @@ func TestUpgradeExchange(t *testing.T) {
 			exp:  `{"name":"GateIO","features":{"subscriptions":[{"enabled":true,"channel":"orderbook","asset":"spot","interval":"100ms"},{"enabled":true,"channel":"spot.obu","asset":"spot","levels":50}]}}`,
 		},
 		{
+			name: "numeric candle interval",
+			in:   `{"features":{"subscriptions":[{"enabled":true,"channel":"candles","asset":"spot","interval":300000000000},{"enabled":true,"channel":"orderbook","asset":"spot","interval":"100ms"},{"enabled":false,"channel":"spot.obu","asset":"spot","levels":50}]}}`,
+			exp:  `{"features":{"subscriptions":[{"enabled":true,"channel":"candles","asset":"spot","interval":300000000000},{"enabled":false,"channel":"orderbook","asset":"spot","interval":"100ms"},{"enabled":true,"channel":"spot.obu","asset":"spot","levels":50}]}}`,
+		},
+		{
+			name: "numeric orderbook interval",
+			in:   `{"features":{"subscriptions":[{"enabled":true,"channel":"orderbook","asset":"spot","interval":100000000},{"enabled":false,"channel":"spot.obu","asset":"spot","levels":50}]}}`,
+			exp:  `{"features":{"subscriptions":[{"enabled":true,"channel":"orderbook","asset":"spot","interval":100000000},{"enabled":false,"channel":"spot.obu","asset":"spot","levels":50}]}}`,
+		},
+		{
+			name: "missing V2 entry preserves unrelated fields",
+			in:   `{"features":{"subscriptions":[{"enabled":true,"channel":"orderbook","asset":"spot","interval":"100ms","custom":"retained"},{"enabled":true,"channel":"candles","asset":"spot","interval":300000000000}]}}`,
+			exp:  `{"features":{"subscriptions":[{"enabled":false,"channel":"orderbook","asset":"spot","interval":"100ms","custom":"retained"},{"enabled":true,"channel":"candles","asset":"spot","interval":300000000000},{"enabled":true,"channel":"spot.obu","asset":"spot","levels":50}]}}`,
+		},
+		{
 			name: "custom settings",
 			in:   `{"name":"GateIO","features":{"subscriptions":[{"enabled":true,"channel":"orderbook","asset":"spot","interval":"10ms"},{"enabled":false,"channel":"spot.obu","asset":"spot","levels":20}]}}`,
 			exp:  `{"name":"GateIO","features":{"subscriptions":[{"enabled":true,"channel":"orderbook","asset":"spot","interval":"10ms"},{"enabled":false,"channel":"spot.obu","asset":"spot","levels":20}]}}`,
@@ -49,8 +64,50 @@ func TestUpgradeExchange(t *testing.T) {
 			got, err := version.UpgradeExchange(t.Context(), []byte(tc.in))
 			require.NoError(t, err, "UpgradeExchange must not error")
 			assert.JSONEq(t, tc.exp, string(got), "UpgradeExchange should migrate only previous defaults")
+			again, err := version.UpgradeExchange(t.Context(), got)
+			require.NoError(t, err, "repeated UpgradeExchange must not error")
+			assert.Equal(t, got, again, "UpgradeExchange should be idempotent")
 		})
 	}
+}
+
+func TestMigrationPreservesCustomSubscriptions(t *testing.T) {
+	t.Parallel()
+	for name, input := range map[string]string{
+		"legacy pairs":                `{"features":{"subscriptions":[{"enabled":true,"channel":"orderbook","asset":"spot","interval":"100ms","pairs":"BTC_USDT"},{"enabled":false,"channel":"spot.obu","asset":"spot","levels":50}]}}`,
+		"V2 pairs":                    `{"features":{"subscriptions":[{"enabled":true,"channel":"orderbook","asset":"spot","interval":"100ms"},{"enabled":false,"channel":"spot.obu","asset":"spot","levels":50,"pairs":"ETH_USDT"}]}}`,
+		"different pairs":             `{"features":{"subscriptions":[{"enabled":true,"channel":"orderbook","asset":"spot","interval":"100ms","pairs":"BTC_USDT"},{"enabled":false,"channel":"spot.obu","asset":"spot","levels":50,"pairs":"ETH_USDT"}]}}`,
+		"legacy pairs without V2":     `{"features":{"subscriptions":[{"enabled":true,"channel":"orderbook","asset":"spot","interval":"100ms","pairs":"BTC_USDT"}]}}`,
+		"numeric interval without V2": `{"features":{"subscriptions":[{"enabled":true,"channel":"orderbook","asset":"spot","interval":100000000}]}}`,
+		"disabled legacy without V2":  `{"features":{"subscriptions":[{"enabled":false,"channel":"orderbook","asset":"spot","interval":"100ms"}]}}`,
+		"downgrade restricted legacy": `{"features":{"subscriptions":[{"enabled":false,"channel":"orderbook","asset":"spot","interval":"100ms","pairs":"BTC_USDT"},{"enabled":true,"channel":"spot.obu","asset":"spot","levels":50}]}}`,
+		"downgrade restricted V2":     `{"features":{"subscriptions":[{"enabled":false,"channel":"orderbook","asset":"spot","interval":"100ms"},{"enabled":true,"channel":"spot.obu","asset":"spot","levels":50,"pairs":"ETH_USDT"}]}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			version := new(v14.Version)
+			got, err := version.UpgradeExchange(t.Context(), []byte(input))
+			require.NoError(t, err, "UpgradeExchange must accept custom subscriptions")
+			assert.Equal(t, input, string(got), "UpgradeExchange should preserve custom subscriptions byte-for-byte")
+			got, err = version.DowngradeExchange(t.Context(), []byte(input))
+			require.NoError(t, err, "DowngradeExchange must accept custom subscriptions")
+			assert.Equal(t, input, string(got), "DowngradeExchange should preserve custom subscriptions byte-for-byte")
+		})
+	}
+}
+
+func TestMissingV2RoundTrip(t *testing.T) {
+	t.Parallel()
+	version := new(v14.Version)
+	in := []byte(`{"features":{"subscriptions":[{"enabled":true,"channel":"orderbook","asset":"spot","interval":"100ms"}]}}`)
+	upgraded, err := version.UpgradeExchange(t.Context(), in)
+	require.NoError(t, err, "UpgradeExchange must add the missing V2 entry")
+	down, err := version.DowngradeExchange(t.Context(), upgraded)
+	require.NoError(t, err, "DowngradeExchange must restore the legacy feed")
+	assert.JSONEq(t, `{"features":{"subscriptions":[{"enabled":true,"channel":"orderbook","asset":"spot","interval":"100ms"},{"enabled":false,"channel":"spot.obu","asset":"spot","levels":50}]}}`, string(down), "DowngradeExchange should retain the new V2 entry disabled")
+	again, err := version.UpgradeExchange(t.Context(), down)
+	require.NoError(t, err, "UpgradeExchange must support a downgraded config")
+	assert.JSONEq(t, string(upgraded), string(again), "re-upgrade should restore the V2 feed")
 }
 
 func TestDowngradeExchange(t *testing.T) {

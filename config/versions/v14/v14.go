@@ -42,11 +42,12 @@ func migrateSubscriptions(exchange []byte, upgrade bool) ([]byte, error) {
 	}
 
 	var subscriptions []struct {
-		Enabled  *bool  `json:"enabled"`
-		Channel  string `json:"channel"`
-		Asset    string `json:"asset"`
-		Interval string `json:"interval"`
-		Levels   int    `json:"levels"`
+		Enabled  *bool           `json:"enabled"`
+		Channel  string          `json:"channel"`
+		Asset    string          `json:"asset"`
+		Interval json.RawMessage `json:"interval"`
+		Levels   int             `json:"levels"`
+		Pairs    string          `json:"pairs"`
 	}
 	if err := json.Unmarshal(raw, &subscriptions); err != nil {
 		return exchange, fmt.Errorf("error decoding GateIO subscriptions: %w", err)
@@ -70,9 +71,30 @@ func migrateSubscriptions(exchange []byte, upgrade bool) ([]byte, error) {
 			v2Index = i
 		}
 	}
-	if legacyIndex == -1 || v2Index == -1 ||
-		subscriptions[legacyIndex].Interval != "100ms" || subscriptions[v2Index].Levels != 50 ||
-		*subscriptions[legacyIndex].Enabled != upgrade || *subscriptions[v2Index].Enabled == upgrade {
+	if legacyIndex == -1 ||
+		string(subscriptions[legacyIndex].Interval) != `"100ms"` || subscriptions[legacyIndex].Pairs != "" ||
+		*subscriptions[legacyIndex].Enabled != upgrade {
+		return exchange, nil
+	}
+	if v2Index == -1 {
+		if !upgrade {
+			return exchange, nil
+		}
+		entries := make([]json.RawMessage, 0, len(subscriptions)+1)
+		if err := json.Unmarshal(raw, &entries); err != nil {
+			return exchange, fmt.Errorf("error decoding GateIO subscription entries: %w", err)
+		}
+		v2Index = len(entries)
+		entries = append(entries, json.RawMessage(`{"enabled":true,"channel":"spot.obu","asset":"spot","levels":50}`))
+		updated, err := json.Marshal(entries)
+		if err != nil {
+			return exchange, fmt.Errorf("error encoding GateIO subscription entries: %w", err)
+		}
+		exchange, err = jsonparser.Set(exchange, updated, "features", "subscriptions")
+		if err != nil {
+			return exchange, fmt.Errorf("error adding GateIO V2 spot orderbook subscription: %w", err)
+		}
+	} else if subscriptions[v2Index].Levels != 50 || subscriptions[v2Index].Pairs != "" || *subscriptions[v2Index].Enabled == upgrade {
 		return exchange, nil
 	}
 
