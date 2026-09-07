@@ -1681,7 +1681,7 @@ func TestSendMessageBarrierRejectionRemovesSignature(t *testing.T) {
 	require.NoError(t, err)
 	request.AbortRateLimitBarrier(contexts[1])
 	_, err = wc.SendMessageReturnResponse(contexts[0], request.Unset, "signature", struct{}{})
-	require.ErrorIs(t, err, request.ErrDelayNotAllowed)
+	require.ErrorIs(t, err, request.ErrRateLimitBarrierRejected)
 	_, err = wc.Match.Set("signature", 1)
 	require.NoError(t, err)
 }

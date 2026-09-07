@@ -15,6 +15,8 @@ var (
 	ErrInvalidRateLimitBarrierParticipants = errors.New("rate limit barrier requires at least two participants")
 	// ErrRateLimitBarrierParticipantUsed is returned when a participant context reaches a limiter again before its barrier resolves.
 	ErrRateLimitBarrierParticipantUsed = errors.New("rate limit barrier participant already used")
+	// ErrRateLimitBarrierRejected is returned when a peer aborts or is cancelled before group admission.
+	ErrRateLimitBarrierRejected = errors.New("rate limit barrier rejected")
 )
 
 const contextVerboseFlag verbosity = "verbose"
@@ -74,7 +76,7 @@ type rateLimitBarrier struct {
 	done         chan struct{}
 	participants []*rateLimitBarrierParticipant
 	remaining    uint
-	rejected     bool
+	rejection    error
 	closed       bool
 	mu           sync.Mutex
 }
@@ -90,6 +92,10 @@ type rateLimitBarrierParticipant struct {
 // Each request owner must defer AbortRateLimitBarrier so a failure before reaching the limiter releases the other participants. The final arrival
 // atomically reserves capacity for the group; shared limiters must have enough burst capacity for all participants, and each weight must fit its
 // limiter's burst. After acceptance, subsequent rate-limit calls using a participant context proceed normally, including retries.
+// Coordination covers only the first gate, not request execution: additional rate-limited calls under the same participant context can fail
+// independently and lose the group's all-or-nothing admission guarantee. Cancellation or transport errors after admission can also split execution.
+// NewRateLimit uses burst 1, so participants using its finite limiters must use distinct limiter instances and weight 1. Larger groups sharing
+// a limiter or larger weights require sufficient burst capacity, for example via GetRateLimiterWithWeight with a custom limiter.
 func NewRateLimitBarrierContexts(ctx context.Context, participants uint) ([]context.Context, error) {
 	if participants < 2 {
 		return nil, ErrInvalidRateLimitBarrierParticipants
@@ -167,7 +173,7 @@ func (b *rateLimitBarrier) arrive(ctx context.Context, participant *rateLimitBar
 	participant.limiter = limiter
 	b.remaining--
 	if b.remaining == 0 {
-		b.rejected = !b.admitLocked()
+		b.rejection = b.admitLocked()
 		b.closed = true
 		close(b.done)
 		return true
@@ -181,7 +187,7 @@ func (b *rateLimitBarrier) reject() bool {
 	if b.closed {
 		return false
 	}
-	b.rejected = true
+	b.rejection = ErrRateLimitBarrierRejected
 	b.closed = true
 	close(b.done)
 	return true
@@ -190,10 +196,7 @@ func (b *rateLimitBarrier) reject() bool {
 func (b *rateLimitBarrier) result() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if b.rejected {
-		return ErrDelayNotAllowed
-	}
-	return nil
+	return b.rejection
 }
 
 func (b *rateLimitBarrier) resultFor(ctx context.Context) error {
@@ -210,10 +213,7 @@ func (b *rateLimitBarrier) closedResult() (bool, error) {
 	if !b.closed {
 		return false, nil
 	}
-	if b.rejected {
-		return true, ErrDelayNotAllowed
-	}
-	return true, nil
+	return true, b.rejection
 }
 
 func (b *rateLimitBarrier) reuseResult() error {

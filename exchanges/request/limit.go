@@ -125,27 +125,19 @@ func (r *Requester) GetRateLimiterDefinitions() RateLimitDefinitions {
 // RateLimit throttles a request based on weight, delaying the request.
 // Errors if no delay is permitted via the context and a delay is required.
 func (r *RateLimiterWithWeight) RateLimit(ctx context.Context) error {
-	return r.rateLimit(ctx, true)
-}
-
-func (r *RateLimiterWithWeight) rateLimit(ctx context.Context, coordinate bool) error {
 	if err := common.NilGuard(r); err != nil {
 		return err
 	}
 
 	if r.weight == 0 {
-		if coordinate {
-			AbortRateLimitBarrier(ctx)
-		}
+		AbortRateLimitBarrier(ctx)
 		return errInvalidWeight
 	}
 
-	if coordinate {
-		if participant := rateLimitBarrierParticipantFromContext(ctx); participant != nil {
-			admitted, err := participant.wait(ctx, r)
-			if err != nil || admitted {
-				return err
-			}
+	if participant := rateLimitBarrierParticipantFromContext(ctx); participant != nil {
+		admitted, err := participant.wait(ctx, r)
+		if err != nil || admitted {
+			return err
 		}
 	}
 
@@ -194,16 +186,16 @@ func (r *RateLimiterWithWeight) reserveLocked(at time.Time) ([]*rate.Reservation
 }
 
 // admitLocked reserves every participant's capacity as one transaction. The barrier lock must be held by the caller.
-func (b *rateLimitBarrier) admitLocked() bool {
+func (b *rateLimitBarrier) admitLocked() error {
 	rateLimitReservationMu.Lock()
 	defer rateLimitReservationMu.Unlock()
 
 	at := time.Now()
 	reservations := make([]*rate.Reservation, 0, len(b.participants))
 	for _, participant := range b.participants {
-		if participant.done == nil && !participant.used.Load() || contextDone(participant.done) {
+		if contextDone(participant.done) {
 			cancelAll(reservations, at)
-			return false
+			return ErrRateLimitBarrierRejected
 		}
 		if participant.limiter == nil {
 			continue
@@ -214,16 +206,16 @@ func (b *rateLimitBarrier) admitLocked() bool {
 		reservations = append(reservations, reserved...)
 		if delay != 0 {
 			cancelAll(reservations, at)
-			return false
+			return ErrDelayNotAllowed
 		}
 	}
 	for _, participant := range b.participants {
 		if contextDone(participant.done) {
 			cancelAll(reservations, at)
-			return false
+			return ErrRateLimitBarrierRejected
 		}
 	}
-	return true
+	return nil
 }
 
 func contextDone(done <-chan struct{}) bool {

@@ -66,7 +66,7 @@ func TestWaitForRateLimitBarrierRejectsCancelledFinalParticipant(t *testing.T) {
 	cancelledContext, cancel := context.WithCancel(contexts[1])
 	cancel()
 	require.ErrorIs(t, WaitForRateLimitBarrier(cancelledContext), context.Canceled)
-	require.ErrorIs(t, <-errCh, ErrDelayNotAllowed)
+	require.ErrorIs(t, <-errCh, ErrRateLimitBarrierRejected)
 }
 
 func TestWaitForRateLimitBarrierRejectsParticipantCancelledWhileParked(t *testing.T) {
@@ -80,7 +80,7 @@ func TestWaitForRateLimitBarrierRejectsParticipantCancelledWhileParked(t *testin
 		time.Second, time.Millisecond, "first participant must reach the barrier")
 
 	cancel()
-	require.ErrorIs(t, WaitForRateLimitBarrier(contexts[1]), ErrDelayNotAllowed)
+	require.ErrorIs(t, WaitForRateLimitBarrier(contexts[1]), ErrRateLimitBarrierRejected)
 	require.ErrorIs(t, <-errCh, context.Canceled)
 }
 
@@ -95,7 +95,7 @@ func TestWaitForRateLimitBarrierRejectsReuseBeforeResolution(t *testing.T) {
 
 	require.ErrorIs(t, WaitForRateLimitBarrier(contexts[0]), ErrRateLimitBarrierParticipantUsed)
 	AbortRateLimitBarrier(contexts[1])
-	require.ErrorIs(t, <-errCh, ErrDelayNotAllowed)
+	require.ErrorIs(t, <-errCh, ErrRateLimitBarrierRejected)
 }
 
 func TestAbortRateLimitBarrier(t *testing.T) {
@@ -105,7 +105,7 @@ func TestAbortRateLimitBarrier(t *testing.T) {
 	require.NoError(t, err)
 	AbortRateLimitBarrier(contexts[0])
 	_, err = rateLimitBarrierParticipantFromContext(contexts[1]).wait(t.Context(), nil)
-	require.ErrorIs(t, err, ErrDelayNotAllowed)
+	require.ErrorIs(t, err, ErrRateLimitBarrierRejected)
 	AbortRateLimitBarrier(contexts[0])
 	AbortRateLimitBarrier(t.Context())
 }
@@ -125,9 +125,9 @@ func TestRateLimitBarrierTerminalResults(t *testing.T) {
 	assert.NoError(t, err, "accepted barrier should not have an error")
 	assert.NoError(t, barrier.reuseResult(), "accepted barrier should allow reuse")
 
-	barrier.rejected = true
-	assert.ErrorIs(t, barrier.result(), ErrDelayNotAllowed)
-	assert.ErrorIs(t, barrier.reuseResult(), ErrDelayNotAllowed)
+	barrier.rejection = ErrRateLimitBarrierRejected
+	assert.ErrorIs(t, barrier.result(), ErrRateLimitBarrierRejected)
+	assert.ErrorIs(t, barrier.reuseResult(), ErrRateLimitBarrierRejected)
 }
 
 func TestWithHeaders(t *testing.T) {
