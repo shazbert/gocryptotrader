@@ -173,11 +173,16 @@ func TestGenerateSubscriptions(t *testing.T) {
 	exp = append(exp, expectedPerPairSubscriptions(subscription.OrderbookChannel, asset.Futures, pairs["futures"], futuresOrderbookDepth5Channel, kline.HundredMilliseconds, nil)...)
 	exp = append(exp, expectedPerPairSubscriptions(subscription.AllTradesChannel, asset.Spot, pairs["both"], marketMatchChannel, 0, nil)...)
 
-	subs, err := ku.generateSubscriptions()
+	publicSubs, err := ku.generateSubscriptions()
 	require.NoError(t, err, "generateSubscriptions must not error")
-	testsubs.EqualLists(t, exp, subs)
+	testsubs.EqualLists(t, exp, publicSubs)
 
 	ku.Websocket.SetCanUseAuthenticatedEndpoints(true)
+	exp = append(subscription.List{}, expectedPerPairSubscriptions(subscription.TickerChannel, asset.Spot, pairs["both"], marketTickerChannel, 0, nil)...)
+	exp = append(exp, expectedPerPairSubscriptions(subscription.TickerChannel, asset.Futures, pairs["futures"], futuresTickerChannel, 0, nil)...)
+	exp = append(exp, expectedPerPairSubscriptions(marketOrderbookChannel, asset.Spot, pairs["both"], marketOrderbookChannel, 0, nil)...)
+	exp = append(exp, expectedPerPairSubscriptions(futuresOrderbookChannel, asset.Futures, pairs["futures"], futuresOrderbookChannel, 0, nil)...)
+	exp = append(exp, expectedPerPairSubscriptions(subscription.AllTradesChannel, asset.Spot, pairs["both"], marketMatchChannel, 0, nil)...)
 
 	loanCurrs := common.SortStrings(pairs["both"].GetCurrencies())
 	loanPairs := make(currency.Pairs, 0, len(loanCurrs))
@@ -194,9 +199,18 @@ func TestGenerateSubscriptions(t *testing.T) {
 		{Channel: accountBalanceChannel, QualifiedChannel: "/account/balance"},
 	}...)
 
-	subs, err = ku.generateSubscriptions()
+	subs, err := ku.generateSubscriptions()
 	require.NoError(t, err, "generateSubscriptions with Auth must not error")
 	testsubs.EqualLists(t, exp, subs)
+
+	for _, authenticated := range subs {
+		if authenticated.Channel != marketOrderbookChannel && authenticated.Channel != futuresOrderbookChannel {
+			continue
+		}
+		for _, public := range publicSubs {
+			assert.False(t, (subscription.ExactKey{Subscription: authenticated}).Match(subscription.ExactKey{Subscription: public}), "authentication change should alter the orderbook subscription key")
+		}
+	}
 }
 
 func TestGenerateTickerAllSub(t *testing.T) {
@@ -431,6 +445,48 @@ func TestProcessOrderbook(t *testing.T) {
 
 func TestProcessSpotOrderbookWithDepth(t *testing.T) {
 	t.Parallel()
+
+	t.Run("spot_and_margin", func(t *testing.T) {
+		t.Parallel()
+
+		ku := testInstance(t)
+		ku.Name += "-TestProcessSpotOrderbookWithDepth"
+		pair, err := currency.NewPairFromString("ETH-BTC")
+		require.NoError(t, err, "NewPairFromString must not error")
+		assets, err := ku.CalculateAssets(marketOrderbookChannel, pair)
+		require.NoError(t, err, "CalculateAssets must not error")
+		require.ElementsMatch(t, []asset.Item{asset.Spot, asset.Margin}, assets, "CalculateAssets must resolve spot and margin")
+
+		ku.wsOBUpdateMgr = buffer.NewUpdateManager(&buffer.UpdateManagerParams{
+			FetchDelay:    0,
+			FetchDeadline: buffer.DefaultWSOrderbookUpdateDeadline,
+			FetchOrderbook: func(_ context.Context, p currency.Pair, a asset.Item) (*orderbook.Book, error) {
+				return &orderbook.Book{
+					Exchange:     ku.Name,
+					Pair:         p,
+					Asset:        a,
+					Bids:         []orderbook.Level{{Price: 18890, Amount: 1}},
+					Asks:         []orderbook.Level{{Price: 18910, Amount: 1}},
+					LastUpdateID: 14103843,
+					LastUpdated:  time.UnixMilli(1663747970272),
+				}, nil
+			},
+			CheckPendingUpdate: checkPendingUpdate,
+			BufferInstance:     &ku.Websocket.Orderbook,
+		})
+
+		err = ku.processSpotOrderbookWithDepth(t.Context(), []byte(`{"data":{"changes":{"asks":[["18906","0.00331","14103845"]],"bids":[["18891.9","0.15688","14103847"]]},"sequenceEnd":14103847,"sequenceStart":14103844,"symbol":"ETH-BTC","time":1663747970273}}`), pair.String())
+		require.NoError(t, err, "processSpotOrderbookWithDepth must not error")
+
+		for _, a := range assets {
+			require.EventuallyWithT(t, func(collect *assert.CollectT) {
+				book, err := ku.Websocket.Orderbook.GetOrderbook(pair, a)
+				require.NoError(collect, err, "GetOrderbook must return the realtime book")
+				assert.Equal(collect, int64(14103847), book.LastUpdateID, "LastUpdateID should include the realtime update")
+				assert.Equal(collect, a, book.Asset, "Asset should match the calculated asset")
+			}, time.Second, time.Millisecond*10, "realtime update must populate the %s book", a)
+		}
+	})
 
 	t.Run("error_paths", func(t *testing.T) {
 		t.Parallel()

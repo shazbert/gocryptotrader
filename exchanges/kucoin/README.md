@@ -31,6 +31,8 @@ Default Public Subscriptions:
 - Orderbook for spot, margin and futures
 - All trades for spot and margin
 
+When authenticated websocket support is enabled, the default orderbook subscription uses the realtime spot and futures feeds. Realtime spot snapshots require authentication; KuCoin also uses the authenticated futures snapshot endpoint to avoid dynamic rate limits on its public equivalent.
+
 Default Authenticated Subscriptions:
 - All trades for futures
 - Stop Order Lifecycle events for futures
