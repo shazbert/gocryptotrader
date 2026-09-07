@@ -119,6 +119,23 @@ func TestRateLimitBarrier(t *testing.T) {
 		require.NoError(t, <-errs)
 	})
 
+	t.Run("acceptance retains final reservations", func(t *testing.T) {
+		t.Parallel()
+		contexts, err := NewRateLimitBarrierContexts(WithDelayNotAllowed(t.Context()), 2)
+		require.NoError(t, err)
+		left := NewRateLimitWithWeight(time.Hour, 1, 1)
+		right := NewRateLimitWithWeight(time.Hour, 1, 1)
+		errs := make(chan error, 2)
+		go func() { errs <- left.RateLimit(contexts[0]) }()
+		go func() { errs <- right.RateLimit(contexts[1]) }()
+		require.NoError(t, <-errs)
+		require.NoError(t, <-errs)
+		require.ErrorIs(t, left.rateLimit(WithDelayNotAllowed(t.Context()), false), ErrDelayNotAllowed,
+			"accepted participant must retain its reservation")
+		require.ErrorIs(t, right.rateLimit(WithDelayNotAllowed(t.Context()), false), ErrDelayNotAllowed,
+			"accepted participant must retain its reservation")
+	})
+
 	t.Run("one delayed rejects both and restores reservations", func(t *testing.T) {
 		t.Parallel()
 		contexts, err := NewRateLimitBarrierContexts(t.Context(), 2)
@@ -162,31 +179,53 @@ func TestRateLimitBarrier(t *testing.T) {
 		require.NoError(t, left.RateLimit(WithDelayNotAllowed(t.Context())))
 	})
 
-	t.Run("accepted shared limiter participants remain paced", func(t *testing.T) {
+	t.Run("shared limiter without group burst rejects all participants", func(t *testing.T) {
 		synctest.Test(t, func(t *testing.T) { //nolint:thelper,nolintlint // false positive
 			contexts, err := NewRateLimitBarrierContexts(t.Context(), 2)
 			require.NoError(t, err)
 			limiter := NewRateLimitWithWeight(100*time.Millisecond, 1, 1)
-			completed := make(chan time.Time, 2)
 			errs := make(chan error, 2)
-			go func() {
-				errs <- limiter.RateLimit(contexts[0])
-				completed <- time.Now()
-			}()
+			go func() { errs <- limiter.RateLimit(contexts[0]) }()
 			synctest.Wait()
-			time.Sleep(120 * time.Millisecond)
-			go func() {
-				errs <- limiter.RateLimit(contexts[1])
-				completed <- time.Now()
-			}()
+			go func() { errs <- limiter.RateLimit(contexts[1]) }()
 
-			require.NoError(t, <-errs)
-			require.NoError(t, <-errs)
-			first := <-completed
-			second := <-completed
-			assert.GreaterOrEqual(t, second.Sub(first).Abs(), 100*time.Millisecond,
-				"shared limiter participants should retain ordinary pacing")
+			require.ErrorIs(t, <-errs, ErrDelayNotAllowed)
+			require.ErrorIs(t, <-errs, ErrDelayNotAllowed)
+			assert.InDelta(t, 1, limiter.limiter.Tokens(), 0.001,
+				"rejected group should restore shared limiter capacity")
 		})
+	})
+
+	t.Run("contention before final arrival rejects group atomically", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) { //nolint:thelper,nolintlint // false positive
+			contexts, err := NewRateLimitBarrierContexts(t.Context(), 2)
+			require.NoError(t, err)
+			left := NewRateLimitWithWeight(200*time.Millisecond, 1, 1)
+			right := NewRateLimitWithWeight(200*time.Millisecond, 1, 1)
+			errs := make(chan error, 2)
+			go func() { errs <- left.RateLimit(contexts[0]) }()
+			synctest.Wait()
+			require.NoError(t, left.rateLimit(t.Context(), false), "competitor must consume left capacity")
+			go func() { errs <- right.RateLimit(contexts[1]) }()
+
+			require.ErrorIs(t, <-errs, ErrDelayNotAllowed)
+			require.ErrorIs(t, <-errs, ErrDelayNotAllowed)
+			assert.InDelta(t, 1, right.limiter.Tokens(), 0.001,
+				"atomic rejection should restore the other participant's capacity")
+		})
+	})
+
+	t.Run("weight exceeding burst rejects group", func(t *testing.T) {
+		t.Parallel()
+		contexts, err := NewRateLimitBarrierContexts(t.Context(), 2)
+		require.NoError(t, err)
+		weighted := NewRateLimitWithWeight(time.Second, 1, 2)
+		peer := NewRateLimitWithWeight(time.Second, 1, 1)
+		errs := make(chan error, 2)
+		go func() { errs <- weighted.RateLimit(contexts[0]) }()
+		go func() { errs <- peer.RateLimit(contexts[1]) }()
+		require.ErrorIs(t, <-errs, ErrDelayNotAllowed)
+		require.ErrorIs(t, <-errs, ErrDelayNotAllowed)
 	})
 
 	t.Run("rejected probe restores capacity before competitor", func(t *testing.T) {

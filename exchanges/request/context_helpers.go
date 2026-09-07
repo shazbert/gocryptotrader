@@ -71,30 +71,39 @@ func hasDelayNotAllowed(ctx context.Context) bool {
 type rateLimitBarrierKey struct{}
 
 type rateLimitBarrier struct {
-	done      chan struct{}
-	remaining uint
-	rejected  bool
-	closed    bool
-	mu        sync.Mutex
+	done         chan struct{}
+	participants []*rateLimitBarrierParticipant
+	remaining    uint
+	rejected     bool
+	closed       bool
+	mu           sync.Mutex
 }
 
 type rateLimitBarrierParticipant struct {
 	barrier *rateLimitBarrier
+	done    <-chan struct{}
+	limiter *RateLimiterWithWeight
 	used    atomic.Bool
 }
 
 // NewRateLimitBarrierContexts returns distinct contexts whose first rate-limit calls proceed only when every participant can proceed immediately.
-// Each request owner must defer AbortRateLimitBarrier so a failure before reaching the limiter releases the other participants. After acceptance,
-// subsequent rate-limit calls using a participant context proceed normally, including retries. Participants sharing a limiter are paced normally
-// after the barrier accepts them and therefore might not execute simultaneously.
+// Each request owner must defer AbortRateLimitBarrier so a failure before reaching the limiter releases the other participants. The final arrival
+// atomically reserves capacity for the group; shared limiters must have enough burst capacity for all participants, and each weight must fit its
+// limiter's burst. After acceptance, subsequent rate-limit calls using a participant context proceed normally, including retries.
 func NewRateLimitBarrierContexts(ctx context.Context, participants uint) ([]context.Context, error) {
 	if participants < 2 {
 		return nil, ErrInvalidRateLimitBarrierParticipants
 	}
-	barrier := &rateLimitBarrier{done: make(chan struct{}), remaining: participants}
+	barrier := &rateLimitBarrier{
+		done:         make(chan struct{}),
+		participants: make([]*rateLimitBarrierParticipant, participants),
+		remaining:    participants,
+	}
 	contexts := make([]context.Context, participants)
 	for i := range contexts {
-		contexts[i] = context.WithValue(ctx, rateLimitBarrierKey{}, &rateLimitBarrierParticipant{barrier: barrier}) //nolint:fatcontext // Participants are independent siblings of the same parent.
+		participant := &rateLimitBarrierParticipant{barrier: barrier}
+		barrier.participants[i] = participant
+		contexts[i] = context.WithValue(ctx, rateLimitBarrierKey{}, participant) //nolint:fatcontext // Participants are independent siblings of the same parent.
 	}
 	return contexts, nil
 }
@@ -114,7 +123,8 @@ func WaitForRateLimitBarrier(ctx context.Context) error {
 	if participant == nil {
 		return nil
 	}
-	return participant.wait(ctx, true)
+	_, err := participant.wait(ctx, nil)
+	return err
 }
 
 func rateLimitBarrierParticipantFromContext(ctx context.Context) *rateLimitBarrierParticipant {
@@ -122,43 +132,42 @@ func rateLimitBarrierParticipantFromContext(ctx context.Context) *rateLimitBarri
 	return participant
 }
 
-func (p *rateLimitBarrierParticipant) wait(ctx context.Context, immediate bool) error {
+func (p *rateLimitBarrierParticipant) wait(ctx context.Context, limiter *RateLimiterWithWeight) (bool, error) {
 	if !p.used.CompareAndSwap(false, true) {
-		return p.barrier.reuseResult()
+		return false, p.barrier.reuseResult()
 	}
 	if closed, err := p.barrier.closedResult(); closed {
-		return err
-	}
-	if !immediate {
-		p.barrier.reject()
-		return ErrDelayNotAllowed
+		return true, err
 	}
 	if err := ctx.Err(); err != nil {
 		p.barrier.reject()
-		return err
+		return true, err
 	}
-	if p.barrier.arrive() {
-		return nil
+	if p.barrier.arrive(ctx, p, limiter) {
+		return true, p.barrier.resultFor(ctx)
 	}
 	select {
 	case <-p.barrier.done:
-		return p.barrier.result()
+		return true, p.barrier.resultFor(ctx)
 	case <-ctx.Done():
 		if p.barrier.reject() {
-			return ctx.Err()
+			return true, ctx.Err()
 		}
-		return p.barrier.result()
+		return true, p.barrier.resultFor(ctx)
 	}
 }
 
-func (b *rateLimitBarrier) arrive() bool {
+func (b *rateLimitBarrier) arrive(ctx context.Context, participant *rateLimitBarrierParticipant, limiter *RateLimiterWithWeight) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.closed {
-		return !b.rejected
+		return true
 	}
+	participant.done = ctx.Done()
+	participant.limiter = limiter
 	b.remaining--
 	if b.remaining == 0 {
+		b.rejected = !b.admitLocked()
 		b.closed = true
 		close(b.done)
 		return true
@@ -185,6 +194,14 @@ func (b *rateLimitBarrier) result() error {
 		return ErrDelayNotAllowed
 	}
 	return nil
+}
+
+func (b *rateLimitBarrier) resultFor(ctx context.Context) error {
+	err := b.result()
+	if err != nil && ctx.Err() != nil {
+		return ctx.Err()
+	}
+	return err
 }
 
 func (b *rateLimitBarrier) closedResult() (bool, error) {
