@@ -91,8 +91,8 @@ var subscriptionNames = map[asset.Item]map[string]string{
 var defaultSubscriptions = subscription.List{
 	{Enabled: true, Asset: asset.All, Channel: subscription.TickerChannel},
 	{Enabled: true, Asset: asset.All, Channel: subscription.OrderbookChannel, Interval: kline.HundredMilliseconds}, // Upgraded to realtime feeds when authenticated.
-	{Enabled: false, Asset: asset.Spot, Channel: marketOrderbookChannel},     // Full orderbook depth requires REST snapshot which is an authenticated request.
-	{Enabled: false, Asset: asset.Futures, Channel: futuresOrderbookChannel}, // Full orderbook depth requires REST snapshot which is an authenticated request.
+	{Enabled: false, Asset: asset.Spot, Channel: marketOrderbookChannel},                                           // Full orderbook depth requires REST snapshot which is an authenticated request.
+	{Enabled: false, Asset: asset.Futures, Channel: futuresOrderbookChannel},                                       // Full orderbook depth requires REST snapshot which is an authenticated request.
 	{Enabled: true, Asset: asset.Spot, Channel: subscription.AllTradesChannel},
 	{Enabled: true, Asset: asset.Margin, Channel: subscription.AllTradesChannel},
 	{Enabled: true, Asset: asset.Futures, Channel: futuresTradeOrderChannel, Authenticated: true},
@@ -147,7 +147,7 @@ func (e *Exchange) GetInstanceServers(ctx context.Context) (*WSInstanceServers, 
 		Data WSInstanceServers `json:"data"`
 		Error
 	}{}
-	return &(response.Data), e.SendPayload(ctx, request.Unset, func() (*request.Item, error) {
+	return &response.Data, e.SendPayload(ctx, request.Unset, func() (*request.Item, error) {
 		endpointPath, err := e.API.Endpoints.GetURL(exchange.RestSpot)
 		if err != nil {
 			return nil, err
