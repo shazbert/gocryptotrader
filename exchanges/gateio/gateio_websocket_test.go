@@ -222,6 +222,7 @@ func TestProcessOrderbookUpdateWithSnapshot(t *testing.T) {
 	e := new(Exchange)
 	require.NoError(t, testexch.Setup(e))
 	e.Name = "ProcessOrderbookUpdateWithSnapshot"
+	e.ValidateOrderbook = true
 	e.Features.Subscriptions = subscription.List{
 		{Enabled: true, Channel: spotOrderbookV2, Asset: asset.Spot, Levels: 50},
 	}
@@ -235,8 +236,9 @@ func TestProcessOrderbookUpdateWithSnapshot(t *testing.T) {
 	e.wsOBResubMgr.lookup[key.PairAsset{Base: currency.BTC.Item, Quote: currency.USDT.Item, Asset: asset.Spot}] = true
 
 	for _, tc := range []struct {
-		payload []byte
-		err     error
+		payload      []byte
+		err          error
+		assertUpdate bool
 	}{
 		{payload: []byte(`{"t":"bingbong"}`), err: types.ErrInvalidTimestampFormat},
 		{payload: []byte(`{"s":"ob.50"}`), err: common.ErrMalformedData},
@@ -252,7 +254,8 @@ func TestProcessOrderbookUpdateWithSnapshot(t *testing.T) {
 		},
 		{
 			// Incremental update will apply correctly
-			payload: []byte(`{"t":1757377580073,"s":"ob.BTC_USDT.50","u":27053258987,"U":27053258982,"b":[["111666","0.146841"]],"a":[["111666.1","0.791633"],["111676.8","0.014"]]}`),
+			payload:      []byte(`{"t":1757377580073,"s":"ob.BTC_USDT.50","u":27053258987,"U":27053258982,"b":[["111666","0.146841"]],"a":[["111666.1","0.791633"],["111676.8","0.014"]]}`),
+			assertUpdate: true,
 		},
 		{
 			// Incremental update out of order will force resubscription
@@ -266,5 +269,34 @@ func TestProcessOrderbookUpdateWithSnapshot(t *testing.T) {
 			continue
 		}
 		require.NoError(t, err)
+		if tc.assertUpdate {
+			book, err := e.Websocket.Orderbook.GetOrderbook(currency.NewBTCUSDT(), asset.Spot)
+			require.NoError(t, err, "GetOrderbook must not error")
+			assert.True(t, book.ValidateOrderbook, "V2 snapshot should retain configured validation")
+			assert.Equal(t, int64(27053258987), book.LastUpdateID, "incremental update should advance the update ID")
+			require.NotEmpty(t, book.Bids, "updated book must contain bids")
+			assert.Equal(t, 0.146841, book.Bids[0].Amount, "incremental update should replace the matching bid amount")
+		}
 	}
+}
+
+func TestDefaultSpotOrderbookSubscription(t *testing.T) {
+	t.Parallel()
+	var legacy, v2 *subscription.Subscription
+	for _, sub := range defaultSubscriptions {
+		if sub.Asset != asset.Spot {
+			continue
+		}
+		switch sub.Channel {
+		case subscription.OrderbookChannel:
+			legacy = sub
+		case spotOrderbookV2:
+			v2 = sub
+		}
+	}
+	require.NotNil(t, legacy, "legacy spot orderbook subscription must be defined")
+	assert.False(t, legacy.Enabled, "legacy spot orderbook subscription should be disabled")
+	require.NotNil(t, v2, "V2 spot orderbook subscription must be defined")
+	assert.True(t, v2.Enabled, "V2 spot orderbook subscription should be enabled")
+	assert.Equal(t, 50, v2.Levels, "V2 spot orderbook subscription should request 50 levels")
 }

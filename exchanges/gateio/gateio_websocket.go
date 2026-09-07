@@ -434,14 +434,15 @@ func (e *Exchange) processOrderbookUpdateWithSnapshot(ctx context.Context, conn 
 
 	if data.Full {
 		if err := e.Websocket.Orderbook.LoadSnapshot(&orderbook.Book{
-			Exchange:     e.Name,
-			Pair:         pair,
-			Asset:        a,
-			LastUpdated:  data.UpdateTime.Time(),
-			LastPushed:   lastPushed,
-			LastUpdateID: data.LastUpdateID,
-			Bids:         data.Bids.Levels(),
-			Asks:         data.Asks.Levels(),
+			Exchange:          e.Name,
+			Pair:              pair,
+			Asset:             a,
+			LastUpdated:       data.UpdateTime.Time(),
+			LastPushed:        lastPushed,
+			LastUpdateID:      data.LastUpdateID,
+			Bids:              data.Bids.Levels(),
+			Asks:              data.Asks.Levels(),
+			ValidateOrderbook: e.ValidateOrderbook,
 		}); err != nil {
 			return err
 		}
