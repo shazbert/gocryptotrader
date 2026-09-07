@@ -90,9 +90,7 @@ var subscriptionNames = map[asset.Item]map[string]string{
 
 var defaultSubscriptions = subscription.List{
 	{Enabled: true, Asset: asset.All, Channel: subscription.TickerChannel},
-	{Enabled: true, Asset: asset.All, Channel: subscription.OrderbookChannel, Interval: kline.HundredMilliseconds}, // Upgraded to realtime feeds when authenticated.
-	{Enabled: false, Asset: asset.Spot, Channel: marketOrderbookChannel},                                           // Full orderbook depth requires REST snapshot which is an authenticated request.
-	{Enabled: false, Asset: asset.Futures, Channel: futuresOrderbookChannel},                                       // Full orderbook depth requires REST snapshot which is an authenticated request.
+	{Enabled: true, Asset: asset.All, Channel: subscription.OrderbookChannel, Interval: kline.HundredMilliseconds},
 	{Enabled: true, Asset: asset.Spot, Channel: subscription.AllTradesChannel},
 	{Enabled: true, Asset: asset.Margin, Channel: subscription.AllTradesChannel},
 	{Enabled: true, Asset: asset.Futures, Channel: futuresTradeOrderChannel, Authenticated: true},
@@ -846,15 +844,24 @@ func (e *Exchange) processSpotOrderbookWithDepth(ctx context.Context, respData [
 		}
 	}
 
-	return e.wsOBUpdateMgr.ProcessOrderbookUpdate(ctx, resp.Result.SequenceStart, &orderbook.Update{
-		UpdateID:   resp.Result.SequenceEnd,
-		UpdateTime: resp.Result.TimeMS.Time(),
-		LastPushed: resp.Result.TimeMS.Time(), // Realtime so this is pushed when a change occurs
-		Asset:      asset.Spot,
-		Bids:       bids,
-		Asks:       asks,
-		Pair:       pair,
-	})
+	assets, err := e.CalculateAssets(marketOrderbookChannel, pair)
+	if err != nil {
+		return err
+	}
+	for _, a := range assets {
+		if err := e.wsOBUpdateMgr.ProcessOrderbookUpdate(ctx, resp.Result.SequenceStart, &orderbook.Update{
+			UpdateID:   resp.Result.SequenceEnd,
+			UpdateTime: resp.Result.TimeMS.Time(),
+			LastPushed: resp.Result.TimeMS.Time(), // Realtime so this is pushed when a change occurs
+			Asset:      a,
+			Bids:       slices.Clone(bids),
+			Asks:       slices.Clone(asks),
+			Pair:       pair,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // processOrderbook processes orderbook data for a specific symbol.
@@ -1033,20 +1040,40 @@ func collapseSubscriptionList(subs subscription.List) map[*subscription.List]*su
 
 // generateSubscriptions returns a list of subscriptions from the configured subscriptions feature
 func (e *Exchange) generateSubscriptions() (subscription.List, error) {
-	return e.Features.Subscriptions.ExpandTemplates(e)
+	subs, err := e.Features.Subscriptions.ExpandTemplates(e)
+	if err != nil || !e.Websocket.CanUseAuthenticatedEndpoints() {
+		return subs, err
+	}
+	for _, s := range subs {
+		if s.Channel != subscription.OrderbookChannel {
+			continue
+		}
+		channel := marketOrderbookChannel
+		if s.Asset == asset.Futures {
+			channel = futuresOrderbookChannel
+		}
+		s.Channel = channel
+		if _, suffix, found := strings.Cut(s.QualifiedChannel, ":"); found {
+			s.QualifiedChannel = channel + ":" + suffix
+		} else {
+			s.QualifiedChannel = channel
+		}
+		s.Interval = 0
+	}
+	return subs, nil
 }
 
 // GetSubscriptionTemplate returns a subscription channel template
 func (e *Exchange) GetSubscriptionTemplate(_ *subscription.Subscription) (*template.Template, error) {
 	return template.New("master.tmpl").
 		Funcs(template.FuncMap{
-			"channelName":           e.channelName,
+			"channelName":           channelName,
 			"mergeMarginPairs":      e.mergeMarginPairs,
 			"isCurrencyChannel":     isCurrencyChannel,
 			"isSymbolChannel":       isSymbolChannel,
 			"channelInterval":       channelInterval,
 			"assetCurrencies":       assetCurrencies,
-			"joinPairsWithInterval": e.joinPairsWithInterval,
+			"joinPairsWithInterval": joinPairsWithInterval,
 			"batch":                 common.Batch[currency.Pairs],
 		}).
 		Parse(subTplText)
@@ -1116,17 +1143,21 @@ func (e *Exchange) checkSubscriptions() {
 			s.Asset = asset.Margin
 		}
 	}
+	before := len(e.Config.Features.Subscriptions)
 	e.Config.Features.Subscriptions = slices.DeleteFunc(e.Config.Features.Subscriptions, func(s *subscription.Subscription) bool {
 		switch s.Channel {
 		case "/contractMarket/level2Depth50", // Replaced by subsctiption.Orderbook for asset.All
 			"/contractMarket/tickerV2", // Replaced by subscription.Ticker for asset.All
-			"/margin/fundingBook":      // Deprecated and removed
+			"/margin/fundingBook",      // Deprecated and removed
+			marketOrderbookChannel,     // Replaced by subscription.OrderbookChannel, which selects the feed based on authentication
+			futuresOrderbookChannel:    // Replaced by subscription.OrderbookChannel, which selects the feed based on authentication
 			return true
 		case subscription.AllTradesChannel:
 			return s.Asset == asset.Empty
 		}
 		return false
 	})
+	upgraded = upgraded || before != len(e.Config.Features.Subscriptions)
 	if upgraded {
 		e.Features.Subscriptions = e.Config.Features.Subscriptions.Enabled()
 	}
@@ -1145,18 +1176,6 @@ func channelName(s *subscription.Subscription, a asset.Item) string {
 		}
 	}
 	return s.Channel
-}
-
-func (e *Exchange) channelName(s *subscription.Subscription, a asset.Item) string {
-	// Realtime orderbooks require authenticated REST snapshots, so only upgrade
-	// the generic default when authenticated websocket support is enabled.
-	if e.Websocket.CanUseAuthenticatedEndpoints() && s.Channel == subscription.OrderbookChannel {
-		if a == asset.Futures {
-			return futuresOrderbookChannel
-		}
-		return marketOrderbookChannel
-	}
-	return channelName(s, a)
 }
 
 // mergeMarginPairs merges margin pairs into spot pairs for shared subs (ticker, orderbook, etc) if Spot asset and sub are enabled,
@@ -1251,14 +1270,6 @@ func joinPairsWithInterval(b currency.Pairs, s *subscription.Subscription) strin
 		out[i] = p.String() + suffix
 	}
 	return strings.Join(out, ",")
-}
-
-func (e *Exchange) joinPairsWithInterval(b currency.Pairs, s *subscription.Subscription) string {
-	if e.Websocket.CanUseAuthenticatedEndpoints() && s.Channel == subscription.OrderbookChannel {
-		// Realtime level2 topics do not accept the depth-5 feed's interval suffix.
-		return b.Join()
-	}
-	return joinPairsWithInterval(b, s)
 }
 
 const subTplText = `
