@@ -48,7 +48,10 @@ type RateLimitDefinitions map[any]*RateLimiterWithWeight
 type RateLimiterWithWeight struct {
 	limiter *rate.Limiter
 	weight  Weight
-	m       sync.Mutex
+	// Redundant under rateLimitReservationMu in production, but retained so
+	// TestRateLimitReservationLock and TestRateLimitBarrierCancellationDuringAdmission
+	// can pause admission deterministically to verify locking and cancellation safeguards.
+	m sync.Mutex
 }
 
 // NewRateLimit creates a new RateLimit based of time interval and how many actions allowed and breaks it down to an
