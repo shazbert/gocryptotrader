@@ -35,7 +35,7 @@ func (m *wsOBResubManager) Resubscribe(ctx context.Context, e *Exchange, conn we
 		return err
 	}
 
-	sub := e.Websocket.GetSubscription(qualifiedChannelKey{&subscription.Subscription{QualifiedChannel: qualifiedChannel}})
+	sub := e.Websocket.GetSubscription(qualifiedChannelKey{&subscription.Subscription{QualifiedChannel: qualifiedChannel, Asset: a}})
 	if sub == nil {
 		return fmt.Errorf("%w: %q", subscription.ErrNotFound, qualifiedChannel)
 	}
@@ -67,7 +67,8 @@ type qualifiedChannelKey struct {
 }
 
 func (k qualifiedChannelKey) Match(eachKey subscription.MatchableKey) bool {
-	return k.Subscription.QualifiedChannel == eachKey.GetSubscription().QualifiedChannel
+	s := eachKey.GetSubscription()
+	return k.Subscription.QualifiedChannel == s.QualifiedChannel && k.Subscription.Asset == s.Asset
 }
 
 func (k qualifiedChannelKey) GetSubscription() *subscription.Subscription {
