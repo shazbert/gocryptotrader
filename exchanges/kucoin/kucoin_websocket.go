@@ -848,6 +848,7 @@ func (e *Exchange) processSpotOrderbookWithDepth(ctx context.Context, respData [
 	if err != nil {
 		return err
 	}
+	// ProcessOrderbookUpdate may mutate level slices, so each asset needs independent copies.
 	for _, a := range assets {
 		if err := e.wsOBUpdateMgr.ProcessOrderbookUpdate(ctx, resp.Result.SequenceStart, &orderbook.Update{
 			UpdateID:   resp.Result.SequenceEnd,
@@ -1044,6 +1045,8 @@ func (e *Exchange) generateSubscriptions() (subscription.List, error) {
 	if err != nil || !e.Websocket.CanUseAuthenticatedEndpoints() {
 		return subs, err
 	}
+	// Resolve authenticated orderbooks after expansion so the realtime feed is reflected in
+	// subscription reconciliation keys and does not retain the public depth feed interval.
 	for _, s := range subs {
 		if s.Channel != subscription.OrderbookChannel {
 			continue
