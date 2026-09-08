@@ -4,6 +4,7 @@ package v14
 import (
 	"context"
 	"encoding/json" //nolint:depguard // Used instead of gct encoding/json so that we can ensure consistent library functionality between versions
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -11,9 +12,10 @@ import (
 )
 
 const (
-	legacyOrderbookChannel = "orderbook"
-	spotAsset              = "spot"
-	spotOrderbookV2Channel = "spot.obu"
+	legacyOrderbookChannel      = "orderbook"
+	legacyOrderbookAliasChannel = "spot.order_book_update"
+	spotAsset                   = "spot"
+	spotOrderbookV2Channel      = "spot.obu"
 )
 
 // Version implements ExchangeVersion for GateIO's spot orderbook subscription migration.
@@ -35,7 +37,7 @@ func (*Version) DowngradeExchange(_ context.Context, exchange []byte) ([]byte, e
 func migrateSubscriptions(exchange []byte, upgrade bool) ([]byte, error) {
 	raw, _, _, err := jsonparser.Get(exchange, "features", "subscriptions")
 	if err != nil {
-		if err == jsonparser.KeyPathNotFoundError {
+		if errors.Is(err, jsonparser.KeyPathNotFoundError) {
 			return exchange, nil
 		}
 		return exchange, fmt.Errorf("error getting GateIO subscriptions: %w", err)
@@ -68,6 +70,8 @@ func migrateSubscriptions(exchange []byte, upgrade bool) ([]byte, error) {
 				return exchange, nil
 			}
 			legacyIndex = i
+		case legacyOrderbookAliasChannel:
+			return exchange, nil
 		case spotOrderbookV2Channel:
 			if v2Index != -1 {
 				return exchange, nil

@@ -123,8 +123,28 @@ func TestMigrationRequiresDefaultV2Entry(t *testing.T) {
 					migrate = version.DowngradeExchange
 				}
 				got, err := migrate(t.Context(), []byte(input))
-				require.NoError(t, err, "migration must accept customized V2 entries")
-				assert.Equal(t, input, string(got), "migration should preserve customized V2 entries byte-for-byte")
+				require.NoError(t, err, "migration must accept customised V2 entries")
+				assert.Equal(t, input, string(got), "migration should preserve customised V2 entries byte-for-byte")
+			})
+		}
+	}
+}
+
+func TestMigrationPreservesRawLegacyChannel(t *testing.T) {
+	t.Parallel()
+	for _, upgrade := range []bool{true, false} {
+		for _, rawEnabled := range []bool{true, false} {
+			t.Run(fmt.Sprintf("upgrade=%t/rawEnabled=%t", upgrade, rawEnabled), func(t *testing.T) {
+				t.Parallel()
+				input := fmt.Sprintf(`{"features":{"subscriptions":[{"enabled":%t,"channel":"orderbook","asset":"spot","interval":"100ms"},{"enabled":%t,"channel":"spot.order_book_update","asset":"spot","interval":"100ms","pairs":"ETH_USDT"},{"enabled":%t,"channel":"spot.obu","asset":"spot","levels":50}]}}`, upgrade, rawEnabled, !upgrade)
+				version := new(v14.Version)
+				migrate := version.UpgradeExchange
+				if !upgrade {
+					migrate = version.DowngradeExchange
+				}
+				got, err := migrate(t.Context(), []byte(input))
+				require.NoError(t, err, "migration must accept raw legacy channels")
+				assert.Equal(t, input, string(got), "migration should preserve the raw legacy feed and its generic snapshot dependency byte-for-byte")
 			})
 		}
 	}

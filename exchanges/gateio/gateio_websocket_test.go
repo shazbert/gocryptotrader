@@ -3,6 +3,8 @@ package gateio
 import (
 	"context"
 	"maps"
+	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"testing"
@@ -13,13 +15,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/common/key"
+	"github.com/thrasher-corp/gocryptotrader/config"
 	"github.com/thrasher-corp/gocryptotrader/currency"
+	"github.com/thrasher-corp/gocryptotrader/encoding/json"
 	"github.com/thrasher-corp/gocryptotrader/exchange/accounts"
 	exchange "github.com/thrasher-corp/gocryptotrader/exchanges"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/asset"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/orderbook"
 	"github.com/thrasher-corp/gocryptotrader/exchanges/subscription"
 	testexch "github.com/thrasher-corp/gocryptotrader/internal/testing/exchange"
+	testutils "github.com/thrasher-corp/gocryptotrader/internal/testing/utils"
 	"github.com/thrasher-corp/gocryptotrader/types"
 )
 
@@ -277,6 +282,29 @@ func TestProcessOrderbookUpdateWithSnapshot(t *testing.T) {
 			require.NotEmpty(t, book.Bids, "updated book must contain bids")
 			assert.Equal(t, 0.146841, book.Bids[0].Amount, "incremental update should replace the matching bid amount")
 		}
+	}
+}
+
+func TestShippedConfigsMatchDefaultSubscriptions(t *testing.T) {
+	t.Parallel()
+	root, err := testutils.RootPathFromCWD()
+	require.NoError(t, err, "repository root must be found")
+	expected, err := json.Marshal(defaultSubscriptions)
+	require.NoError(t, err, "default subscriptions must marshal")
+	for _, name := range []string{"config_example.json", filepath.Join("testdata", "configtest.json")} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			data, err := os.ReadFile(filepath.Join(root, name))
+			require.NoError(t, err, "shipped config must be readable")
+			var cfg config.Config
+			require.NoError(t, json.Unmarshal(data, &cfg), "shipped config must unmarshal")
+			exchangeConfig, err := cfg.GetExchangeConfig("GateIO")
+			require.NoError(t, err, "shipped config must contain GateIO")
+			require.NotNil(t, exchangeConfig.Features, "GateIO features must be configured")
+			got, err := json.Marshal(exchangeConfig.Features.Subscriptions)
+			require.NoError(t, err, "shipped subscriptions must marshal")
+			assert.JSONEq(t, string(expected), string(got), "shipped subscriptions should match defaultSubscriptions")
+		})
 	}
 }
 
