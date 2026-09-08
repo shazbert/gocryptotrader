@@ -848,7 +848,7 @@ func (e *Exchange) processSpotOrderbookWithDepth(ctx context.Context, respData [
 	if err != nil {
 		return err
 	}
-	// ProcessOrderbookUpdate may mutate level slices, so each asset needs independent copies.
+	// Each asset gets its own level slices to prevent sharing mutable state.
 	for _, a := range assets {
 		if err := e.wsOBUpdateMgr.ProcessOrderbookUpdate(ctx, resp.Result.SequenceStart, &orderbook.Update{
 			UpdateID:   resp.Result.SequenceEnd,
@@ -1059,6 +1059,7 @@ func (e *Exchange) generateSubscriptions() (subscription.List, error) {
 		s.Channel = channel
 		s.QualifiedChannel = channel + ":" + s.Pairs.Join()
 		s.Interval = 0
+		s.Levels = 0
 		subs[index] = s
 	}
 	return subs, nil
@@ -1161,7 +1162,9 @@ func (e *Exchange) checkSubscriptions() {
 		return false
 	})
 	upgraded = upgraded || before != len(e.Config.Features.Subscriptions)
-	if replaceRealtime {
+	if replaceRealtime && !slices.ContainsFunc(e.Config.Features.Subscriptions, func(sub *subscription.Subscription) bool {
+		return sub.Channel == subscription.OrderbookChannel && sub.Enabled
+	}) {
 		index := slices.IndexFunc(e.Config.Features.Subscriptions, func(sub *subscription.Subscription) bool {
 			return sub.Channel == subscription.OrderbookChannel && sub.Asset == asset.All
 		})

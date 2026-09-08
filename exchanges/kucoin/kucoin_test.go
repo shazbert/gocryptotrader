@@ -180,6 +180,9 @@ func TestGetOrderbookAuthenticatedV1(t *testing.T) {
 	_, err = e.GetOrderbookAuthenticatedV1(t.Context(), spotTradablePair.String(), asset.Margin, "10")
 	require.ErrorIs(t, err, errInvalidLimit)
 
+	_, err = e.GetOrderbookAuthenticatedV1(t.Context(), spotTradablePair.String(), asset.Options, "20")
+	require.ErrorIs(t, err, asset.ErrNotSupported)
+
 	sharedtestvalues.SkipTestIfCredentialsUnset(t, e)
 
 	for _, tt := range []struct {

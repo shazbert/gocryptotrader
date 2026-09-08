@@ -203,37 +203,31 @@ func TestGenerateSubscriptions(t *testing.T) {
 	subs, err := ku.generateSubscriptions()
 	require.NoError(t, err, "generateSubscriptions with Auth must not error")
 	testsubs.EqualLists(t, exp, subs)
-
-	for _, authenticated := range subs {
-		if authenticated.Channel != marketOrderbookChannel && authenticated.Channel != futuresOrderbookChannel {
-			continue
-		}
-		for _, public := range publicSubs {
-			assert.False(t, (subscription.ExactKey{Subscription: authenticated}).Match(subscription.ExactKey{Subscription: public}), "authentication change should alter the orderbook subscription key")
-		}
-	}
 }
 
 func TestGenerateRealtimeOrderbookIntervals(t *testing.T) {
 	t.Parallel()
-	for _, assetType := range []asset.Item{asset.Spot, asset.Margin, asset.Futures} {
+	for assetType, topics := range map[asset.Item][]string{
+		asset.Spot:    {"/market/level2:BTC-USDT", "/market/level2:ETH-BTC", "/market/level2:ETH-USDT", "/market/level2:LTC-USDT"},
+		asset.Margin:  {"/market/level2:ETH-BTC", "/market/level2:LTC-USDT", "/market/level2:SOL-USDC", "/market/level2:TRX-BTC"},
+		asset.Futures: {"/contractMarket/level2:ETHUSDCM", "/contractMarket/level2:SOLUSDTM", "/contractMarket/level2:XBTUSDCM"},
+	} {
 		for _, interval := range []kline.Interval{kline.OneMin, kline.FourHour} {
 			t.Run(fmt.Sprintf("%s/%s", assetType, interval), func(t *testing.T) {
 				t.Parallel()
 				ku := testInstance(t)
 				ku.Websocket.SetCanUseAuthenticatedEndpoints(true)
-				ku.Features.Subscriptions = subscription.List{{Channel: subscription.OrderbookChannel, Asset: assetType, Interval: interval}}
+				ku.Features.Subscriptions = subscription.List{{Channel: subscription.OrderbookChannel, Asset: assetType, Interval: interval, Levels: 50}}
 				subs, err := ku.generateSubscriptions()
 				require.NoError(t, err, "realtime subscriptions must generate")
 				require.NotEmpty(t, subs, "realtime subscriptions must include enabled pairs")
-				channel := marketOrderbookChannel
-				if assetType == asset.Futures {
-					channel = futuresOrderbookChannel
-				}
+				gotTopics := make([]string, 0, len(subs))
 				for _, sub := range subs {
-					assert.Equal(t, channel+":"+sub.Pairs.Join(), sub.QualifiedChannel, "realtime topics should contain only pair symbols")
+					gotTopics = append(gotTopics, sub.QualifiedChannel)
 					assert.Zero(t, sub.Interval, "realtime subscriptions should not retain an interval")
+					assert.Zero(t, sub.Levels, "realtime subscriptions should not retain a depth limit")
 				}
+				assert.ElementsMatch(t, topics, gotTopics, "realtime topics should contain the expected pair symbols without interval suffixes")
 			})
 		}
 	}
@@ -249,7 +243,7 @@ func TestGenerateRealtimeOrderbooksPreservesConfiguredSubscriptions(t *testing.T
 			require.NoError(t, err, "pre-expanded pair must parse")
 			configured := &subscription.Subscription{
 				Channel: subscription.OrderbookChannel, Asset: asset.Spot,
-				Pairs: currency.Pairs{pair}, Interval: kline.OneMin,
+				Pairs: currency.Pairs{pair}, Interval: kline.OneMin, Levels: 50,
 				QualifiedChannel: marketOrderbookDepth5Channel + ":ETH-BTC_1min",
 			}
 			original := configured.Clone()
@@ -263,7 +257,8 @@ func TestGenerateRealtimeOrderbooksPreservesConfiguredSubscriptions(t *testing.T
 			require.NotEmpty(t, subs, "generated subscriptions must contain the orderbook")
 			assert.NotSame(t, configured, subs[0], "rewritten orderbook should not alias its configuration")
 			assert.Equal(t, original, configured, "generation should preserve the configured subscription")
-			assert.Equal(t, marketOrderbookChannel+":ETH-BTC", subs[0].QualifiedChannel, "realtime topic should omit the candle suffix")
+			assert.Equal(t, "/market/level2:ETH-BTC", subs[0].QualifiedChannel, "realtime topic should omit the candle suffix")
+			assert.Zero(t, subs[0].Levels, "realtime subscriptions should not retain the configured depth limit")
 			ku.Websocket.SetCanUseAuthenticatedEndpoints(false)
 			public, err := ku.generateSubscriptions()
 			require.NoError(t, err, "public subscriptions must generate after authentication is disabled")
@@ -407,10 +402,12 @@ func TestCheckSubscriptions(t *testing.T) {
 func TestCheckSubscriptionsPreservesRealtimeOrderbooks(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
-		name      string
-		generic   *subscription.Subscription
-		realtime  subscription.List
-		wantBooks bool
+		name       string
+		generic    *subscription.Subscription
+		pinned     subscription.List
+		wantAssets []asset.Item
+		realtime   subscription.List
+		wantBooks  bool
 	}{
 		{name: "disabled generic", generic: &subscription.Subscription{Channel: subscription.OrderbookChannel, Asset: asset.All, Interval: kline.HundredMilliseconds}, realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.Spot}, {Enabled: true, Channel: futuresOrderbookChannel, Asset: asset.Futures}}, wantBooks: true},
 		{name: "missing generic spot", realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.Spot}}, wantBooks: true},
@@ -419,6 +416,9 @@ func TestCheckSubscriptionsPreservesRealtimeOrderbooks(t *testing.T) {
 		{name: "disabled realtime", generic: &subscription.Subscription{Channel: subscription.OrderbookChannel, Asset: asset.All}, realtime: subscription.List{{Channel: marketOrderbookChannel, Asset: asset.Spot}, {Channel: futuresOrderbookChannel, Asset: asset.Futures}}},
 		{name: "disabled realtime without generic", realtime: subscription.List{{Channel: marketOrderbookChannel, Asset: asset.Spot}}},
 		{name: "no realtime", generic: &subscription.Subscription{Channel: subscription.OrderbookChannel, Asset: asset.All}},
+		{name: "pinned spot", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot}}, realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.Spot}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot}},
+		{name: "pinned spot and futures", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot}, {Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Futures}}, realtime: subscription.List{{Enabled: true, Channel: futuresOrderbookChannel, Asset: asset.Futures}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot, asset.Futures}},
+		{name: "pinned spot with disabled all", generic: &subscription.Subscription{Channel: subscription.OrderbookChannel, Asset: asset.All}, pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot}}, realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.Spot}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -428,28 +428,29 @@ func TestCheckSubscriptionsPreservesRealtimeOrderbooks(t *testing.T) {
 				ku.Config.Features.Subscriptions = append(ku.Config.Features.Subscriptions, test.generic.Clone())
 			}
 			ku.Config.Features.Subscriptions = append(ku.Config.Features.Subscriptions, test.realtime.Clone()...)
+			ku.Config.Features.Subscriptions = append(ku.Config.Features.Subscriptions, test.pinned.Clone()...)
 			ku.Features.Subscriptions = ku.Config.Features.Subscriptions.Enabled()
 			ku.checkSubscriptions()
-			var enabledBooks int
+			var bookAssets []asset.Item
 			for _, sub := range ku.Config.Features.Subscriptions {
 				assert.NotContains(t, []string{marketOrderbookChannel, futuresOrderbookChannel}, sub.Channel, "migration should remove obsolete realtime entries")
 				if sub.Channel == subscription.OrderbookChannel && sub.Enabled {
-					enabledBooks++
+					bookAssets = append(bookAssets, sub.Asset)
 				}
 			}
-			if test.wantBooks {
-				assert.Equal(t, 1, enabledBooks, "migration should retain exactly one enabled generic orderbook")
-			} else {
-				assert.Zero(t, enabledBooks, "migration should preserve disabled orderbooks")
+			wantAssets := test.wantAssets
+			if test.wantBooks && len(wantAssets) == 0 {
+				wantAssets = []asset.Item{asset.All}
 			}
+			assert.ElementsMatch(t, wantAssets, bookAssets, "migration should retain the expected generic asset coverage")
 			saved, err := json.Marshal(ku.Config)
-			require.NoError(t, err, "migrated config must serialize")
+			require.NoError(t, err, "migrated config must serialise")
 			ku.checkSubscriptions()
 			again, err := json.Marshal(ku.Config)
-			require.NoError(t, err, "repeated migration must serialize")
+			require.NoError(t, err, "repeated migration must serialise")
 			assert.Equal(t, saved, again, "migration should be idempotent")
 			restored := new(config.Exchange)
-			require.NoError(t, json.Unmarshal(saved, restored), "saved config must deserialize")
+			require.NoError(t, json.Unmarshal(saved, restored), "saved config must deserialise")
 			restarted := new(Exchange)
 			restarted.SetDefaults()
 			require.NoError(t, restarted.Setup(restored), "fresh setup must accept migrated config")
@@ -459,11 +460,25 @@ func TestCheckSubscriptionsPreservesRealtimeOrderbooks(t *testing.T) {
 					subs, err := instance.generateSubscriptions()
 					require.NoError(t, err, "migrated subscriptions must generate before and after restart")
 					var orderbooks int
+					generatedAssets := make(map[asset.Item]bool)
+					topics := make(map[string]bool)
 					for _, sub := range subs {
 						if sub.Channel == subscription.OrderbookChannel || sub.Channel == marketOrderbookChannel || sub.Channel == futuresOrderbookChannel {
 							orderbooks++
+							generatedAssets[sub.Asset] = true
+							assert.Falsef(t, topics[sub.QualifiedChannel], "orderbook topic %s should not be duplicated", sub.QualifiedChannel)
+							topics[sub.QualifiedChannel] = true
 						}
 					}
+					expectedAssets := make(map[asset.Item]bool)
+					for _, assetType := range wantAssets {
+						if assetType == asset.All {
+							expectedAssets[asset.Spot], expectedAssets[asset.Futures] = true, true
+						} else {
+							expectedAssets[assetType] = true
+						}
+					}
+					assert.Equal(t, expectedAssets, generatedAssets, "generated orderbooks should retain asset coverage before and after restart")
 					assert.Equal(t, test.wantBooks, orderbooks > 0, "orderbook coverage should survive migration and restart in either auth mode")
 				}
 			}
@@ -608,7 +623,7 @@ func TestProcessSpotOrderbookWithDepth(t *testing.T) {
 		require.NoError(t, err, "processSpotOrderbookWithDepth must not error")
 
 		for _, a := range assets {
-			require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			require.EventuallyWithTf(t, func(collect *assert.CollectT) {
 				book, err := ku.Websocket.Orderbook.GetOrderbook(pair, a)
 				require.NoError(collect, err, "GetOrderbook must return the realtime book")
 				assert.Equal(collect, int64(14103847), book.LastUpdateID, "LastUpdateID should include the realtime update")

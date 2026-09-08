@@ -33,6 +33,8 @@ Default Public Subscriptions:
 
 When authenticated websocket support is enabled, the default orderbook subscription uses the realtime spot and futures feeds. Realtime spot snapshots require authentication; KuCoin also uses the authenticated futures snapshot endpoint to avoid dynamic rate limits on its public equivalent.
 
+Legacy `/market/level2` and `/contractMarket/level2` subscription entries are removed during setup. If any removed entry was enabled, existing enabled generic orderbook subscriptions are retained; otherwise the generic `orderbook` subscription for all assets is enabled or added. This fallback can broaden a previous per-asset choice to all enabled assets and pairs, including margin pairs merged into spot. Pin the generic subscription to the desired assets and pairs to restrict coverage. Explicit depth-5 channel subscriptions remain available and are not upgraded by authentication.
+
 Default Authenticated Subscriptions:
 - All trades for futures
 - Stop Order Lifecycle events for futures
