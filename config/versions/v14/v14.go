@@ -52,10 +52,14 @@ func migrateSubscriptions(exchange []byte, upgrade bool) ([]byte, error) {
 	if err := json.Unmarshal(raw, &subscriptions); err != nil {
 		return exchange, fmt.Errorf("error decoding GateIO subscriptions: %w", err)
 	}
+	var entries []json.RawMessage
+	if err := json.Unmarshal(raw, &entries); err != nil {
+		return exchange, fmt.Errorf("error decoding GateIO subscription entries: %w", err)
+	}
 
 	legacyIndex, v2Index := -1, -1
 	for i := range subscriptions {
-		if subscriptions[i].Asset != spotAsset || subscriptions[i].Enabled == nil {
+		if subscriptions[i].Asset != spotAsset {
 			continue
 		}
 		switch subscriptions[i].Channel {
@@ -73,16 +77,13 @@ func migrateSubscriptions(exchange []byte, upgrade bool) ([]byte, error) {
 	}
 	if legacyIndex == -1 ||
 		string(subscriptions[legacyIndex].Interval) != `"100ms"` || subscriptions[legacyIndex].Pairs != "" ||
+		subscriptions[legacyIndex].Enabled == nil ||
 		*subscriptions[legacyIndex].Enabled != upgrade {
 		return exchange, nil
 	}
 	if v2Index == -1 {
 		if !upgrade {
 			return exchange, nil
-		}
-		entries := make([]json.RawMessage, 0, len(subscriptions)+1)
-		if err := json.Unmarshal(raw, &entries); err != nil {
-			return exchange, fmt.Errorf("error decoding GateIO subscription entries: %w", err)
 		}
 		v2Index = len(entries)
 		entries = append(entries, json.RawMessage(`{"enabled":true,"channel":"spot.obu","asset":"spot","levels":50}`))
@@ -94,8 +95,15 @@ func migrateSubscriptions(exchange []byte, upgrade bool) ([]byte, error) {
 		if err != nil {
 			return exchange, fmt.Errorf("error adding GateIO V2 spot orderbook subscription: %w", err)
 		}
-	} else if subscriptions[v2Index].Levels != 50 || subscriptions[v2Index].Pairs != "" || *subscriptions[v2Index].Enabled == upgrade {
-		return exchange, nil
+	} else {
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(entries[v2Index], &fields); err != nil {
+			return exchange, fmt.Errorf("error decoding GateIO V2 subscription: %w", err)
+		}
+		if len(fields) != 4 || subscriptions[v2Index].Levels != 50 ||
+			subscriptions[v2Index].Enabled == nil || *subscriptions[v2Index].Enabled == upgrade {
+			return exchange, nil
+		}
 	}
 
 	exchange, err = jsonparser.Set(exchange, []byte(strconv.FormatBool(!upgrade)), "features", "subscriptions", "["+strconv.Itoa(legacyIndex)+"]", "enabled")

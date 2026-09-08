@@ -1,6 +1,7 @@
 package gateio
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -104,6 +105,62 @@ func TestResubscribe(t *testing.T) {
 		10*time.Millisecond,
 		"resubscription state should clear after completion is signalled",
 	)
+}
+
+func TestFuturesV2GapRecovery(t *testing.T) {
+	t.Parallel()
+	exchange := new(Exchange)
+	require.NoError(t, testexch.Setup(exchange), "test exchange setup must succeed")
+	exchange.Name = t.Name()
+	subs, err := exchange.GenerateFuturesDefaultSubscriptions(asset.USDTMarginedFutures)
+	require.NoError(t, err, "futures subscriptions must generate")
+	var futures *subscription.Subscription
+	for _, sub := range subs {
+		if sub.Channel == futuresOrderbookV2 {
+			futures = sub
+			break
+		}
+	}
+	require.NotNil(t, futures, "defaults must include a futures V2 subscription")
+	pair := futures.Pairs[0]
+	qualifiedChannel := "ob." + pair.String() + ".50"
+	baseConn, err := exchange.Websocket.CreateTestConnection(asset.USDTMarginedFutures)
+	require.NoError(t, err, "futures connection must be created")
+	conn := &FixtureConnection{Connection: baseConn}
+	require.NoError(t, exchange.Websocket.TrackTestConnection(asset.USDTMarginedFutures, conn), "futures connection must be tracked")
+	spot := &subscription.Subscription{Channel: spotOrderbookV2, Asset: asset.Spot, Pairs: currency.Pairs{pair}, Levels: 50, QualifiedChannel: qualifiedChannel}
+	spotBase, err := exchange.Websocket.CreateTestConnection(asset.Spot)
+	require.NoError(t, err, "spot connection must be created")
+	spotConn := &FixtureConnection{Connection: spotBase}
+	require.NoError(t, exchange.Websocket.AddSuccessfulSubscriptions(spotConn, spot), "spot subscription must register")
+	require.NoError(t, exchange.Websocket.AddSubscriptions(conn, futures), "generated futures subscription must register")
+	for _, assetType := range []asset.Item{asset.Spot, asset.USDTMarginedFutures} {
+		snapshot := fmt.Appendf(nil, `{"t":1757377580046,"full":true,"s":%q,"u":100,"b":[["100","1"]],"a":[["101","1"]]}`, qualifiedChannel)
+		require.NoError(t, exchange.processOrderbookUpdateWithSnapshot(t.Context(), conn, snapshot, time.Now(), assetType), "initial snapshot must load")
+	}
+	gap := fmt.Appendf(nil, `{"time":1757377580,"channel":"futures.obu","event":"update","result":{"t":1757377580073,"s":%q,"U":102,"u":103}}`, qualifiedChannel)
+	require.NoError(t, exchange.WsHandleFuturesData(t.Context(), conn, gap, asset.USDTMarginedFutures), "futures gap must find its generated subscription")
+	assert.True(t, exchange.wsOBResubMgr.IsResubscribing(pair, asset.USDTMarginedFutures), "futures should await a replacement snapshot")
+	assert.False(t, exchange.wsOBResubMgr.IsResubscribing(pair, asset.Spot), "spot should not enter recovery")
+	assert.Equal(t, subscription.SubscribedState, spot.State(), "spot subscription should remain subscribed")
+	_, err = exchange.Websocket.Orderbook.GetOrderbook(pair, asset.USDTMarginedFutures)
+	require.Error(t, err, "gapped futures book must be unavailable")
+	spotBook, err := exchange.Websocket.Orderbook.GetOrderbook(pair, asset.Spot)
+	require.NoError(t, err, "spot book must remain available")
+	assert.Equal(t, int64(100), spotBook.LastUpdateID, "spot sequence should remain unchanged")
+	require.Eventually(t, func() bool {
+		return futures.State() == subscription.SubscribedState
+	}, time.Second, time.Millisecond, "futures subscription must complete unsubscribe and resubscribe")
+	fresh := fmt.Appendf(nil, `{"t":1757377580080,"full":true,"s":%q,"u":200,"b":[["100","2"]],"a":[["101","2"]]}`, qualifiedChannel)
+	require.NoError(t, exchange.processOrderbookUpdateWithSnapshot(t.Context(), conn, fresh, time.Now(), asset.USDTMarginedFutures), "replacement snapshot must load")
+	assert.False(t, exchange.wsOBResubMgr.IsResubscribing(pair, asset.USDTMarginedFutures), "replacement snapshot should clear recovery")
+	update := fmt.Appendf(nil, `{"t":1757377580090,"s":%q,"U":201,"u":201,"b":[["100","3"]]}`, qualifiedChannel)
+	require.NoError(t, exchange.processOrderbookUpdateWithSnapshot(t.Context(), conn, update, time.Now(), asset.USDTMarginedFutures), "incremental processing must resume")
+	book, err := exchange.Websocket.Orderbook.GetOrderbook(pair, asset.USDTMarginedFutures)
+	require.NoError(t, err, "recovered futures book must be available")
+	assert.Equal(t, int64(201), book.LastUpdateID, "recovered book should advance its sequence")
+	require.NotEmpty(t, book.Bids, "recovered book must contain bids")
+	assert.Equal(t, float64(3), book.Bids[0].Amount, "recovered book should apply incremental quantities")
 }
 
 func TestCompletedResubscribe(t *testing.T) {

@@ -2851,6 +2851,21 @@ func TestGenerateFuturesDefaultSubscriptions(t *testing.T) {
 	subs, err := e.GenerateFuturesDefaultSubscriptions(asset.USDTMarginedFutures)
 	require.NoError(t, err)
 	require.NotEmpty(t, subs)
+	var orderbooks int
+	for _, sub := range subs {
+		if sub.Channel != futuresOrderbookV2 {
+			continue
+		}
+		orderbooks++
+		assert.Equal(t, "ob."+sub.Pairs[0].String()+".50", sub.QualifiedChannel, "V2 recovery key should identify the pair and depth")
+		for _, event := range []string{subscribeEvent, unsubscribeEvent} {
+			payload, err := e.generateFuturesPayload(t.Context(), event, subscription.List{sub})
+			require.NoError(t, err, "V2 payload generation must succeed")
+			require.Len(t, payload, 1, "V2 subscription must generate one request")
+			assert.Equal(t, []string{sub.QualifiedChannel}, payload[0].Payload, "V2 payload should match the recovery key")
+		}
+	}
+	require.Positive(t, orderbooks, "futures defaults must include V2 orderbooks")
 	subs, err = e.GenerateFuturesDefaultSubscriptions(asset.CoinMarginedFutures)
 	require.NoError(t, err)
 	require.NotEmpty(t, subs)

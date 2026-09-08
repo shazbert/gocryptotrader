@@ -1,6 +1,9 @@
 package v14_test
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -82,6 +85,8 @@ func TestMigrationPreservesCustomSubscriptions(t *testing.T) {
 		"disabled legacy without V2":  `{"features":{"subscriptions":[{"enabled":false,"channel":"orderbook","asset":"spot","interval":"100ms"}]}}`,
 		"downgrade restricted legacy": `{"features":{"subscriptions":[{"enabled":false,"channel":"orderbook","asset":"spot","interval":"100ms","pairs":"BTC_USDT"},{"enabled":true,"channel":"spot.obu","asset":"spot","levels":50}]}}`,
 		"downgrade restricted V2":     `{"features":{"subscriptions":[{"enabled":false,"channel":"orderbook","asset":"spot","interval":"100ms"},{"enabled":true,"channel":"spot.obu","asset":"spot","levels":50,"pairs":"ETH_USDT"}]}}`,
+		"duplicate missing enabled":   `{"features":{"subscriptions":[{"enabled":true,"channel":"orderbook","asset":"spot","interval":"100ms"},{"channel":"spot.obu","asset":"spot","levels":50},{"enabled":false,"channel":"spot.obu","asset":"spot","levels":50}]}}`,
+		"legacy missing enabled":      `{"features":{"subscriptions":[{"channel":"orderbook","asset":"spot","interval":"100ms"},{"enabled":false,"channel":"spot.obu","asset":"spot","levels":50}]}}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -93,6 +98,35 @@ func TestMigrationPreservesCustomSubscriptions(t *testing.T) {
 			require.NoError(t, err, "DowngradeExchange must accept custom subscriptions")
 			assert.Equal(t, input, string(got), "DowngradeExchange should preserve custom subscriptions byte-for-byte")
 		})
+	}
+}
+
+func TestMigrationRequiresDefaultV2Entry(t *testing.T) {
+	t.Parallel()
+	for name, entry := range map[string]string{
+		"authenticated":   `{"enabled":%t,"channel":"spot.obu","asset":"spot","levels":50,"authenticated":true}`,
+		"explicit false":  `{"enabled":%t,"channel":"spot.obu","asset":"spot","levels":50,"authenticated":false}`,
+		"custom interval": `{"enabled":%t,"channel":"spot.obu","asset":"spot","levels":50,"interval":"20ms"}`,
+		"unknown field":   `{"enabled":%t,"channel":"spot.obu","asset":"spot","levels":50,"custom":"retained"}`,
+		"empty pairs":     `{"enabled":%t,"channel":"spot.obu","asset":"spot","levels":50,"pairs":""}`,
+		"null enabled":    `{"enabled":null,"channel":"spot.obu","asset":"spot","levels":50}`,
+		"missing enabled": `{"channel":"spot.obu","asset":"spot","levels":50}`,
+	} {
+		for _, upgrade := range []bool{true, false} {
+			t.Run(fmt.Sprintf("%s/upgrade=%t", name, upgrade), func(t *testing.T) {
+				t.Parallel()
+				v2 := strings.ReplaceAll(entry, "%t", strconv.FormatBool(!upgrade))
+				input := fmt.Sprintf(`{"features":{"subscriptions":[{"enabled":%t,"channel":"orderbook","asset":"spot","interval":"100ms"},%s]}}`, upgrade, v2)
+				version := new(v14.Version)
+				migrate := version.UpgradeExchange
+				if !upgrade {
+					migrate = version.DowngradeExchange
+				}
+				got, err := migrate(t.Context(), []byte(input))
+				require.NoError(t, err, "migration must accept customized V2 entries")
+				assert.Equal(t, input, string(got), "migration should preserve customized V2 entries byte-for-byte")
+			})
+		}
 	}
 }
 

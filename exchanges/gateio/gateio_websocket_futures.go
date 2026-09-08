@@ -130,12 +130,16 @@ func (e *Exchange) GenerateFuturesDefaultSubscriptions(a asset.Item) (subscripti
 			if err != nil {
 				return nil, err
 			}
-			subscriptions = append(subscriptions, &subscription.Subscription{
+			sub := &subscription.Subscription{
 				Channel: channelsToSubscribe[i],
 				Pairs:   currency.Pairs{fPair.Upper()},
 				Params:  params,
 				Asset:   a,
-			})
+			}
+			if sub.Channel == futuresOrderbookV2 {
+				sub.QualifiedChannel = fmt.Sprintf("ob.%s.%d", sub.Pairs[0], params["level"])
+			}
+			subscriptions = append(subscriptions, sub)
 		}
 	}
 	return subscriptions, nil
