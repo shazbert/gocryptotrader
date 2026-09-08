@@ -1047,21 +1047,19 @@ func (e *Exchange) generateSubscriptions() (subscription.List, error) {
 	}
 	// Resolve authenticated orderbooks after expansion so the realtime feed is reflected in
 	// subscription reconciliation keys and does not retain the public depth feed interval.
-	for _, s := range subs {
+	for index, s := range subs {
 		if s.Channel != subscription.OrderbookChannel {
 			continue
 		}
+		s = s.Clone()
 		channel := marketOrderbookChannel
 		if s.Asset == asset.Futures {
 			channel = futuresOrderbookChannel
 		}
 		s.Channel = channel
-		if _, suffix, found := strings.Cut(s.QualifiedChannel, ":"); found {
-			s.QualifiedChannel = channel + ":" + suffix
-		} else {
-			s.QualifiedChannel = channel
-		}
+		s.QualifiedChannel = channel + ":" + s.Pairs.Join()
 		s.Interval = 0
+		subs[index] = s
 	}
 	return subs, nil
 }
@@ -1147,13 +1145,15 @@ func (e *Exchange) checkSubscriptions() {
 		}
 	}
 	before := len(e.Config.Features.Subscriptions)
+	replaceRealtime := false
 	e.Config.Features.Subscriptions = slices.DeleteFunc(e.Config.Features.Subscriptions, func(s *subscription.Subscription) bool {
 		switch s.Channel {
+		case marketOrderbookChannel, futuresOrderbookChannel:
+			replaceRealtime = replaceRealtime || s.Enabled
+			return true
 		case "/contractMarket/level2Depth50", // Replaced by subsctiption.Orderbook for asset.All
 			"/contractMarket/tickerV2", // Replaced by subscription.Ticker for asset.All
-			"/margin/fundingBook",      // Deprecated and removed
-			marketOrderbookChannel,     // Replaced by subscription.OrderbookChannel, which selects the feed based on authentication
-			futuresOrderbookChannel:    // Replaced by subscription.OrderbookChannel, which selects the feed based on authentication
+			"/margin/fundingBook":      // Deprecated and removed
 			return true
 		case subscription.AllTradesChannel:
 			return s.Asset == asset.Empty
@@ -1161,6 +1161,23 @@ func (e *Exchange) checkSubscriptions() {
 		return false
 	})
 	upgraded = upgraded || before != len(e.Config.Features.Subscriptions)
+	if replaceRealtime {
+		index := slices.IndexFunc(e.Config.Features.Subscriptions, func(sub *subscription.Subscription) bool {
+			return sub.Channel == subscription.OrderbookChannel && sub.Asset == asset.All
+		})
+		if index >= 0 {
+			sub := e.Config.Features.Subscriptions[index].Clone()
+			sub.Enabled = true
+			e.Config.Features.Subscriptions[index] = sub
+		} else {
+			for _, sub := range defaultSubscriptions {
+				if sub.Channel == subscription.OrderbookChannel {
+					e.Config.Features.Subscriptions = append(e.Config.Features.Subscriptions, sub.Clone())
+					break
+				}
+			}
+		}
+	}
 	if upgraded {
 		e.Features.Subscriptions = e.Config.Features.Subscriptions.Enabled()
 	}
