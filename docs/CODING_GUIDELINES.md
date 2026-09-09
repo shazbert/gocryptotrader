@@ -111,6 +111,15 @@ Refer to the [ADD_NEW_EXCHANGE.md](/docs/ADD_NEW_EXCHANGE.md) document for compr
 - Always include enough context in errors to aid in debugging and traceability.
 - Do not use panic; always return and propagate errors cleanly.
 
+## Configuration Migrations
+
+- Preserve enabled behaviour by scope, not merely by the presence of a replacement entry. A subscription for one asset does not cover another asset; explicit pair restrictions also matter.
+- Determine the coverage required by removed entries, subtract existing enabled coverage, then add replacements only where needed. Resolve unspecified and wildcard scopes according to their documented meaning, and deduplicate before adding entries.
+- Preserve existing configured choices, including disabled entries. Any intentional widening of assets or pairs must be documented and tested.
+- Check replacements against downstream matching, grouping and reconciliation rules. Differences in metadata such as intervals or levels can prevent merging even when subscriptions produce the same wire topic.
+- Test repeated migration and save/reload behaviour. Assert persisted configuration and generated runtime output separately, checking both missing coverage and duplicate topics rather than only entry counts.
+- Cover relevant mixed configurations: enabled and disabled entries, pinned and wildcard scopes, duplicate legacy entries, and partially covered scopes. Exercise authentication-dependent output before and after reload where applicable.
+
 ## Testing Guidelines
 
 ### General testing
@@ -160,6 +169,8 @@ Use `require` and `assert` appropriately:
 
 - Maintain original test inputs unless they are incorrect.
 - Full test coverage is preferable; mock external calls as needed.
+- For bug fixes, demonstrate that the regression test fails against the previous implementation where practical, then passes with the fix. Preserve unrelated work when checking the previous behaviour.
+- Distinguish mocked verification from live API verification when reporting results. A credential-gated test that skips does not establish endpoint compatibility; explicitly report the unverified behaviour without exposing credentials.
 - All unit tests must pass before finalising changes.
 
 ### Test deduplication
