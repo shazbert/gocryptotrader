@@ -132,25 +132,34 @@ func TestMigrationRequiresDefaultV2Entry(t *testing.T) {
 
 func TestMigrationPreservesRawLegacyChannel(t *testing.T) {
 	t.Parallel()
+	const (
+		rawLegacyChannel = "spot.order_book_update"
+		allAssets        = "all"
+	)
 	for _, upgrade := range []bool{true, false} {
 		for _, test := range []struct {
 			name          string
+			channel       string
 			asset         string
 			enabledField  string
 			wantMigration bool
 		}{
-			{name: "enabled", asset: "spot", enabledField: `"enabled":true,`},
-			{name: "disabled", asset: "spot", enabledField: `"enabled":false,`, wantMigration: true},
-			{name: "missing enabled", asset: "spot"},
-			{name: "null enabled", asset: "spot", enabledField: `"enabled":null,`},
-			{name: "all assets enabled", asset: "all", enabledField: `"enabled":true,`},
-			{name: "all assets disabled", asset: "all", enabledField: `"enabled":false,`, wantMigration: true},
-			{name: "all assets missing enabled", asset: "all"},
-			{name: "all assets null enabled", asset: "all", enabledField: `"enabled":null,`},
+			{name: "enabled", channel: rawLegacyChannel, asset: "spot", enabledField: `"enabled":true,`},
+			{name: "disabled", channel: rawLegacyChannel, asset: "spot", enabledField: `"enabled":false,`, wantMigration: true},
+			{name: "missing enabled", channel: rawLegacyChannel, asset: "spot"},
+			{name: "null enabled", channel: rawLegacyChannel, asset: "spot", enabledField: `"enabled":null,`},
+			{name: "all assets enabled", channel: rawLegacyChannel, asset: allAssets, enabledField: `"enabled":true,`},
+			{name: "all assets disabled", channel: rawLegacyChannel, asset: allAssets, enabledField: `"enabled":false,`, wantMigration: true},
+			{name: "all assets missing enabled", channel: rawLegacyChannel, asset: allAssets},
+			{name: "all assets null enabled", channel: rawLegacyChannel, asset: allAssets, enabledField: `"enabled":null,`},
+			{name: "generic all assets enabled", channel: "orderbook", asset: allAssets, enabledField: `"enabled":true,`},
+			{name: "generic all assets disabled", channel: "orderbook", asset: allAssets, enabledField: `"enabled":false,`, wantMigration: true},
+			{name: "generic all assets missing enabled", channel: "orderbook", asset: allAssets},
+			{name: "generic all assets null enabled", channel: "orderbook", asset: allAssets, enabledField: `"enabled":null,`},
 		} {
 			t.Run(fmt.Sprintf("upgrade=%t/%s", upgrade, test.name), func(t *testing.T) {
 				t.Parallel()
-				raw := `{` + test.enabledField + `"channel":"spot.order_book_update","asset":"` + test.asset + `","interval":"100ms","pairs":"ETH_USDT"}`
+				raw := `{` + test.enabledField + `"channel":"` + test.channel + `","asset":"` + test.asset + `","interval":"100ms","pairs":"ETH_USDT"}`
 				input := fmt.Sprintf(`{"features":{"subscriptions":[{"enabled":%t,"channel":"orderbook","asset":"spot","interval":"100ms"},%s,{"enabled":%t,"channel":"spot.obu","asset":"spot","levels":50}]}}`, upgrade, raw, !upgrade)
 				version := new(v14.Version)
 				migrate := version.UpgradeExchange

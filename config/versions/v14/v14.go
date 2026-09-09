@@ -62,8 +62,9 @@ func migrateSubscriptions(exchange []byte, upgrade bool) ([]byte, error) {
 
 	legacyIndex, v2Index := -1, -1
 	for i := range subscriptions {
-		if subscriptions[i].Channel == legacyOrderbookAliasChannel &&
-			(subscriptions[i].Asset == spotAsset || subscriptions[i].Asset == allAsset) &&
+		if ((subscriptions[i].Channel == legacyOrderbookAliasChannel && subscriptions[i].Asset == spotAsset) ||
+			((subscriptions[i].Channel == legacyOrderbookAliasChannel || subscriptions[i].Channel == legacyOrderbookChannel) &&
+				subscriptions[i].Asset == allAsset)) &&
 			(subscriptions[i].Enabled == nil || *subscriptions[i].Enabled) {
 			return exchange, nil
 		}
