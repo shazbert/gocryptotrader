@@ -15,6 +15,7 @@ const (
 	legacyOrderbookChannel      = "orderbook"
 	legacyOrderbookAliasChannel = "spot.order_book_update"
 	spotAsset                   = "spot"
+	allAsset                    = "all"
 	spotOrderbookV2Channel      = "spot.obu"
 )
 
@@ -61,6 +62,11 @@ func migrateSubscriptions(exchange []byte, upgrade bool) ([]byte, error) {
 
 	legacyIndex, v2Index := -1, -1
 	for i := range subscriptions {
+		if subscriptions[i].Channel == legacyOrderbookAliasChannel &&
+			(subscriptions[i].Asset == spotAsset || subscriptions[i].Asset == allAsset) &&
+			(subscriptions[i].Enabled == nil || *subscriptions[i].Enabled) {
+			return exchange, nil
+		}
 		if subscriptions[i].Asset != spotAsset {
 			continue
 		}
@@ -70,10 +76,6 @@ func migrateSubscriptions(exchange []byte, upgrade bool) ([]byte, error) {
 				return exchange, nil
 			}
 			legacyIndex = i
-		case legacyOrderbookAliasChannel:
-			if subscriptions[i].Enabled == nil || *subscriptions[i].Enabled {
-				return exchange, nil
-			}
 		case spotOrderbookV2Channel:
 			if v2Index != -1 {
 				return exchange, nil

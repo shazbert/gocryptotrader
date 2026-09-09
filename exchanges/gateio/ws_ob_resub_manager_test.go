@@ -124,15 +124,16 @@ func TestFuturesV2GapRecovery(t *testing.T) {
 	require.NotNil(t, futures, "defaults must include a futures V2 subscription")
 	pair := futures.Pairs[0]
 	qualifiedChannel := "ob." + pair.String() + ".50"
-	baseConn, err := exchange.Websocket.CreateTestConnection(asset.USDTMarginedFutures)
-	require.NoError(t, err, "futures connection must be created")
-	conn := &FixtureConnection{Connection: baseConn}
-	require.NoError(t, exchange.Websocket.TrackTestConnection(asset.USDTMarginedFutures, conn), "futures connection must be tracked")
 	spot := &subscription.Subscription{Channel: spotOrderbookV2, Asset: asset.Spot, Pairs: currency.Pairs{pair}, Levels: 50, QualifiedChannel: qualifiedChannel}
 	spotBase, err := exchange.Websocket.CreateTestConnection(asset.Spot)
 	require.NoError(t, err, "spot connection must be created")
 	spotConn := &FixtureConnection{Connection: spotBase}
+	require.NoError(t, exchange.Websocket.TrackTestConnection(asset.Spot, spotConn), "spot connection must be tracked")
 	require.NoError(t, exchange.Websocket.AddSuccessfulSubscriptions(spotConn, spot), "spot subscription must register")
+	baseConn, err := exchange.Websocket.CreateTestConnection(asset.USDTMarginedFutures)
+	require.NoError(t, err, "futures connection must be created")
+	conn := &FixtureConnection{Connection: baseConn}
+	require.NoError(t, exchange.Websocket.TrackTestConnection(asset.USDTMarginedFutures, conn), "futures connection must be tracked")
 	require.NoError(t, exchange.Websocket.AddSubscriptions(conn, futures), "generated futures subscription must register")
 	for _, assetType := range []asset.Item{asset.Spot, asset.USDTMarginedFutures} {
 		snapshot := fmt.Appendf(nil, `{"t":1757377580046,"full":true,"s":%q,"u":100,"b":[["100","1"]],"a":[["101","1"]]}`, qualifiedChannel)

@@ -135,17 +135,22 @@ func TestMigrationPreservesRawLegacyChannel(t *testing.T) {
 	for _, upgrade := range []bool{true, false} {
 		for _, test := range []struct {
 			name          string
+			asset         string
 			enabledField  string
 			wantMigration bool
 		}{
-			{name: "enabled", enabledField: `"enabled":true,`},
-			{name: "disabled", enabledField: `"enabled":false,`, wantMigration: true},
-			{name: "missing enabled"},
-			{name: "null enabled", enabledField: `"enabled":null,`},
+			{name: "enabled", asset: "spot", enabledField: `"enabled":true,`},
+			{name: "disabled", asset: "spot", enabledField: `"enabled":false,`, wantMigration: true},
+			{name: "missing enabled", asset: "spot"},
+			{name: "null enabled", asset: "spot", enabledField: `"enabled":null,`},
+			{name: "all assets enabled", asset: "all", enabledField: `"enabled":true,`},
+			{name: "all assets disabled", asset: "all", enabledField: `"enabled":false,`, wantMigration: true},
+			{name: "all assets missing enabled", asset: "all"},
+			{name: "all assets null enabled", asset: "all", enabledField: `"enabled":null,`},
 		} {
 			t.Run(fmt.Sprintf("upgrade=%t/%s", upgrade, test.name), func(t *testing.T) {
 				t.Parallel()
-				raw := `{` + test.enabledField + `"channel":"spot.order_book_update","asset":"spot","interval":"100ms","pairs":"ETH_USDT"}`
+				raw := `{` + test.enabledField + `"channel":"spot.order_book_update","asset":"` + test.asset + `","interval":"100ms","pairs":"ETH_USDT"}`
 				input := fmt.Sprintf(`{"features":{"subscriptions":[{"enabled":%t,"channel":"orderbook","asset":"spot","interval":"100ms"},%s,{"enabled":%t,"channel":"spot.obu","asset":"spot","levels":50}]}}`, upgrade, raw, !upgrade)
 				version := new(v14.Version)
 				migrate := version.UpgradeExchange
