@@ -1047,9 +1047,16 @@ func (e *Exchange) generateSubscriptions() (subscription.List, error) {
 	}
 	// Resolve authenticated orderbooks after expansion so the realtime feed is reflected in
 	// subscription reconciliation keys and does not retain the public depth feed interval.
-	for index, s := range subs {
+	configured := subscription.NewStore()
+	seen := subscription.NewStore()
+	resolved := make(subscription.List, 0, len(subs))
+	for _, s := range subs {
 		if s.Channel != subscription.OrderbookChannel {
+			resolved = append(resolved, s)
 			continue
+		}
+		if err := configured.Add(s.Clone()); err != nil {
+			return nil, err
 		}
 		s = s.Clone()
 		channel := marketOrderbookChannel
@@ -1060,9 +1067,15 @@ func (e *Exchange) generateSubscriptions() (subscription.List, error) {
 		s.QualifiedChannel = channel + ":" + s.Pairs.Join()
 		s.Interval = 0
 		s.Levels = 0
-		subs[index] = s
+		if err := seen.Add(s); err != nil {
+			if errors.Is(err, subscription.ErrDuplicate) {
+				continue
+			}
+			return nil, err
+		}
+		resolved = append(resolved, s)
 	}
-	return subs, nil
+	return resolved, nil
 }
 
 // GetSubscriptionTemplate returns a subscription channel template
@@ -1070,6 +1083,7 @@ func (e *Exchange) GetSubscriptionTemplate(_ *subscription.Subscription) (*templ
 	return template.New("master.tmpl").
 		Funcs(template.FuncMap{
 			"channelName":           channelName,
+			"formatOrderbookPairs":  e.formatOrderbookPairs,
 			"mergeMarginPairs":      e.mergeMarginPairs,
 			"isCurrencyChannel":     isCurrencyChannel,
 			"isSymbolChannel":       isSymbolChannel,
@@ -1122,7 +1136,7 @@ func (e *Exchange) CalculateAssets(topic string, cp currency.Pair) ([]asset.Item
 
 // checkSubscriptions looks for any backwards incompatibilities with missing assets
 // This should be unnecessary and removable by 2025
-func (e *Exchange) checkSubscriptions() {
+func (e *Exchange) checkSubscriptions() error {
 	upgraded := false
 	for _, s := range e.Config.Features.Subscriptions {
 		if s.Asset != asset.Empty {
@@ -1146,15 +1160,20 @@ func (e *Exchange) checkSubscriptions() {
 		}
 	}
 	before := len(e.Config.Features.Subscriptions)
-	var replaceAssets []asset.Item
+	var replacements subscription.List
 	e.Config.Features.Subscriptions = slices.DeleteFunc(e.Config.Features.Subscriptions, func(s *subscription.Subscription) bool {
 		switch s.Channel {
 		case marketOrderbookChannel, futuresOrderbookChannel:
 			if s.Enabled {
+				assets := asset.Items{s.Asset}
 				if s.Asset == asset.All || s.Asset == asset.Empty {
-					replaceAssets = append(replaceAssets, e.GetAssetTypes(true)...)
-				} else {
-					replaceAssets = append(replaceAssets, s.Asset)
+					assets = e.GetAssetTypes(true)
+				}
+				for _, assetType := range assets {
+					replacements = append(replacements, &subscription.Subscription{
+						Enabled: true, Channel: subscription.OrderbookChannel, Asset: assetType,
+						Pairs: slices.Clone(s.Pairs), Interval: kline.HundredMilliseconds,
+					})
 				}
 			}
 			return true
@@ -1168,19 +1187,14 @@ func (e *Exchange) checkSubscriptions() {
 		return false
 	})
 	upgraded = upgraded || before != len(e.Config.Features.Subscriptions)
-	slices.Sort(replaceAssets)
-	uncovered := slices.DeleteFunc(slices.Compact(replaceAssets), func(assetType asset.Item) bool {
-		return slices.ContainsFunc(e.Config.Features.Subscriptions, func(sub *subscription.Subscription) bool {
-			return sub.Channel == subscription.OrderbookChannel && sub.Enabled && (sub.Asset == asset.All || sub.Asset == assetType)
-		})
-	})
 	switch {
-	case len(uncovered) == 0:
-	case !slices.ContainsFunc(e.Config.Features.Subscriptions, func(sub *subscription.Subscription) bool {
-		return sub.Channel == subscription.OrderbookChannel && sub.Enabled
-	}):
+	case len(replacements) == 0:
+	case !slices.ContainsFunc(replacements, func(sub *subscription.Subscription) bool { return len(sub.Pairs) != 0 }) &&
+		!slices.ContainsFunc(e.Config.Features.Subscriptions, func(sub *subscription.Subscription) bool {
+			return sub.Channel == subscription.OrderbookChannel && sub.Enabled
+		}):
 		index := slices.IndexFunc(e.Config.Features.Subscriptions, func(sub *subscription.Subscription) bool {
-			return sub.Channel == subscription.OrderbookChannel && sub.Asset == asset.All
+			return sub.Channel == subscription.OrderbookChannel && sub.Asset == asset.All && len(sub.Pairs) == 0
 		})
 		if index >= 0 {
 			sub := e.Config.Features.Subscriptions[index].Clone()
@@ -1195,13 +1209,39 @@ func (e *Exchange) checkSubscriptions() {
 			}
 		}
 	default:
-		for _, assetType := range uncovered {
-			replacement := &subscription.Subscription{
-				Enabled: true, Channel: subscription.OrderbookChannel, Asset: assetType, Interval: kline.HundredMilliseconds,
+		for _, replacement := range replacements {
+			var coveredPairs currency.Pairs
+			covered := false
+			for _, sub := range e.Config.Features.Subscriptions {
+				if !sub.Enabled || sub.Channel != subscription.OrderbookChannel ||
+					(sub.Asset != asset.All && sub.Asset != replacement.Asset) {
+					continue
+				}
+				if len(sub.Pairs) == 0 {
+					covered = true
+					break
+				}
+				coveredPairs = coveredPairs.Add(sub.Pairs...)
 			}
-			if assetType == asset.Spot || assetType == asset.Margin {
+			if covered {
+				continue
+			}
+			if len(coveredPairs) != 0 {
+				if len(replacement.Pairs) == 0 {
+					pairs, err := e.GetEnabledPairs(replacement.Asset)
+					if err != nil {
+						return fmt.Errorf("cannot migrate %s orderbook pairs: %w", replacement.Asset, err)
+					}
+					replacement.Pairs = pairs
+				}
+				replacement.Pairs = replacement.Pairs.Remove(coveredPairs...)
+				if len(replacement.Pairs) == 0 {
+					continue
+				}
+			}
+			if len(replacement.Pairs) == 0 && (replacement.Asset == asset.Spot || replacement.Asset == asset.Margin) {
 				for _, sub := range e.Config.Features.Subscriptions {
-					if sub.Enabled && sub.Channel == subscription.OrderbookChannel && sub.Asset != assetType &&
+					if sub.Enabled && sub.Channel == subscription.OrderbookChannel && sub.Asset != replacement.Asset &&
 						(sub.Asset == asset.Spot || sub.Asset == asset.Margin) && len(sub.Pairs) == 0 {
 						replacement.Interval = sub.Interval
 						replacement.Levels = sub.Levels
@@ -1215,6 +1255,21 @@ func (e *Exchange) checkSubscriptions() {
 	if upgraded {
 		e.Features.Subscriptions = e.Config.Features.Subscriptions.Enabled()
 	}
+	return nil
+}
+
+func (e *Exchange) formatOrderbookPairs(s *subscription.Subscription, ap map[asset.Item]currency.Pairs) (string, error) {
+	if s.Channel != subscription.OrderbookChannel {
+		return "", nil
+	}
+	for assetType, pairs := range ap {
+		format, err := e.GetPairFormat(assetType, true)
+		if err != nil {
+			return "", err
+		}
+		ap[assetType] = pairs.Format(format)
+	}
+	return "", nil
 }
 
 // channelName returns the correct channel name for the asset
@@ -1261,6 +1316,9 @@ func (e *Exchange) mergeMarginPairs(s *subscription.Subscription, ap map[asset.I
 			ap[asset.Spot] = common.SortStrings(ap[asset.Spot].Add(marginPairs...))
 		}
 	case asset.Margin:
+		if e.CurrencyPairs.IsAssetEnabled(asset.Spot) != nil {
+			return ""
+		}
 		// If there's a spot sub, all margin pairs are already merged, so empty the margin pairs
 		hasSpotSub := slices.ContainsFunc(e.Features.Subscriptions, func(sB *subscription.Subscription) bool {
 			if sB.Asset != asset.Spot && sB.Asset != asset.All {
@@ -1328,6 +1386,7 @@ func joinPairsWithInterval(b currency.Pairs, s *subscription.Subscription) strin
 
 const subTplText = `
 {{- mergeMarginPairs $.S $.AssetPairs }}
+{{- formatOrderbookPairs $.S $.AssetPairs }}
 {{- if isCurrencyChannel $.S }}
 	{{- channelName $.S $.S.Asset -}} : {{- (assetCurrencies $.S $.AssetPairs).Join }}
 {{- else if isSymbolChannel $.S }}

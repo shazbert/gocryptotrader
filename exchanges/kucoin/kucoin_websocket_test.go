@@ -268,6 +268,95 @@ func TestGenerateRealtimeOrderbooksPreservesConfiguredSubscriptions(t *testing.T
 	}
 }
 
+func TestGenerateRealtimeOrderbooksCoalescesNormalisedKeys(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name      string
+		interval  kline.Interval
+		levels    int
+		duplicate bool
+	}{
+		{name: "levels", interval: kline.HundredMilliseconds, levels: 50},
+		{name: "interval", interval: kline.OneMin},
+		{name: "identical", interval: kline.HundredMilliseconds, duplicate: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			ku := testInstance(t)
+			ku.Config.Features.Subscriptions = subscription.List{
+				{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.All, Interval: kline.HundredMilliseconds},
+				{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot, Interval: test.interval, Levels: test.levels},
+				{Enabled: true, Channel: subscription.TickerChannel, Asset: asset.Spot},
+			}
+			saved, err := json.Marshal(ku.Config)
+			require.NoError(t, err, "configured subscriptions must serialise")
+			restored := new(config.Exchange)
+			require.NoError(t, json.Unmarshal(saved, restored), "configured subscriptions must deserialise")
+			restarted := new(Exchange)
+			restarted.SetDefaults()
+			require.NoError(t, restarted.Setup(restored), "configured subscriptions must survive setup")
+			for _, authenticated := range []bool{false, true} {
+				restarted.Websocket.SetCanUseAuthenticatedEndpoints(authenticated)
+				subs, genErr := restarted.generateSubscriptions()
+				if test.duplicate {
+					if genErr == nil {
+						_, genErr = subscription.NewStoreFromList(subs)
+					}
+					require.ErrorIs(t, genErr, subscription.ErrDuplicate, "pre-existing duplicates must remain invalid")
+					continue
+				}
+				require.NoError(t, genErr, "distinct configured subscriptions must generate")
+				_, err = subscription.NewStoreFromList(subs)
+				require.NoError(t, err, "normalised subscriptions must fit the connection store")
+				var books, tickers int
+				for _, sub := range subs {
+					if sub.Channel == subscription.TickerChannel {
+						tickers++
+					} else {
+						books++
+					}
+				}
+				assert.Equal(t, 4, tickers, "unrelated ticker subscriptions should remain intact")
+				wantBooks := 13
+				if authenticated {
+					wantBooks = 9
+				}
+				assert.Equal(t, wantBooks, books, "only normalisation collisions should be coalesced")
+			}
+		})
+	}
+}
+
+func TestFormatOrderbookPairs(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name    string
+		channel string
+		asset   asset.Item
+		pair    string
+		want    string
+	}{
+		{name: "spot", channel: subscription.OrderbookChannel, asset: asset.Spot, pair: "BTC_USDT", want: "BTC-USDT"},
+		{name: "margin", channel: subscription.OrderbookChannel, asset: asset.Margin, pair: "ETH_BTC", want: "ETH-BTC"},
+		{name: "futures", channel: subscription.OrderbookChannel, asset: asset.Futures, pair: "ETH_USDCM", want: "ETHUSDCM"},
+		{name: "other channel", channel: subscription.TickerChannel, asset: asset.Spot, pair: "BTC_USDT", want: "BTC_USDT"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			ku := testInstance(t)
+			pair, err := currency.NewPairFromString(test.pair)
+			require.NoError(t, err, "configured pair must parse")
+			original := currency.Pairs{pair}
+			pairs := map[asset.Item]currency.Pairs{test.asset: original}
+			output, err := ku.formatOrderbookPairs(&subscription.Subscription{Channel: test.channel}, pairs)
+			require.NoError(t, err, "orderbook pairs must format")
+			assert.Empty(t, output, "formatting should not emit template content")
+			assert.Equal(t, test.want, pairs[test.asset].Join(), "expanded pairs should use the request format")
+			assert.Equal(t, test.pair, original.Join(), "formatting should preserve the input slice")
+		})
+	}
+}
+
 func TestGenerateTickerAllSub(t *testing.T) {
 	t.Parallel()
 
@@ -364,6 +453,40 @@ func TestGenerateMarginSubscriptions(t *testing.T) {
 	require.NotEmpty(t, subs, "generateSubscriptions must return some subs")
 }
 
+func TestMergeMarginPairsWithSpotDisabled(t *testing.T) {
+	t.Parallel()
+	for _, channel := range []string{subscription.OrderbookChannel, subscription.TickerChannel, subscription.AllTradesChannel} {
+		t.Run(channel, func(t *testing.T) {
+			t.Parallel()
+			ku := testInstance(t)
+			require.NoError(t, ku.CurrencyPairs.SetAssetEnabled(asset.Spot, false), "spot asset must be disabled")
+			marginChannel := channel
+			if channel == subscription.OrderbookChannel {
+				marginChannel = marketOrderbookChannel
+			}
+			ku.Config.Features.Subscriptions = subscription.List{
+				{Enabled: true, Channel: channel, Asset: asset.Spot, Interval: kline.HundredMilliseconds},
+				{Enabled: true, Channel: marginChannel, Asset: asset.Margin, Interval: kline.HundredMilliseconds},
+			}
+			ku.Features.Subscriptions = ku.Config.Features.Subscriptions.Enabled()
+			require.NoError(t, ku.checkSubscriptions(), "margin subscription migration must succeed")
+			for _, authenticated := range []bool{false, true} {
+				ku.Websocket.SetCanUseAuthenticatedEndpoints(authenticated)
+				subs, err := ku.generateSubscriptions()
+				require.NoError(t, err, "margin-only feeds must generate")
+				symbols := make([]string, 0, len(subs))
+				for _, sub := range subs {
+					assert.Equal(t, asset.Margin, sub.Asset, "disabled spot should not consume margin pairs")
+					_, symbol, ok := strings.Cut(sub.QualifiedChannel, ":")
+					require.True(t, ok, "margin topics must contain a symbol")
+					symbols = append(symbols, symbol)
+				}
+				assert.ElementsMatch(t, []string{"ETH-BTC", "LTC-USDT", "SOL-USDC", "TRX-BTC"}, symbols, "all margin pairs should remain subscribed")
+			}
+		})
+	}
+}
+
 // TestCheckSubscriptions ensures checkSubscriptions upgrades user config correctly
 func TestCheckSubscriptions(t *testing.T) {
 	t.Parallel()
@@ -394,7 +517,7 @@ func TestCheckSubscriptions(t *testing.T) {
 		},
 	}
 
-	ku.checkSubscriptions()
+	require.NoError(t, ku.checkSubscriptions(), "subscription migration must succeed")
 	testsubs.EqualLists(t, defaultSubscriptions, ku.Features.Subscriptions)
 	testsubs.EqualLists(t, defaultSubscriptions, ku.Config.Features.Subscriptions)
 }
@@ -402,12 +525,13 @@ func TestCheckSubscriptions(t *testing.T) {
 func TestCheckSubscriptionsPreservesRealtimeOrderbooks(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
-		name       string
-		generic    *subscription.Subscription
-		pinned     subscription.List
-		wantAssets []asset.Item
-		realtime   subscription.List
-		wantBooks  bool
+		name        string
+		generic     *subscription.Subscription
+		pinned      subscription.List
+		wantAssets  []asset.Item
+		wantSymbols []string
+		realtime    subscription.List
+		wantBooks   bool
 	}{
 		{name: "disabled generic", generic: &subscription.Subscription{Channel: subscription.OrderbookChannel, Asset: asset.All, Interval: kline.HundredMilliseconds}, realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.Spot}, {Enabled: true, Channel: futuresOrderbookChannel, Asset: asset.Futures}}, wantBooks: true},
 		{name: "missing generic spot", realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.Spot}}, wantBooks: true},
@@ -416,11 +540,11 @@ func TestCheckSubscriptionsPreservesRealtimeOrderbooks(t *testing.T) {
 		{name: "disabled realtime", generic: &subscription.Subscription{Channel: subscription.OrderbookChannel, Asset: asset.All}, realtime: subscription.List{{Channel: marketOrderbookChannel, Asset: asset.Spot}, {Channel: futuresOrderbookChannel, Asset: asset.Futures}}},
 		{name: "disabled realtime without generic", realtime: subscription.List{{Channel: marketOrderbookChannel, Asset: asset.Spot}}},
 		{name: "no realtime", generic: &subscription.Subscription{Channel: subscription.OrderbookChannel, Asset: asset.All}},
-		{name: "pinned spot", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot}}, realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.Spot}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot}},
+		{name: "pinned spot", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot}}, realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.Spot}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot}, wantSymbols: []string{"BTC-USDT", "ETH-BTC", "ETH-USDT", "LTC-USDT"}},
 		{name: "pinned spot and futures", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot}, {Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Futures}}, realtime: subscription.List{{Enabled: true, Channel: futuresOrderbookChannel, Asset: asset.Futures}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot, asset.Futures}},
 		{name: "pinned spot with disabled all", generic: &subscription.Subscription{Channel: subscription.OrderbookChannel, Asset: asset.All}, pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot}}, realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.Spot}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot}},
-		{name: "pinned spot with realtime futures", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot}}, realtime: subscription.List{{Enabled: true, Channel: futuresOrderbookChannel, Asset: asset.Futures}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot, asset.Futures}},
-		{name: "pinned margin with realtime spot", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Margin}}, realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.Spot}}, wantBooks: true, wantAssets: []asset.Item{asset.Margin, asset.Spot}},
+		{name: "pinned spot with realtime futures", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot}}, realtime: subscription.List{{Enabled: true, Channel: futuresOrderbookChannel, Asset: asset.Futures}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot, asset.Futures}, wantSymbols: []string{"BTC-USDT", "ETH-BTC", "ETH-USDT", "LTC-USDT", "ETHUSDCM", "SOLUSDTM", "XBTUSDCM"}},
+		{name: "pinned margin with realtime spot", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Margin}}, realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.Spot}}, wantBooks: true, wantAssets: []asset.Item{asset.Margin, asset.Spot}, wantSymbols: []string{"BTC-USDT", "ETH-BTC", "ETH-USDT", "LTC-USDT", "SOL-USDC", "TRX-BTC"}},
 		{name: "pinned spot with realtime futures and margin", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot}}, realtime: subscription.List{{Enabled: true, Channel: futuresOrderbookChannel, Asset: asset.Futures}, {Enabled: true, Channel: marketOrderbookChannel, Asset: asset.Margin}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot, asset.Margin, asset.Futures}},
 		{name: "pinned spot with duplicate realtime futures", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot}}, realtime: subscription.List{{Enabled: true, Channel: futuresOrderbookChannel, Asset: asset.Futures}, {Enabled: true, Channel: futuresOrderbookChannel, Asset: asset.Futures}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot, asset.Futures}},
 		{name: "pinned spot with assetless realtime", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot}}, realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot, asset.Margin, asset.Futures}},
@@ -429,6 +553,12 @@ func TestCheckSubscriptionsPreservesRealtimeOrderbooks(t *testing.T) {
 		{name: "pinned margin settings with realtime spot", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Margin, Interval: kline.HundredMilliseconds, Levels: 50}}, realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.Spot}}, wantBooks: true, wantAssets: []asset.Item{asset.Margin, asset.Spot}},
 		{name: "assetless realtime without generic", realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel}}, wantBooks: true},
 		{name: "all assets realtime without generic", realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.All}}, wantBooks: true},
+		{name: "restricted generic spot with unrestricted legacy", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot, Pairs: currency.Pairs{currency.NewBTCUSDT()}}}, realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.Spot}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot, asset.Spot}, wantSymbols: []string{"BTC-USDT", "ETH-BTC", "ETH-USDT", "LTC-USDT"}},
+		{name: "restricted generic margin with unrestricted legacy", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Margin, Pairs: currency.Pairs{currency.NewPair(currency.ETH, currency.BTC)}}}, realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.Margin}}, wantBooks: true, wantAssets: []asset.Item{asset.Margin, asset.Margin}, wantSymbols: []string{"ETH-BTC", "LTC-USDT", "SOL-USDC", "TRX-BTC"}},
+		{name: "restricted legacy without generic", realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.Spot, Pairs: currency.Pairs{currency.NewBTCUSDT()}}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot}, wantSymbols: []string{"BTC-USDT"}},
+		{name: "restricted legacy with futures generic", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Futures}}, realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.Spot, Pairs: currency.Pairs{currency.NewBTCUSDT()}}}, wantBooks: true, wantAssets: []asset.Item{asset.Futures, asset.Spot}, wantSymbols: []string{"BTC-USDT", "ETHUSDCM", "SOLUSDTM", "XBTUSDCM"}},
+		{name: "restricted generic futures with unrestricted legacy", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Futures, Pairs: currency.Pairs{currency.NewPair(currency.ETH, currency.USDCM)}}}, realtime: subscription.List{{Enabled: true, Channel: futuresOrderbookChannel, Asset: asset.Futures}}, wantBooks: true, wantAssets: []asset.Item{asset.Futures, asset.Futures}, wantSymbols: []string{"ETHUSDCM", "SOLUSDTM", "XBTUSDCM"}},
+		{name: "generic pair union covers legacy", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot, Pairs: currency.Pairs{currency.NewBTCUSDT()}}, {Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot, Pairs: currency.Pairs{currency.NewPair(currency.ETH, currency.USDT)}}}, realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.Spot, Pairs: currency.Pairs{currency.NewBTCUSDT(), currency.NewPair(currency.ETH, currency.USDT)}}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot, asset.Spot}, wantSymbols: []string{"BTC-USDT", "ETH-USDT"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -440,7 +570,10 @@ func TestCheckSubscriptionsPreservesRealtimeOrderbooks(t *testing.T) {
 			ku.Config.Features.Subscriptions = append(ku.Config.Features.Subscriptions, test.realtime.Clone()...)
 			ku.Config.Features.Subscriptions = append(ku.Config.Features.Subscriptions, test.pinned.Clone()...)
 			ku.Features.Subscriptions = ku.Config.Features.Subscriptions.Enabled()
-			ku.checkSubscriptions()
+			require.NoError(t, ku.checkSubscriptions(), "subscription migration must succeed")
+			for _, pinned := range test.pinned {
+				assert.Contains(t, ku.Config.Features.Subscriptions, pinned, "existing pinned choices should remain unchanged")
+			}
 			var bookAssets []asset.Item
 			for _, sub := range ku.Config.Features.Subscriptions {
 				assert.NotContains(t, []string{marketOrderbookChannel, futuresOrderbookChannel}, sub.Channel, "migration should remove obsolete realtime entries")
@@ -455,7 +588,7 @@ func TestCheckSubscriptionsPreservesRealtimeOrderbooks(t *testing.T) {
 			assert.ElementsMatch(t, wantAssets, bookAssets, "migration should retain the expected generic asset coverage")
 			saved, err := json.Marshal(ku.Config)
 			require.NoError(t, err, "migrated config must serialise")
-			ku.checkSubscriptions()
+			require.NoError(t, ku.checkSubscriptions(), "repeated subscription migration must succeed")
 			again, err := json.Marshal(ku.Config)
 			require.NoError(t, err, "repeated migration must serialise")
 			assert.Equal(t, saved, again, "migration should be idempotent")
@@ -471,11 +604,15 @@ func TestCheckSubscriptionsPreservesRealtimeOrderbooks(t *testing.T) {
 					require.NoError(t, err, "migrated subscriptions must generate before and after restart")
 					generatedAssets := make(map[asset.Item]bool)
 					topics := make(map[string]bool)
+					var generatedSymbols []string
 					for _, sub := range subs {
 						if sub.Channel == subscription.OrderbookChannel || sub.Channel == marketOrderbookChannel || sub.Channel == futuresOrderbookChannel {
 							generatedAssets[sub.Asset] = true
 							assert.Falsef(t, topics[sub.QualifiedChannel], "orderbook topic %s should not be duplicated", sub.QualifiedChannel)
 							topics[sub.QualifiedChannel] = true
+							_, symbols, ok := strings.Cut(sub.QualifiedChannel, ":")
+							require.True(t, ok, "orderbook topic must contain symbols")
+							generatedSymbols = append(generatedSymbols, strings.Split(symbols, ",")...)
 						}
 					}
 					expectedAssets := make(map[asset.Item]bool)
@@ -490,6 +627,9 @@ func TestCheckSubscriptionsPreservesRealtimeOrderbooks(t *testing.T) {
 						delete(expectedAssets, asset.Margin)
 					}
 					assert.Equal(t, expectedAssets, generatedAssets, "generated orderbooks should retain asset coverage before and after restart")
+					if len(test.wantSymbols) > 0 {
+						assert.ElementsMatch(t, test.wantSymbols, generatedSymbols, "generated orderbooks should retain pair coverage before and after restart")
+					}
 				}
 			}
 		})
