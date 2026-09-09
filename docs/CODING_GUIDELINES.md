@@ -114,10 +114,13 @@ Refer to the [ADD_NEW_EXCHANGE.md](/docs/ADD_NEW_EXCHANGE.md) document for compr
 ## Configuration Migrations
 
 - Preserve enabled behaviour by scope, not merely by the presence of a replacement entry. A subscription for one asset does not cover another asset; explicit pair restrictions also matter.
-- Determine the coverage required by removed entries, subtract existing enabled coverage, then add replacements only where needed. Resolve unspecified and wildcard scopes according to their documented meaning, and deduplicate before adding entries.
+- Determine the coverage required by removed entries, subtract the union of existing enabled coverage, then add replacements only where needed. Resolve unspecified and wildcard scopes according to their documented meaning, and deduplicate before adding entries.
 - Preserve existing configured choices, including disabled entries. Any intentional widening of assets or pairs must be documented and tested.
 - Check replacements against downstream matching, grouping and reconciliation rules. Differences in metadata such as intervals or levels can prevent merging even when subscriptions produce the same wire topic.
-- Test repeated migration and save/reload behaviour. Assert persisted configuration and generated runtime output separately, checking both missing coverage and duplicate topics rather than only entry counts.
+- When normalising fields used in identity keys, check for newly equivalent entries. Coalesce transformation-induced duplicates without silently accepting duplicates that were invalid before the transformation.
+- Keep pair identity separate from wire spelling. Apply exchange request formatting at generation boundaries, including explicitly configured pairs, without rewriting saved configuration solely for wire formatting.
+- Only suppress one feed in favour of another when the replacement will actually generate output. Configured presence alone does not establish coverage; check effective asset enablement, pair availability and websocket support.
+- Test repeated migration and save/reload behaviour. Assert persisted configuration and generated runtime output separately, checking actual pairs or topics for missing coverage and duplicates rather than only asset labels or entry counts.
 - Cover relevant mixed configurations: enabled and disabled entries, pinned and wildcard scopes, duplicate legacy entries, and partially covered scopes. Exercise authentication-dependent output before and after reload where applicable.
 
 ## Testing Guidelines
