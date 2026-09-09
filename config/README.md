@@ -1,13 +1,11 @@
 # GoCryptoTrader package Config
 
-<img src="/common/gctlogo.png?raw=true" width="350px" height="350px" hspace="70">
-
+<img src="/common/gctlogo.png?raw=true" alt="GoCryptoTrader logo" width="350px" height="350px" hspace="70">
 
 [![Build Status](https://github.com/thrasher-corp/gocryptotrader/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/thrasher-corp/gocryptotrader/actions/workflows/tests.yml)
 [![Software License](https://img.shields.io/badge/License-MIT-orange.svg?style=flat-square)](https://github.com/thrasher-corp/gocryptotrader/blob/master/LICENSE)
 [![GoDoc](https://godoc.org/github.com/thrasher-corp/gocryptotrader?status.svg)](https://godoc.org/github.com/thrasher-corp/gocryptotrader/config)
 [![Coverage Status](https://codecov.io/gh/thrasher-corp/gocryptotrader/graph/badge.svg?token=41784B23TS)](https://codecov.io/gh/thrasher-corp/gocryptotrader)
-
 
 This config package is part of the GoCryptoTrader codebase.
 
@@ -19,31 +17,32 @@ Join our slack to discuss all things related to GoCryptoTrader! [GoCryptoTrader 
 
 ## Current Features for config
 
- + Handling of config encryption and verification of "configuration".json data.
++ Handling of config encryption and verification of "configuration".json data.
 
- + Contains configurations for:
++ Contains configurations for:
 
-	- Enable/Disable Exchanges. [See Example](#enable-exchange-via-config-example)
+  + Enable/Disable Exchanges. [See Example](#enable-exchange-via-config-example)
 
-	- Bank accounts for withdrawal and depositing FIAT between exchange and
-	your personal accounts. [See Example](#enable-bank-accounts-via-config-example)
+  + Bank accounts for withdrawal and depositing FIAT between exchange and
+ your personal accounts. [See Example](#enable-bank-accounts-via-config-example)
 
-	- Portfolio to monitor online and offline accounts. [See Example](#enable-portfolio-via-config-example)
+  + Portfolio to monitor online and offline accounts. [See Example](#enable-portfolio-via-config-example)
 
-	- Currency configurations to set your foreign exchange provider accounts,
-	your preferred display currency, suitable FIAT currency and suitable
-	cryptocurrency. [See Example](#enable-currency-via-config-example)
+  + Currency configurations to set your foreign exchange provider accounts,
+ your preferred display currency, suitable FIAT currency and suitable
+ cryptocurrency. [See Example](#enable-currency-via-config-example)
 
-	- Communication for utilisation of supported communication mediums e.g.
-	email events direct to your personal account. [See Example](#enable-communications-via-config-example)
+  + Communication for utilisation of supported communication mediums e.g.
+ email events direct to your personal account. [See Example](#enable-communications-via-config-example)
 
-    - Websocket subscription channels. [See Example](#configure-exchange-websocket-subscriptions)
+  + Websocket subscription channels. [See Example](#configure-exchange-websocket-subscriptions)
 
-# Config Examples
+## Config Examples
 
-#### Basic examples for enabling features on the GoCryptoTrader platform
+### Basic examples for enabling features on the GoCryptoTrader platform
 
 + Linux example for quickly creating and testing configuration file
+
 ```sh
 cd ~/go/src/github.com/thrasher-corp/gocryptotrader
 cp config_example.json config.json
@@ -243,8 +242,7 @@ See the section `exchange.features.enabled.subscriptions` for configuring subscr
 ]
 ```
 
-
-## Configure Network Time Server 
+## Configure Network Time Server
 
 + To configure and enable a NTP server you need to set the "enabled" field to one of 3 values -1 is disabled 0 is enabled and alert at start up 1 is enabled and warn at start up
 servers are configured by the pool array and attempted first to last allowedDifference and allowedNegativeDifference are how far ahead and behind is acceptable for the time to be out in nanoseconds
@@ -262,8 +260,8 @@ servers are configured by the pool array and attempted first to last allowedDiff
 
 ## Donations
 
-<img src="/docs/assets/donate.png" hspace="70">
+<img src="/docs/assets/donate.png" alt="Donate to GoCryptoTrader" hspace="70">
 
 If this framework helped you in any way, or you would like to support the developers working on it, please donate Bitcoin to:
 
-***bc1qk0jareu4jytc0cfrhr5wgshsq8282awpavfahc***
+`bc1qk0jareu4jytc0cfrhr5wgshsq8282awpavfahc`

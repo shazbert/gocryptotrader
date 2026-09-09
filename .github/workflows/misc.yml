@@ -9,5 +9,12 @@ jobs:
 
     - name: Run miscellaneous checks
       run: ./scripts/misc_checks.sh
-        
+
+    - name: Lint Markdown
+      uses: DavidAnson/markdownlint-cli2-action@v20
+      with:
+        globs: |
+          **/*.md
+          cmd/documentation/**/*.tmpl
+
 

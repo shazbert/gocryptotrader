@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"flag"
@@ -510,22 +511,30 @@ func UpdateDocumentation(details DocumentationDetails) {
 }
 
 func runTemplate(details DocumentationDetails, mainPath, name string) error {
-	err := os.Remove(mainPath)
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-
-	f, err := os.Create(mainPath)
-	if err != nil {
-		return err
-	}
-	defer func(f *os.File) {
-		err := f.Close()
-		if err != nil {
-			log.Printf("could not close file %s: %v", mainPath, err)
-		}
-	}(f)
-
+	var output bytes.Buffer
 	attr := GetDocumentationAttributes(name, details.Contributors)
-	return details.Tmpl.ExecuteTemplate(f, name, attr)
+	if err := details.Tmpl.ExecuteTemplate(&output, name, attr); err != nil {
+		return err
+	}
+
+	contents := normalizeMarkdown(output.String())
+	return os.WriteFile(mainPath, []byte(contents), file.DefaultPermissionOctal)
+}
+
+func normalizeMarkdown(contents string) string {
+	contents = strings.ReplaceAll(contents, "\r\n", "\n")
+	contents = strings.ReplaceAll(contents, "\t", "    ")
+	lines := strings.Split(contents, "\n")
+	output := lines[:0]
+	previousBlank := false
+	for _, line := range lines {
+		line = strings.TrimRight(line, " ")
+		blank := line == ""
+		if blank && previousBlank {
+			continue
+		}
+		output = append(output, line)
+		previousBlank = blank
+	}
+	return strings.TrimRight(strings.Join(output, "\n"), "\n") + "\n"
 }

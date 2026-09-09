@@ -90,23 +90,23 @@ Similar to the configs, spot support is inbuilt but other asset types will need 
 
 ```go
     fmt1 := currency.PairStore{
-		AssetEnabled:  true,
-		RequestFormat: &currency.PairFormat{Uppercase: true, Delimiter: "_"},
-		ConfigFormat:  &currency.PairFormat{Uppercase: true, Delimiter: "_"},
-	}
+  AssetEnabled:  true,
+  RequestFormat: &currency.PairFormat{Uppercase: true, Delimiter: "_"},
+  ConfigFormat:  &currency.PairFormat{Uppercase: true, Delimiter: "_"},
+ }
 
-	fmt2 := currency.PairStore{
-		AssetEnabled:  true,
-		RequestFormat: &currency.PairFormat{Uppercase: true, Delimiter: "-"},
-		ConfigFormat:  &currency.PairFormat{Uppercase: true, Delimiter: "_"},
-	}
+ fmt2 := currency.PairStore{
+  AssetEnabled:  true,
+  RequestFormat: &currency.PairFormat{Uppercase: true, Delimiter: "-"},
+  ConfigFormat:  &currency.PairFormat{Uppercase: true, Delimiter: "_"},
+ }
 
-	if err := e.SetAssetPairStore(asset.Spot, fmt1); err != nil {
-		log.Errorf(log.ExchangeSys, "%s error storing %q default asset formats: %s", e.Name, asset.Spot, err)
-	}
-	if err := e.SetAssetPairStore(asset.Futures, fmt2); err != nil {
-		log.Errorf(log.ExchangeSys, "%s error storing %q default asset formats: %s", e.Name, asset.Futures, err)
-	}
+ if err := e.SetAssetPairStore(asset.Spot, fmt1); err != nil {
+  log.Errorf(log.ExchangeSys, "%s error storing %q default asset formats: %s", e.Name, asset.Spot, err)
+ }
+ if err := e.SetAssetPairStore(asset.Futures, fmt2); err != nil {
+  log.Errorf(log.ExchangeSys, "%s error storing %q default asset formats: %s", e.Name, asset.Futures, err)
+ }
 ```
 
 ### Document the addition of the new exchange (Binance exchange is used as an example below)
@@ -341,9 +341,9 @@ Ensure each endpoint is implemented and has an associated test to improve test c
 
 #### Message IDs
 
-* e.MessageID() to get a UUIDv7 if the exchange supports unique string IDs
-* e.MessageSequence() to get a simple integer ID if uniqueness is not critical
-* Otherwise override MessageID with a suitable alternative
+- e.MessageID() to get a UUIDv7 if the exchange supports unique string IDs
+- e.MessageSequence() to get a simple integer ID if uniqueness is not critical
+- Otherwise override MessageID with a suitable alternative
 
 #### Authenticated functions
 
