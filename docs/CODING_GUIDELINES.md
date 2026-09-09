@@ -124,6 +124,7 @@ Migration code lives in [config/versions](../config/versions), with each version
 ### Migration Guards
 
 - Before adding a guard that skips migration, identify the downstream dependency it protects and whether the affected entry can reach that code path. A disabled entry must not block migration solely because its channel exists.
+- Evaluate effective scope before filtering literal values. Wildcards such as `asset:"all"` can overlap a specific asset after expansion; test both wildcard and explicitly scoped entries.
 - Distinguish explicit `false`, explicit `true`, omitted and `null` values where their meanings differ. Use presence-aware decoding when necessary, and document any conservative treatment of unspecified values.
 - Test both sides of each guard: a configuration that must remain unchanged and a minimally different configuration that must migrate. Exercise upgrade and downgrade when the guard is shared, and verify unrelated entries remain unchanged.
 - Account for version advancement when a migration makes no changes. Do not assume a skipped transformation will be retried after the user changes their configuration.
@@ -177,6 +178,7 @@ Use `require` and `assert` appropriately:
 
 - Maintain original test inputs unless they are incorrect.
 - Derive expected outcomes from intended behaviour and downstream requirements, not solely from the current implementation. Passing tests can preserve an incorrect policy.
+- Integration tests must reproduce the registration order, ownership and lookup paths relevant to the bug. For isolation tests, make the competing entry reachable first so lookup order cannot conceal a missing discriminator. Where practical, verify the test fails with the targeted fix removed, then restore the fix and verify it passes.
 - Full test coverage is preferable; mock external calls as needed.
 - All unit tests must pass before finalising changes.
 
