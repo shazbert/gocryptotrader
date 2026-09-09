@@ -1,6 +1,6 @@
 # GoCryptoTrader ADD NEW EXCHANGE
 
-<img src="/docs/assets/page-logo.png" width="350px" height="350px" hspace="70" alt="GoCryptoTrader project logo">
+<img src="https://raw.githubusercontent.com/thrasher-corp/gocryptotrader/master/docs/assets/page-logo.png" width="350px" height="350px" hspace="70" alt="GoCryptoTrader project logo">
 
 [![Build Status](https://github.com/thrasher-corp/gocryptotrader/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/thrasher-corp/gocryptotrader/actions/workflows/tests.yml)
 [![Software License](https://img.shields.io/badge/License-MIT-orange.svg?style=flat-square)](https://github.com/thrasher-corp/gocryptotrader/blob/master/LICENSE)
@@ -90,23 +90,23 @@ Similar to the configs, spot support is inbuilt but other asset types will need 
 
 ```go
     fmt1 := currency.PairStore{
-  AssetEnabled:  true,
-  RequestFormat: &currency.PairFormat{Uppercase: true, Delimiter: "_"},
-  ConfigFormat:  &currency.PairFormat{Uppercase: true, Delimiter: "_"},
- }
+        AssetEnabled:  true,
+        RequestFormat: &currency.PairFormat{Uppercase: true, Delimiter: "_"},
+        ConfigFormat:  &currency.PairFormat{Uppercase: true, Delimiter: "_"},
+    }
 
- fmt2 := currency.PairStore{
-  AssetEnabled:  true,
-  RequestFormat: &currency.PairFormat{Uppercase: true, Delimiter: "-"},
-  ConfigFormat:  &currency.PairFormat{Uppercase: true, Delimiter: "_"},
- }
+    fmt2 := currency.PairStore{
+        AssetEnabled:  true,
+        RequestFormat: &currency.PairFormat{Uppercase: true, Delimiter: "-"},
+        ConfigFormat:  &currency.PairFormat{Uppercase: true, Delimiter: "_"},
+    }
 
- if err := e.SetAssetPairStore(asset.Spot, fmt1); err != nil {
-  log.Errorf(log.ExchangeSys, "%s error storing %q default asset formats: %s", e.Name, asset.Spot, err)
- }
- if err := e.SetAssetPairStore(asset.Futures, fmt2); err != nil {
-  log.Errorf(log.ExchangeSys, "%s error storing %q default asset formats: %s", e.Name, asset.Futures, err)
- }
+    if err := e.SetAssetPairStore(asset.Spot, fmt1); err != nil {
+        log.Errorf(log.ExchangeSys, "%s error storing %q default asset formats: %s", e.Name, asset.Spot, err)
+    }
+    if err := e.SetAssetPairStore(asset.Futures, fmt2); err != nil {
+        log.Errorf(log.ExchangeSys, "%s error storing %q default asset formats: %s", e.Name, asset.Futures, err)
+    }
 ```
 
 ### Document the addition of the new exchange (Binance exchange is used as an example below)

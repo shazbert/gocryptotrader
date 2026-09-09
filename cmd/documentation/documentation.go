@@ -518,16 +518,34 @@ func runTemplate(details DocumentationDetails, mainPath, name string) error {
 	}
 
 	contents := normalizeMarkdown(output.String())
-	return os.WriteFile(mainPath, []byte(contents), file.DefaultPermissionOctal)
+	return os.WriteFile(mainPath, []byte(contents), 0o644)
 }
 
 func normalizeMarkdown(contents string) string {
 	contents = strings.ReplaceAll(contents, "\r\n", "\n")
-	contents = strings.ReplaceAll(contents, "\t", "    ")
 	lines := strings.Split(contents, "\n")
 	output := lines[:0]
 	previousBlank := false
+	var fence byte
+	var fenceLength int
 	for _, line := range lines {
+		if marker, length, ok := markdownFence(line); ok {
+			if fence == 0 {
+				fence = marker
+				fenceLength = length
+			} else if marker == fence && length >= fenceLength && fenceRemainderEmpty(line, length) {
+				fence = 0
+				fenceLength = 0
+			}
+			output = append(output, line)
+			previousBlank = false
+			continue
+		}
+		if fence != 0 {
+			output = append(output, line)
+			continue
+		}
+		line = strings.ReplaceAll(line, "\t", "    ")
 		line = strings.TrimRight(line, " ")
 		blank := line == ""
 		if blank && previousBlank {
@@ -537,4 +555,26 @@ func normalizeMarkdown(contents string) string {
 		previousBlank = blank
 	}
 	return strings.TrimRight(strings.Join(output, "\n"), "\n") + "\n"
+}
+
+func markdownFence(line string) (byte, int, bool) {
+	trimmed := strings.TrimLeft(line, " ")
+	if len(line)-len(trimmed) > 3 {
+		return 0, 0, false
+	}
+	line = trimmed
+	if len(line) < 3 || line[0] != '`' && line[0] != '~' {
+		return 0, 0, false
+	}
+	marker := line[0]
+	length := 1
+	for length < len(line) && line[length] == marker {
+		length++
+	}
+	return marker, length, length >= 3
+}
+
+func fenceRemainderEmpty(line string, fenceLength int) bool {
+	line = strings.TrimLeft(line, " ")
+	return strings.TrimSpace(line[fenceLength:]) == ""
 }
