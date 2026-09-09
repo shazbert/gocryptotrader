@@ -111,6 +111,23 @@ Refer to the [ADD_NEW_EXCHANGE.md](/docs/ADD_NEW_EXCHANGE.md) document for compr
 - Always include enough context in errors to aid in debugging and traceability.
 - Do not use panic; always return and propagate errors cleanly.
 
+## Configuration Migrations
+
+Migration code lives in [config/versions](../config/versions), with each version in its own `vN` package. Start with the package instructions and the `ExchangeVersion` and `ConfigVersion` interfaces in [config/versions/versions.go](../config/versions/versions.go). Register new versions in [config/versions/register.go](../config/versions/register.go). For an exchange-specific example, see [config/versions/v14/v14.go](../config/versions/v14/v14.go) and its tests in [config/versions/v14/v14_test.go](../config/versions/v14/v14_test.go).
+
+- Add a new version for subsequent configuration changes rather than rewriting historical migrations to match new types. Keep migration-specific types local to the version package instead of depending on evolving types in the config package.
+- For every configuration change, assess how existing saved configurations behave after upgrade. Implement a versioned migration when existing values would otherwise lose functionality, change meaning, or prevent adoption of an intended replacement.
+- Updating defaults or example configurations does not migrate existing installations. Test a representative configuration from the previous version through the real configuration loader.
+- When no migration is needed, explain why existing configurations remain compatible and whether retaining their previous behaviour is intentional.
+- Preserve explicit user choices. Apply default-changing migrations only to configurations that can be reliably identified as using the previous defaults.
+
+### Migration Guards
+
+- Before adding a guard that skips migration, identify the downstream dependency it protects and whether the affected entry can reach that code path. A disabled entry must not block migration solely because its channel exists.
+- Distinguish explicit `false`, explicit `true`, omitted and `null` values where their meanings differ. Use presence-aware decoding when necessary, and document any conservative treatment of unspecified values.
+- Test both sides of each guard: a configuration that must remain unchanged and a minimally different configuration that must migrate. Exercise upgrade and downgrade when the guard is shared, and verify unrelated entries remain unchanged.
+- Account for version advancement when a migration makes no changes. Do not assume a skipped transformation will be retried after the user changes their configuration.
+
 ## Testing Guidelines
 
 ### General testing
@@ -159,6 +176,7 @@ Use `require` and `assert` appropriately:
 ### Test Coverage
 
 - Maintain original test inputs unless they are incorrect.
+- Derive expected outcomes from intended behaviour and downstream requirements, not solely from the current implementation. Passing tests can preserve an incorrect policy.
 - Full test coverage is preferable; mock external calls as needed.
 - All unit tests must pass before finalising changes.
 
