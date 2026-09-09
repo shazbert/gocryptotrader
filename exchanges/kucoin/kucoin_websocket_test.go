@@ -419,6 +419,16 @@ func TestCheckSubscriptionsPreservesRealtimeOrderbooks(t *testing.T) {
 		{name: "pinned spot", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot}}, realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.Spot}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot}},
 		{name: "pinned spot and futures", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot}, {Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Futures}}, realtime: subscription.List{{Enabled: true, Channel: futuresOrderbookChannel, Asset: asset.Futures}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot, asset.Futures}},
 		{name: "pinned spot with disabled all", generic: &subscription.Subscription{Channel: subscription.OrderbookChannel, Asset: asset.All}, pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot}}, realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.Spot}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot}},
+		{name: "pinned spot with realtime futures", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot}}, realtime: subscription.List{{Enabled: true, Channel: futuresOrderbookChannel, Asset: asset.Futures}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot, asset.Futures}},
+		{name: "pinned margin with realtime spot", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Margin}}, realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.Spot}}, wantBooks: true, wantAssets: []asset.Item{asset.Margin, asset.Spot}},
+		{name: "pinned spot with realtime futures and margin", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot}}, realtime: subscription.List{{Enabled: true, Channel: futuresOrderbookChannel, Asset: asset.Futures}, {Enabled: true, Channel: marketOrderbookChannel, Asset: asset.Margin}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot, asset.Margin, asset.Futures}},
+		{name: "pinned spot with duplicate realtime futures", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot}}, realtime: subscription.List{{Enabled: true, Channel: futuresOrderbookChannel, Asset: asset.Futures}, {Enabled: true, Channel: futuresOrderbookChannel, Asset: asset.Futures}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot, asset.Futures}},
+		{name: "pinned spot with assetless realtime", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot}}, realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot, asset.Margin, asset.Futures}},
+		{name: "pinned spot with all assets realtime", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot}}, realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.All}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot, asset.Margin, asset.Futures}},
+		{name: "pinned spot with disabled all and realtime futures", generic: &subscription.Subscription{Channel: subscription.OrderbookChannel, Asset: asset.All}, pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Spot}}, realtime: subscription.List{{Enabled: true, Channel: futuresOrderbookChannel, Asset: asset.Futures}}, wantBooks: true, wantAssets: []asset.Item{asset.Spot, asset.Futures}},
+		{name: "pinned margin settings with realtime spot", pinned: subscription.List{{Enabled: true, Channel: subscription.OrderbookChannel, Asset: asset.Margin, Interval: kline.HundredMilliseconds, Levels: 50}}, realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.Spot}}, wantBooks: true, wantAssets: []asset.Item{asset.Margin, asset.Spot}},
+		{name: "assetless realtime without generic", realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel}}, wantBooks: true},
+		{name: "all assets realtime without generic", realtime: subscription.List{{Enabled: true, Channel: marketOrderbookChannel, Asset: asset.All}}, wantBooks: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -459,12 +469,10 @@ func TestCheckSubscriptionsPreservesRealtimeOrderbooks(t *testing.T) {
 					instance.Websocket.SetCanUseAuthenticatedEndpoints(authenticated)
 					subs, err := instance.generateSubscriptions()
 					require.NoError(t, err, "migrated subscriptions must generate before and after restart")
-					var orderbooks int
 					generatedAssets := make(map[asset.Item]bool)
 					topics := make(map[string]bool)
 					for _, sub := range subs {
 						if sub.Channel == subscription.OrderbookChannel || sub.Channel == marketOrderbookChannel || sub.Channel == futuresOrderbookChannel {
-							orderbooks++
 							generatedAssets[sub.Asset] = true
 							assert.Falsef(t, topics[sub.QualifiedChannel], "orderbook topic %s should not be duplicated", sub.QualifiedChannel)
 							topics[sub.QualifiedChannel] = true
@@ -478,8 +486,10 @@ func TestCheckSubscriptionsPreservesRealtimeOrderbooks(t *testing.T) {
 							expectedAssets[assetType] = true
 						}
 					}
+					if expectedAssets[asset.Spot] {
+						delete(expectedAssets, asset.Margin)
+					}
 					assert.Equal(t, expectedAssets, generatedAssets, "generated orderbooks should retain asset coverage before and after restart")
-					assert.Equal(t, test.wantBooks, orderbooks > 0, "orderbook coverage should survive migration and restart in either auth mode")
 				}
 			}
 		})

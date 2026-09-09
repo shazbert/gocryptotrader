@@ -1146,11 +1146,17 @@ func (e *Exchange) checkSubscriptions() {
 		}
 	}
 	before := len(e.Config.Features.Subscriptions)
-	replaceRealtime := false
+	var replaceAssets []asset.Item
 	e.Config.Features.Subscriptions = slices.DeleteFunc(e.Config.Features.Subscriptions, func(s *subscription.Subscription) bool {
 		switch s.Channel {
 		case marketOrderbookChannel, futuresOrderbookChannel:
-			replaceRealtime = replaceRealtime || s.Enabled
+			if s.Enabled {
+				if s.Asset == asset.All || s.Asset == asset.Empty {
+					replaceAssets = append(replaceAssets, e.GetAssetTypes(true)...)
+				} else {
+					replaceAssets = append(replaceAssets, s.Asset)
+				}
+			}
 			return true
 		case "/contractMarket/level2Depth50", // Replaced by subsctiption.Orderbook for asset.All
 			"/contractMarket/tickerV2", // Replaced by subscription.Ticker for asset.All
@@ -1162,9 +1168,17 @@ func (e *Exchange) checkSubscriptions() {
 		return false
 	})
 	upgraded = upgraded || before != len(e.Config.Features.Subscriptions)
-	if replaceRealtime && !slices.ContainsFunc(e.Config.Features.Subscriptions, func(sub *subscription.Subscription) bool {
+	slices.Sort(replaceAssets)
+	uncovered := slices.DeleteFunc(slices.Compact(replaceAssets), func(assetType asset.Item) bool {
+		return slices.ContainsFunc(e.Config.Features.Subscriptions, func(sub *subscription.Subscription) bool {
+			return sub.Channel == subscription.OrderbookChannel && sub.Enabled && (sub.Asset == asset.All || sub.Asset == assetType)
+		})
+	})
+	switch {
+	case len(uncovered) == 0:
+	case !slices.ContainsFunc(e.Config.Features.Subscriptions, func(sub *subscription.Subscription) bool {
 		return sub.Channel == subscription.OrderbookChannel && sub.Enabled
-	}) {
+	}):
 		index := slices.IndexFunc(e.Config.Features.Subscriptions, func(sub *subscription.Subscription) bool {
 			return sub.Channel == subscription.OrderbookChannel && sub.Asset == asset.All
 		})
@@ -1179,6 +1193,23 @@ func (e *Exchange) checkSubscriptions() {
 					break
 				}
 			}
+		}
+	default:
+		for _, assetType := range uncovered {
+			replacement := &subscription.Subscription{
+				Enabled: true, Channel: subscription.OrderbookChannel, Asset: assetType, Interval: kline.HundredMilliseconds,
+			}
+			if assetType == asset.Spot || assetType == asset.Margin {
+				for _, sub := range e.Config.Features.Subscriptions {
+					if sub.Enabled && sub.Channel == subscription.OrderbookChannel && sub.Asset != assetType &&
+						(sub.Asset == asset.Spot || sub.Asset == asset.Margin) && len(sub.Pairs) == 0 {
+						replacement.Interval = sub.Interval
+						replacement.Levels = sub.Levels
+						break
+					}
+				}
+			}
+			e.Config.Features.Subscriptions = append(e.Config.Features.Subscriptions, replacement)
 		}
 	}
 	if upgraded {
