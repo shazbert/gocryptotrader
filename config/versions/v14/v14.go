@@ -71,7 +71,9 @@ func migrateSubscriptions(exchange []byte, upgrade bool) ([]byte, error) {
 			}
 			legacyIndex = i
 		case legacyOrderbookAliasChannel:
-			return exchange, nil
+			if subscriptions[i].Enabled == nil || *subscriptions[i].Enabled {
+				return exchange, nil
+			}
 		case spotOrderbookV2Channel:
 			if v2Index != -1 {
 				return exchange, nil

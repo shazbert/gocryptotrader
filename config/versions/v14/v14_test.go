@@ -133,10 +133,20 @@ func TestMigrationRequiresDefaultV2Entry(t *testing.T) {
 func TestMigrationPreservesRawLegacyChannel(t *testing.T) {
 	t.Parallel()
 	for _, upgrade := range []bool{true, false} {
-		for _, rawEnabled := range []bool{true, false} {
-			t.Run(fmt.Sprintf("upgrade=%t/rawEnabled=%t", upgrade, rawEnabled), func(t *testing.T) {
+		for _, test := range []struct {
+			name          string
+			enabledField  string
+			wantMigration bool
+		}{
+			{name: "enabled", enabledField: `"enabled":true,`},
+			{name: "disabled", enabledField: `"enabled":false,`, wantMigration: true},
+			{name: "missing enabled"},
+			{name: "null enabled", enabledField: `"enabled":null,`},
+		} {
+			t.Run(fmt.Sprintf("upgrade=%t/%s", upgrade, test.name), func(t *testing.T) {
 				t.Parallel()
-				input := fmt.Sprintf(`{"features":{"subscriptions":[{"enabled":%t,"channel":"orderbook","asset":"spot","interval":"100ms"},{"enabled":%t,"channel":"spot.order_book_update","asset":"spot","interval":"100ms","pairs":"ETH_USDT"},{"enabled":%t,"channel":"spot.obu","asset":"spot","levels":50}]}}`, upgrade, rawEnabled, !upgrade)
+				raw := `{` + test.enabledField + `"channel":"spot.order_book_update","asset":"spot","interval":"100ms","pairs":"ETH_USDT"}`
+				input := fmt.Sprintf(`{"features":{"subscriptions":[{"enabled":%t,"channel":"orderbook","asset":"spot","interval":"100ms"},%s,{"enabled":%t,"channel":"spot.obu","asset":"spot","levels":50}]}}`, upgrade, raw, !upgrade)
 				version := new(v14.Version)
 				migrate := version.UpgradeExchange
 				if !upgrade {
@@ -144,7 +154,15 @@ func TestMigrationPreservesRawLegacyChannel(t *testing.T) {
 				}
 				got, err := migrate(t.Context(), []byte(input))
 				require.NoError(t, err, "migration must accept raw legacy channels")
-				assert.Equal(t, input, string(got), "migration should preserve the raw legacy feed and its generic snapshot dependency byte-for-byte")
+				if test.wantMigration {
+					expected := fmt.Sprintf(`{"features":{"subscriptions":[{"enabled":%t,"channel":"orderbook","asset":"spot","interval":"100ms"},%s,{"enabled":%t,"channel":"spot.obu","asset":"spot","levels":50}]}}`, !upgrade, raw, upgrade)
+					assert.JSONEq(t, expected, string(got), "disabled raw legacy entries should allow migration without being changed")
+				} else {
+					assert.Equal(t, input, string(got), "migration should preserve the raw legacy feed and its generic snapshot dependency byte-for-byte")
+				}
+				again, err := migrate(t.Context(), got)
+				require.NoError(t, err, "repeated migration must not error")
+				assert.Equal(t, got, again, "migration should be idempotent")
 			})
 		}
 	}
