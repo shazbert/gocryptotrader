@@ -606,14 +606,15 @@ func TestCheckSubscriptionsPreservesRealtimeOrderbooks(t *testing.T) {
 					topics := make(map[string]bool)
 					var generatedSymbols []string
 					for _, sub := range subs {
-						if sub.Channel == subscription.OrderbookChannel || sub.Channel == marketOrderbookChannel || sub.Channel == futuresOrderbookChannel {
-							generatedAssets[sub.Asset] = true
-							assert.Falsef(t, topics[sub.QualifiedChannel], "orderbook topic %s should not be duplicated", sub.QualifiedChannel)
-							topics[sub.QualifiedChannel] = true
-							_, symbols, ok := strings.Cut(sub.QualifiedChannel, ":")
-							require.True(t, ok, "orderbook topic must contain symbols")
-							generatedSymbols = append(generatedSymbols, strings.Split(symbols, ",")...)
+						if sub.Channel != subscription.OrderbookChannel && sub.Channel != marketOrderbookChannel && sub.Channel != futuresOrderbookChannel {
+							continue
 						}
+						generatedAssets[sub.Asset] = true
+						assert.Falsef(t, topics[sub.QualifiedChannel], "orderbook topic %s should not be duplicated", sub.QualifiedChannel)
+						topics[sub.QualifiedChannel] = true
+						_, symbols, ok := strings.Cut(sub.QualifiedChannel, ":")
+						require.True(t, ok, "orderbook topic must contain symbols")
+						generatedSymbols = append(generatedSymbols, strings.Split(symbols, ",")...)
 					}
 					expectedAssets := make(map[asset.Item]bool)
 					for _, assetType := range wantAssets {
