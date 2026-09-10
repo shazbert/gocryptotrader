@@ -51,18 +51,18 @@ and can be overridden with the ```-config``` flag
 
 ```--config value  config file to load (default: "~/.gocryptotrader/config.json")```
 
-#### Usage
+### Usage
 
-#### Sub Commands
+### Sub Commands
 
-##### candle
+#### candle
 
 ```text
    file     seed candle data from a file
    help, h  Shows a list of commands or help for one command
 ```
 
-##### Candle command examples
+#### Candle command examples
 
 ```console
 dbseed candle file --exchange=binance --base=BTC --quote=USDT --interval=86400 --asset=spot --filename=../../testdata/binance_BTCUSDT_24h_2019_01_01_2020_01_01.csv
@@ -84,7 +84,7 @@ An example of this is:
 1546646400,30490.667751,3790.09,3770.96,3751,3770.96
 ```
 
-##### exchange
+#### exchange
 
 ```text
    file     seed exchange data from a file
@@ -92,7 +92,7 @@ An example of this is:
    default  seed exchange from default list
 ```
 
-##### Exchange command examples
+#### Exchange command examples
 
 ```console
 dbseed exchange add --name=newexchange

@@ -36,21 +36,21 @@ Join our slack to discuss all things related to GoCryptoTrader! [GoCryptoTrader 
 
 To Enable database logging support you must have an active migrated database by following the [database setup guide](../database/README.md)
 
-#### Syntax Highlighting
+### Syntax Highlighting
 
 To enable syntax highlighting for vscode download extension [graphman65/vscode-tengo](https://github.com/graphman65/vscode-tengo/) then add `".gct"` to vscode-tengo package.json [settings](https://github.com/graphman65/vscode-tengo/blob/master/package.json#L27) to enable highlighting of our files.
 
-#### Configuration
+### Configuration
 
 The gctscript configuration struct is currently:
 
-```shell script
+```go
 type Config struct {
- Enabled       bool          `json:"enabled"`
- ScriptTimeout time.Duration `json:"timeout"`
- AllowImports  bool          `json:"allow_imports"`
- AutoLoad      []string      `json:"auto_load"`
- Verbose       bool          `json:"Verbose"`
+    Enabled       bool          `json:"enabled"`
+    ScriptTimeout time.Duration `json:"timeout"`
+    AllowImports  bool          `json:"allow_imports"`
+    AutoLoad      []string      `json:"auto_load"`
+    Verbose       bool          `json:"Verbose"`
 }
 ```
 
@@ -66,7 +66,7 @@ With an example configuration being:
  },
 ```
 
-##### Script Control
+### Script Control
 
 + You can autoload scripts on bot start up by placing their name in the "auto_load" config entry
 
@@ -179,7 +179,7 @@ With an example configuration being:
       }
     ```
 
-##### Scripting & Extending modules
+### Scripting & Extending modules
 
 The scripting engine utilises [Tengo](https://github.com/d5/tengo); see the [Tengo introduction tutorial](https://github.com/d5/tengo/blob/master/docs/tutorial.md).
 
@@ -205,7 +205,7 @@ Similar steps can be taken to add a new module with a few adjustments
 + Open required [GCT](modules/gct/gct_types.go)
 + Add module name to GCTModules map
 
-##### GCT module methods
+### GCT module methods
 
 Current supported methods added and exposed to scripts are as follows:
 

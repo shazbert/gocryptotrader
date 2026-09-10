@@ -80,6 +80,22 @@ func TestNewExchangeAndSaveConfig(t *testing.T) {
 
 	err = os.RemoveAll(testExchangeDir)
 	require.NoErrorf(t, err, "RemoveAll failed: %s, manual deletion of test directory required", err)
+	_, err = makeExchange(
+		testExchangeDir,
+		cfg,
+		&exchange{
+			Name: testExchangeName,
+			REST: false,
+			WS:   true,
+		},
+	)
+	require.NoError(t, err, "making websocket-only exchange must not error")
+	readme, err = os.ReadFile(filepath.Join(testExchangeDir, "README.md"))
+	require.NoError(t, err, "reading websocket-only README must not error")
+	assert.NotContains(t, string(readme), "\n\n\n", "websocket-only README should not include consecutive blank lines")
+
+	err = os.RemoveAll(testExchangeDir)
+	require.NoErrorf(t, err, "RemoveAll failed: %s, manual deletion of test directory required", err)
 
 	exchCfg, err := makeExchange(
 		testExchangeDir,

@@ -1,6 +1,6 @@
 {{define "donations" -}}
 
-## Donations
+{{if or (eq .CapitalName "Backtester") (eq .CapitalName "Subscription")}}### Donations{{else}}## Donations{{end}}
 
 <img src="https://raw.githubusercontent.com/thrasher-corp/gocryptotrader/master/docs/assets/donate.png" alt="Donate to GoCryptoTrader" hspace="70">
 

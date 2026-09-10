@@ -528,29 +528,45 @@ func normalizeMarkdown(contents string) string {
 	previousBlank := false
 	var fence byte
 	var fenceLength int
+	var fenceBlockquoteDepth int
+	var fenceListIndent int
 	var listIndent int
 	for _, line := range lines {
-		if fence == 0 {
-			if indent, ok := markdownListIndent(line); ok {
-				listIndent = indent
-			} else if strings.TrimSpace(line) != "" && leadingSpaces(line) < listIndent {
-				listIndent = 0
+		if fence != 0 {
+			content, ok := stripBlockquoteDepth(line, fenceBlockquoteDepth)
+			if ok {
+				marker, length, remainderEmpty, delimiter := markdownFenceDelimiter(content, fenceListIndent)
+				if delimiter && marker == fence && length >= fenceLength && remainderEmpty {
+					fence = 0
+					fenceLength = 0
+					fenceBlockquoteDepth = 0
+					fenceListIndent = 0
+					output = append(output, strings.TrimRight(line, " "))
+					previousBlank = false
+					continue
+				}
+				output = append(output, line)
+				continue
 			}
+			fence = 0
+			fenceLength = 0
+			fenceBlockquoteDepth = 0
+			fenceListIndent = 0
 		}
-		if marker, length, remainderEmpty, ok := markdownFence(line, listIndent); ok {
-			if fence == 0 {
-				fence = marker
-				fenceLength = length
-			} else if marker == fence && length >= fenceLength && remainderEmpty {
-				fence = 0
-				fenceLength = 0
-			}
+
+		content, blockquoteDepth := trimBlockquotePrefix(line)
+		if indent, ok := markdownListIndent(content); ok {
+			listIndent = indent
+		} else if strings.TrimSpace(content) != "" && leadingIndent(content) < listIndent {
+			listIndent = 0
+		}
+		if marker, length, _, ok := markdownFence(content, listIndent); ok {
+			fence = marker
+			fenceLength = length
+			fenceBlockquoteDepth = blockquoteDepth
+			fenceListIndent = listIndent
 			output = append(output, strings.TrimRight(line, " "))
 			previousBlank = false
-			continue
-		}
-		if fence != 0 {
-			output = append(output, line)
 			continue
 		}
 		line = strings.ReplaceAll(line, "\t", "    ")
@@ -566,13 +582,16 @@ func normalizeMarkdown(contents string) string {
 }
 
 func markdownFence(line string, listIndent int) (marker byte, length int, remainderEmpty, ok bool) {
-	line = trimBlockquotePrefix(line)
 	if content, indent, isListItem := markdownListContent(line); isListItem {
 		line = content
 		listIndent = indent
 	}
-	trimmed := strings.TrimLeft(line, " ")
-	if len(line)-len(trimmed) > listIndent+3 {
+	return markdownFenceDelimiter(line, listIndent)
+}
+
+func markdownFenceDelimiter(line string, listIndent int) (marker byte, length int, remainderEmpty, ok bool) {
+	trimmed, indent := trimIndent(line)
+	if indent > listIndent+3 {
 		return 0, 0, false, false
 	}
 	line = trimmed
@@ -588,19 +607,18 @@ func markdownFence(line string, listIndent int) (marker byte, length int, remain
 }
 
 func markdownListIndent(line string) (int, bool) {
-	line = trimBlockquotePrefix(line)
 	_, indent, ok := markdownListContent(line)
 	return indent, ok
 }
 
-func markdownListContent(line string) (string, int, bool) {
-	spaces := leadingSpaces(line)
+func markdownListContent(line string) (content string, indent int, ok bool) {
+	trimmed, spaces := trimIndent(line)
 	if spaces > 3 {
 		return "", 0, false
 	}
-	line = line[spaces:]
+	line = trimmed
 	markerLength := 0
-	if len(line) >= 2 && (line[0] == '-' || line[0] == '+' || line[0] == '*') {
+	if line != "" && (line[0] == '-' || line[0] == '+' || line[0] == '*') {
 		markerLength = 1
 	} else {
 		for markerLength < len(line) && markerLength < 9 && line[markerLength] >= '0' && line[markerLength] <= '9' {
@@ -611,30 +629,61 @@ func markdownListContent(line string) (string, int, bool) {
 		}
 		markerLength++
 	}
-	if markerLength >= len(line) || line[markerLength] != ' ' {
+	if markerLength == len(line) {
+		return "", spaces + markerLength + 1, true
+	}
+	if line[markerLength] != ' ' && line[markerLength] != '\t' {
 		return "", 0, false
 	}
-	whitespace := 1
-	for markerLength+whitespace < len(line) && line[markerLength+whitespace] == ' ' {
-		whitespace++
-	}
-	indent := spaces + markerLength + whitespace
-	return line[markerLength+whitespace:], indent, true
+	content, whitespace := trimIndent(line[markerLength:])
+	indent = spaces + markerLength + whitespace
+	return content, indent, true
 }
 
-func trimBlockquotePrefix(line string) string {
+func trimBlockquotePrefix(line string) (content string, depth int) {
 	for {
-		spaces := leadingSpaces(line)
-		if spaces > 3 || spaces >= len(line) || line[spaces] != '>' {
-			return line
+		trimmed, indent := trimIndent(line)
+		if indent > 3 || trimmed == "" || trimmed[0] != '>' {
+			return line, depth
 		}
-		line = line[spaces+1:]
-		if len(line) > 0 && line[0] == ' ' {
+		line = trimmed[1:]
+		if line != "" && (line[0] == ' ' || line[0] == '\t') {
+			line = line[1:]
+		}
+		depth++
+	}
+}
+
+func stripBlockquoteDepth(line string, depth int) (string, bool) {
+	for range depth {
+		trimmed, indent := trimIndent(line)
+		if indent > 3 || trimmed == "" || trimmed[0] != '>' {
+			return line, false
+		}
+		line = trimmed[1:]
+		if line != "" && (line[0] == ' ' || line[0] == '\t') {
 			line = line[1:]
 		}
 	}
+	return line, true
 }
 
-func leadingSpaces(line string) int {
-	return len(line) - len(strings.TrimLeft(line, " "))
+func leadingIndent(line string) int {
+	_, indent := trimIndent(line)
+	return indent
+}
+
+func trimIndent(line string) (content string, indent int) {
+	for line != "" {
+		switch line[0] {
+		case ' ':
+			indent++
+		case '\t':
+			indent += 4 - indent%4
+		default:
+			return line, indent
+		}
+		line = line[1:]
+	}
+	return line, indent
 }

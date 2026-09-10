@@ -43,29 +43,29 @@ go install github.com/thrasher-corp/sqlboiler/drivers/sqlboiler-psql
 go install github.com/thrasher-corp/sqlboiler-sqlite3
 ```
 
-#### Configuration
+### Configuration
 
 The database configuration struct is currently:
 
-```shell script
+```go
 type Config struct {
- Enabled                   bool   `json:"enabled"`
- Verbose                   bool   `json:"verbose"`
- Driver                    string `json:"driver"`
- drivers.ConnectionDetails `json:"connectionDetails"`
+    Enabled                   bool   `json:"enabled"`
+    Verbose                   bool   `json:"verbose"`
+    Driver                    string `json:"driver"`
+    drivers.ConnectionDetails `json:"connectionDetails"`
 }
 ```
 
 And Connection Details:
 
-```sh
+```go
 type ConnectionDetails struct {
- Host     string `json:"host"`
- Port     uint16 `json:"port"`
- Username string `json:"username"`
- Password string `json:"password"`
- Database string `json:"database"`
- SSLMode  string `json:"sslmode"`
+    Host     string `json:"host"`
+    Port     uint16 `json:"port"`
+    Username string `json:"username"`
+    Password string `json:"password"`
+    Database string `json:"database"`
+    SSLMode  string `json:"sslmode"`
 }
 ```
 
@@ -87,7 +87,7 @@ With an example configuration being:
  },
 ```
 
-##### Create and Run migrations
+### Create and Run migrations
 
  Migrations are created using a modified version of [Goose](https://github.com/thrasher-corp/goose)
 
@@ -115,9 +115,9 @@ dbmigrate -command "up"
 
 dbmigrate provides a -migrationdir flag override to tell it what path to look in for migrations
 
-###### Note: its highly recommended to backup any data before running migrations against a production database especially if you are running SQLite due to alter table limitations
+#### Note: its highly recommended to backup any data before running migrations against a production database especially if you are running SQLite due to alter table limitations
 
-##### Adding a new model
+### Adding a new model
 
 Model's are generated using [SQLBoiler](https://github.com/thrasher-corp/sqlboiler)
 A helper tool has been made located in gen_sqlboiler_config that will parse your GoCryptoTrader config and output a SQLBoiler config
@@ -157,11 +157,11 @@ make gen_db_models
 
 And in the contrib/sqlboiler.cmd for windows users
 
-##### Adding a Repository
+### Adding a Repository
 
 + Create Repository directory in github.com/thrasher-corp/gocryptotrader/database/repository/
 
-##### DBSeed helper
+### DBSeed helper
 
 A helper tool [cmd/dbseed](../cmd/dbseed/README.md) has been created for assisting with data migration
 

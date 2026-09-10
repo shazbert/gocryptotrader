@@ -61,7 +61,7 @@ go build
 ./gocryptotrader -config custom.json
 ```
 
-## Enable Exchange Via Config Example
+### Enable Exchange Via Config Example
 
 + To enable or disable an exchange via config proceed through the
 "configuration".json file to exchanges and to the supported exchange e.g see
@@ -111,7 +111,7 @@ have multiple deposit accounts for different FIAT deposit currencies.
  },
 ```
 
-## Enable Bank Accounts Via Config Example
+### Enable Bank Accounts Via Config Example
 
 + To enable bank accounts simply proceed through "configuration".json file to
 "BankAccounts" and input your account information example below.
@@ -131,7 +131,7 @@ have multiple deposit accounts for different FIAT deposit currencies.
 ]
 ```
 
-## Enable Portfolio Via Config Example
+### Enable Portfolio Via Config Example
 
 + To enable the GoCryptoTrader platform to monitor your addresses please
 specify, "configuration".json file example below.
@@ -154,7 +154,7 @@ specify, "configuration".json file example below.
  ]
 ```
 
-## Enable Currency Via Config Example
+### Enable Currency Via Config Example
 
 + To Enable foreign exchange providers set "Enabled" to true and add in your
 account API keys example below.
@@ -187,7 +187,7 @@ below.
 "FiatDisplayCurrency": "USD"
 ```
 
-## Enable Communications Via Config Example
+### Enable Communications Via Config Example
 
 + To set the desired platform communication medium proceed to "Communications"
 in the "configuration".json file and set your account details to the preferred
@@ -210,7 +210,7 @@ comm method and add in your contact list if available.
 },
 ```
 
-## Configure exchange websocket subscriptions
+### Configure exchange websocket subscriptions
 
 + Websocket subscriptions provide a stream of data from an exchange.
 Whilst subscriptions are specific to each exchange, some common examples are: candles, orderbook, ticker and allTrades.
@@ -242,7 +242,7 @@ See the section `exchange.features.enabled.subscriptions` for configuring subscr
 ]
 ```
 
-## Configure Network Time Server
+### Configure Network Time Server
 
 + To configure and enable a NTP server you need to set the "enabled" field to one of 3 values -1 is disabled 0 is enabled and alert at start up 1 is enabled and warn at start up
 servers are configured by the pool array and attempted first to last allowedDifference and allowedNegativeDifference are how far ahead and behind is acceptable for the time to be out in nanoseconds

@@ -251,9 +251,9 @@ This ensures proper formatting across the codebase.
     action locally and review newly introduced rules before changing the config.
 - Lint both Markdown and template sources using the same scope as CI:
 
-```console
-        npx --yes markdownlint-cli2 "**/*.md" "cmd/documentation/**/*.tmpl"
-```
+    ```console
+    npx --yes markdownlint-cli2@0.23.2 "**/*.md" "cmd/documentation/**/*.tmpl"
+    ```
 
 - Run the documentation generator twice when templates or normalisation
     change. The second run must produce no additional diff.
