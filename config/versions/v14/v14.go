@@ -45,12 +45,13 @@ func migrateSubscriptions(exchange []byte, upgrade bool) ([]byte, error) {
 	}
 
 	var subscriptions []struct {
-		Enabled  *bool           `json:"enabled"`
-		Channel  string          `json:"channel"`
-		Asset    string          `json:"asset"`
-		Interval json.RawMessage `json:"interval"`
-		Levels   int             `json:"levels"`
-		Pairs    string          `json:"pairs"`
+		Enabled       *bool           `json:"enabled"`
+		Channel       string          `json:"channel"`
+		Asset         string          `json:"asset"`
+		Interval      json.RawMessage `json:"interval"`
+		Levels        int             `json:"levels"`
+		Pairs         string          `json:"pairs"`
+		Authenticated bool            `json:"authenticated"`
 	}
 	if err := json.Unmarshal(raw, &subscriptions); err != nil {
 		return exchange, fmt.Errorf("error decoding GateIO subscriptions: %w", err)
@@ -65,7 +66,7 @@ func migrateSubscriptions(exchange []byte, upgrade bool) ([]byte, error) {
 		if ((subscriptions[i].Channel == legacyOrderbookAliasChannel && subscriptions[i].Asset == spotAsset) ||
 			((subscriptions[i].Channel == legacyOrderbookAliasChannel || subscriptions[i].Channel == legacyOrderbookChannel) &&
 				subscriptions[i].Asset == allAsset)) &&
-			(subscriptions[i].Enabled == nil || *subscriptions[i].Enabled) {
+			subscriptions[i].Enabled != nil && *subscriptions[i].Enabled {
 			return exchange, nil
 		}
 		if subscriptions[i].Asset != spotAsset {
@@ -86,6 +87,7 @@ func migrateSubscriptions(exchange []byte, upgrade bool) ([]byte, error) {
 	}
 	if legacyIndex == -1 ||
 		string(subscriptions[legacyIndex].Interval) != `"100ms"` || subscriptions[legacyIndex].Pairs != "" ||
+		subscriptions[legacyIndex].Authenticated ||
 		subscriptions[legacyIndex].Enabled == nil ||
 		*subscriptions[legacyIndex].Enabled != upgrade {
 		return exchange, nil

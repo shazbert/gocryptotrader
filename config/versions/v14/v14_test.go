@@ -101,6 +101,55 @@ func TestMigrationPreservesCustomSubscriptions(t *testing.T) {
 	}
 }
 
+func TestMigrationPreservesLegacyAuthentication(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name          string
+		field         string
+		authenticated bool
+	}{
+		{name: "authenticated", field: `,"authenticated":true`, authenticated: true},
+		{name: "unauthenticated", field: `,"authenticated":false`},
+		{name: "omitted"},
+		{name: "null", field: `,"authenticated":null`},
+	} {
+		for _, upgrade := range []bool{true, false} {
+			for _, hasV2 := range []bool{true, false} {
+				t.Run(fmt.Sprintf("%s/upgrade=%t/V2=%t", test.name, upgrade, hasV2), func(t *testing.T) {
+					t.Parallel()
+					v2 := ""
+					if hasV2 {
+						v2 = fmt.Sprintf(`,{"enabled":%t,"channel":"spot.obu","asset":"spot","levels":50}`, !upgrade)
+					}
+					input := fmt.Sprintf(`{"features":{"subscriptions":[{"enabled":%t,"channel":"orderbook","asset":"spot","interval":"100ms"%s}%s,{"enabled":true,"channel":"spot.order_book","asset":"spot"}]}}`, upgrade, test.field, v2)
+					version := new(v14.Version)
+					migrate := version.UpgradeExchange
+					if !upgrade {
+						migrate = version.DowngradeExchange
+					}
+					got, err := migrate(t.Context(), []byte(input))
+					require.NoError(t, err, "migration must accept legacy authentication settings")
+					if test.authenticated || (!upgrade && !hasV2) {
+						assert.Equal(t, input, string(got), "migration should preserve authenticated legacy entries byte-for-byte")
+					} else {
+						legacy := fmt.Sprintf(`{"enabled":%t,"channel":"orderbook","asset":"spot","interval":"100ms"%s}`, !upgrade, test.field)
+						v2 = fmt.Sprintf(`{"enabled":%t,"channel":"spot.obu","asset":"spot","levels":50}`, upgrade)
+						snapshot := `{"enabled":true,"channel":"spot.order_book","asset":"spot"}`
+						entries := legacy + "," + v2 + "," + snapshot
+						if !hasV2 {
+							entries = legacy + "," + snapshot + "," + v2
+						}
+						assert.JSONEq(t, `{"features":{"subscriptions":[`+entries+`]}}`, string(got), "unauthenticated legacy entries should allow migration without changing other fields")
+					}
+					again, err := migrate(t.Context(), got)
+					require.NoError(t, err, "repeated migration must not error")
+					assert.Equal(t, got, again, "migration should be idempotent")
+				})
+			}
+		}
+	}
+}
+
 func TestMigrationRequiresDefaultV2Entry(t *testing.T) {
 	t.Parallel()
 	for name, entry := range map[string]string{
@@ -146,16 +195,16 @@ func TestMigrationPreservesRawLegacyChannel(t *testing.T) {
 		}{
 			{name: "enabled", channel: rawLegacyChannel, asset: "spot", enabledField: `"enabled":true,`},
 			{name: "disabled", channel: rawLegacyChannel, asset: "spot", enabledField: `"enabled":false,`, wantMigration: true},
-			{name: "missing enabled", channel: rawLegacyChannel, asset: "spot"},
-			{name: "null enabled", channel: rawLegacyChannel, asset: "spot", enabledField: `"enabled":null,`},
+			{name: "missing enabled", channel: rawLegacyChannel, asset: "spot", wantMigration: true},
+			{name: "null enabled", channel: rawLegacyChannel, asset: "spot", enabledField: `"enabled":null,`, wantMigration: true},
 			{name: "all assets enabled", channel: rawLegacyChannel, asset: allAssets, enabledField: `"enabled":true,`},
 			{name: "all assets disabled", channel: rawLegacyChannel, asset: allAssets, enabledField: `"enabled":false,`, wantMigration: true},
-			{name: "all assets missing enabled", channel: rawLegacyChannel, asset: allAssets},
-			{name: "all assets null enabled", channel: rawLegacyChannel, asset: allAssets, enabledField: `"enabled":null,`},
+			{name: "all assets missing enabled", channel: rawLegacyChannel, asset: allAssets, wantMigration: true},
+			{name: "all assets null enabled", channel: rawLegacyChannel, asset: allAssets, enabledField: `"enabled":null,`, wantMigration: true},
 			{name: "generic all assets enabled", channel: "orderbook", asset: allAssets, enabledField: `"enabled":true,`},
 			{name: "generic all assets disabled", channel: "orderbook", asset: allAssets, enabledField: `"enabled":false,`, wantMigration: true},
-			{name: "generic all assets missing enabled", channel: "orderbook", asset: allAssets},
-			{name: "generic all assets null enabled", channel: "orderbook", asset: allAssets, enabledField: `"enabled":null,`},
+			{name: "generic all assets missing enabled", channel: "orderbook", asset: allAssets, wantMigration: true},
+			{name: "generic all assets null enabled", channel: "orderbook", asset: allAssets, enabledField: `"enabled":null,`, wantMigration: true},
 		} {
 			t.Run(fmt.Sprintf("upgrade=%t/%s", upgrade, test.name), func(t *testing.T) {
 				t.Parallel()
