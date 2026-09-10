@@ -8,19 +8,6 @@ This document outlines the coding, formatting, and testing standards for impleme
 - Code must adhere to these [Effective Go](https://go.dev/doc/effective_go) guidelines.
 - Code must also follow these [Go Style](https://google.github.io/styleguide/go/) guidelines.
 
-### Review-driven changes
-
-- Before addressing external pull-request feedback, read the complete latest
-    review and its inline comments. Map every blocker and should-fix item to a
-    code or documentation change and a focused validation step.
-- Re-read files that changed after the review was published. Do not overwrite
-    concurrent contributor changes while applying review feedback.
-- Validate with the same major tool or action version used by CI. A pass from
-    an older local linter does not establish compatibility with an upgraded CI
-    action or newly introduced rules.
-- In the final review response, account for each requested change and disclose
-    any check that could not run locally, including the missing prerequisite.
-
 ## Security
 
 See [SECURITY.md](/SECURITY.md) for the project's security policy, supported versions and reporting process.
@@ -252,9 +239,9 @@ This ensures proper formatting across the codebase.
     replace the contributor list with output generated from an empty list.
 - Generated documentation must use regular source-file permissions (`0644`)
     and must not be executable.
-- Markdown normalization may standardise prose whitespace and line endings,
+- Markdown normalisation may standardise prose whitespace and line endings,
     but must preserve whitespace inside backtick and tilde fenced code blocks.
-    Add focused regression coverage when changing normalization behavior.
+    Add focused regression coverage when changing normalisation behaviour.
 - Keep code samples correctly formatted. Markdown auto-fixes must not alter
     indentation or semantics inside fenced code blocks.
 - Use HTTPS `raw.githubusercontent.com` URLs for shared README logos. Leading
@@ -268,7 +255,7 @@ This ensures proper formatting across the codebase.
         npx --yes markdownlint-cli2 "**/*.md" "cmd/documentation/**/*.tmpl"
 ```
 
-- Run the documentation generator twice when templates or normalization
+- Run the documentation generator twice when templates or normalisation
     change. The second run must produce no additional diff.
 - Before submitting documentation changes, run `git diff --check` and verify
     that generated files have no unexpected mode, encoding, or line-ending

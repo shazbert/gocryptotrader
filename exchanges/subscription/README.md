@@ -39,8 +39,7 @@ The template is provided with a single context structure:
   BatchSize      string
 ```
 
-Subscriptions may fan out many channels for assets and pairs, to support exchanges which require individual subscriptions.
-To allow the template to communicate how to handle its output it should use the provided directives:
+Subscriptions may fan out many channels for assets and pairs, to support exchanges which require individual subscriptions. To allow the template to communicate how to handle its output it should use the provided directives:
 
 - AssetSeparator should be added at the end of each section related to assets
 - PairSeparator should be added at the end of each pair
@@ -73,7 +72,7 @@ Template functions should panic to handle errors. They are caught by text/templa
 
 ## Donations
 
-<img src="/docs/assets/donate.png" alt="Donate to GoCryptoTrader" hspace="70">
+<img src="https://raw.githubusercontent.com/thrasher-corp/gocryptotrader/master/docs/assets/donate.png" alt="Donate to GoCryptoTrader" hspace="70">
 
 If this framework helped you in any way, or you would like to support the developers working on it, please donate Bitcoin to:
 

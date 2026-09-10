@@ -64,14 +64,14 @@ developed by Telegram Messenger LLP
 via Telegram:
 
 ```text
-/start            - Will authenticate your ID
-/status            - Displays the status of the bot
-/help            - Displays current command list
+/start			- Will authenticate your ID
+/status			- Displays the status of the bot
+/help			- Displays current command list
 ```
 
 ## Donations
 
-<img src="/docs/assets/donate.png" alt="Donate to GoCryptoTrader" hspace="70">
+<img src="https://raw.githubusercontent.com/thrasher-corp/gocryptotrader/master/docs/assets/donate.png" alt="Donate to GoCryptoTrader" hspace="70">
 
 If this framework helped you in any way, or you would like to support the developers working on it, please donate Bitcoin to:
 

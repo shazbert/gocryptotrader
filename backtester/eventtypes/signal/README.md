@@ -22,7 +22,7 @@ The signal event will contain data such as price, the direction as well as the r
 
 ## Donations
 
-<img src="/docs/assets/donate.png" alt="Donate to GoCryptoTrader" hspace="70">
+<img src="https://raw.githubusercontent.com/thrasher-corp/gocryptotrader/master/docs/assets/donate.png" alt="Donate to GoCryptoTrader" hspace="70">
 
 If this framework helped you in any way, or you would like to support the developers working on it, please donate Bitcoin to:
 

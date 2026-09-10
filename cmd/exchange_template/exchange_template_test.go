@@ -73,6 +73,10 @@ func TestNewExchangeAndSaveConfig(t *testing.T) {
 		},
 	)
 	assert.NoError(t, err)
+	readme, err := os.ReadFile(filepath.Join(testExchangeDir, "README.md"))
+	require.NoError(t, err, "reading generated README must not error")
+	assert.Contains(t, string(readme), `alt="GoCryptoTrader logo"`, "generated README should include logo alt text")
+	assert.NotRegexp(t, `(?m)[ \t]+$`, string(readme), "generated README should not include trailing whitespace")
 
 	err = os.RemoveAll(testExchangeDir)
 	require.NoErrorf(t, err, "RemoveAll failed: %s, manual deletion of test directory required", err)

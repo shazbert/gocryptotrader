@@ -53,6 +53,21 @@ func TestRunTemplateNormalizesMarkdown(t *testing.T) {
 			input:    "    ```text  \n\tprose  \n",
 			expected: "    ```text\n    prose\n",
 		},
+		{
+			name:     "fence delimiter whitespace",
+			input:    "```text   \n\tcontent  \n```   \n",
+			expected: "```text\n\tcontent  \n```\n",
+		},
+		{
+			name:     "list nested fence",
+			input:    "1. Example\n\n    ```make\n    all:\n    \t@echo ok\n    ```\n",
+			expected: "1. Example\n\n    ```make\n    all:\n    \t@echo ok\n    ```\n",
+		},
+		{
+			name:     "blockquote nested fence",
+			input:    "> ```make\n> all:\n> \t@echo ok\n> ```\n",
+			expected: "> ```make\n> all:\n> \t@echo ok\n> ```\n",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

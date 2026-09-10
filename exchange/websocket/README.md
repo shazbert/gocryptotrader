@@ -136,7 +136,9 @@ func (e *Exchange) Setup(exch *config.Exchange) error {
         ResponseCheckTimeout: exch.WebsocketResponseCheckTimeout,
         ResponseMaxLimit:     exch.WebsocketResponseMaxLimit,
         // Custom handlers for the specific connection:
-        Handler: func(ctx context.Context, incoming []byte) error {    return e.WsHandleFuturesData(ctx, incoming, asset.Futures)    },
+        Handler: func(ctx context.Context, incoming []byte) error {
+            return e.WsHandleFuturesData(ctx, incoming, asset.Futures)
+        },
         Subscriber:               e.FuturesSubscribe,
         Unsubscriber:             e.FuturesUnsubscribe,
         GenerateSubscriptions:    func() (subscription.List, error) { return e.GenerateFuturesDefaultSubscriptions(currency.USDT) },
@@ -149,7 +151,7 @@ func (e *Exchange) Setup(exch *config.Exchange) error {
 
 ## Donations
 
-<img src="/docs/assets/donate.png" alt="Donate to GoCryptoTrader" hspace="70">
+<img src="https://raw.githubusercontent.com/thrasher-corp/gocryptotrader/master/docs/assets/donate.png" alt="Donate to GoCryptoTrader" hspace="70">
 
 If this framework helped you in any way, or you would like to support the developers working on it, please donate Bitcoin to:
 

@@ -23,7 +23,7 @@ GetHistoricCandles which makes a single request to the exchange and follows all 
 
 ```go
 func (b *base) GetHistoricCandles(ctx context.Context, pair currency.Pair, a asset.Item, interval kline.Interval, start, end time.Time) (*kline.Item, error) {
-	return nil, common.ErrFunctionNotSupported
+    return nil, common.ErrFunctionNotSupported
 }
 ```
 
@@ -31,7 +31,7 @@ GetHistoricCandlesExtended that will make multiple requests to an exchange if th
 
 ```go
 func (b *base) GetHistoricCandlesExtended(ctx context.Context, pair currency.Pair, a asset.Item, interval kline.Interval, start, end time.Time) (*kline.Item, error) {
-	return nil, common.ErrFunctionNotSupported
+    return nil, common.ErrFunctionNotSupported
 }
 ```
 
@@ -40,21 +40,21 @@ both methods return kline.Item{}
 ```go
 // Item holds all the relevant information for internal kline elements
 type Item struct {
-	Exchange string
-	Pair     currency.Pair
-	Asset    asset.Item
-	Interval Interval
-	Candles  []Candle
+    Exchange string
+    Pair     currency.Pair
+    Asset    asset.Item
+    Interval Interval
+    Candles  []Candle
 }
 
 // Candle holds historic rate information.
 type Candle struct {
-	Time   time.Time
-	Open   float64
-	High   float64
-	Low    float64
-	Close  float64
-	Volume float64
+    Time   time.Time
+    Open   float64
+    High   float64
+    Low    float64
+    Close  float64
+    Volume float64
 }
 ```
 

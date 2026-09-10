@@ -60,14 +60,14 @@ Once the bot has started you can interact with the bot using these commands
 via Slack:
 
 ```text
-!status         - Displays current working status of bot
-!help             - Displays help text
-!settings        - Displays current settings
+!status 		- Displays current working status of bot
+!help 			- Displays help text
+!settings		- Displays current settings
 ```
 
 ## Donations
 
-<img src="/docs/assets/donate.png" alt="Donate to GoCryptoTrader" hspace="70">
+<img src="https://raw.githubusercontent.com/thrasher-corp/gocryptotrader/master/docs/assets/donate.png" alt="Donate to GoCryptoTrader" hspace="70">
 
 If this framework helped you in any way, or you would like to support the developers working on it, please donate Bitcoin to:
 

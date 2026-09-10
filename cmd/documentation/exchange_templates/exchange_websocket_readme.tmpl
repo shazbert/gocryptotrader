@@ -122,7 +122,9 @@ func (e *Exchange) Setup(exch *config.Exchange) error {
         ResponseCheckTimeout: exch.WebsocketResponseCheckTimeout,
         ResponseMaxLimit:     exch.WebsocketResponseMaxLimit,
         // Custom handlers for the specific connection:
-        Handler: func(ctx context.Context, incoming []byte) error {    return e.WsHandleFuturesData(ctx, incoming, asset.Futures)    },
+        Handler: func(ctx context.Context, incoming []byte) error {
+            return e.WsHandleFuturesData(ctx, incoming, asset.Futures)
+        },
         Subscriber:               e.FuturesSubscribe,
         Unsubscriber:             e.FuturesUnsubscribe,
         GenerateSubscriptions:    func() (subscription.List, error) { return e.GenerateFuturesDefaultSubscriptions(currency.USDT) },

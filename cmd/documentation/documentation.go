@@ -528,16 +528,24 @@ func normalizeMarkdown(contents string) string {
 	previousBlank := false
 	var fence byte
 	var fenceLength int
+	var listIndent int
 	for _, line := range lines {
-		if marker, length, ok := markdownFence(line); ok {
+		if fence == 0 {
+			if indent, ok := markdownListIndent(line); ok {
+				listIndent = indent
+			} else if strings.TrimSpace(line) != "" && leadingSpaces(line) < listIndent {
+				listIndent = 0
+			}
+		}
+		if marker, length, remainderEmpty, ok := markdownFence(line, listIndent); ok {
 			if fence == 0 {
 				fence = marker
 				fenceLength = length
-			} else if marker == fence && length >= fenceLength && fenceRemainderEmpty(line, length) {
+			} else if marker == fence && length >= fenceLength && remainderEmpty {
 				fence = 0
 				fenceLength = 0
 			}
-			output = append(output, line)
+			output = append(output, strings.TrimRight(line, " "))
 			previousBlank = false
 			continue
 		}
@@ -557,24 +565,76 @@ func normalizeMarkdown(contents string) string {
 	return strings.TrimRight(strings.Join(output, "\n"), "\n") + "\n"
 }
 
-func markdownFence(line string) (byte, int, bool) {
+func markdownFence(line string, listIndent int) (marker byte, length int, remainderEmpty, ok bool) {
+	line = trimBlockquotePrefix(line)
+	if content, indent, isListItem := markdownListContent(line); isListItem {
+		line = content
+		listIndent = indent
+	}
 	trimmed := strings.TrimLeft(line, " ")
-	if len(line)-len(trimmed) > 3 {
-		return 0, 0, false
+	if len(line)-len(trimmed) > listIndent+3 {
+		return 0, 0, false, false
 	}
 	line = trimmed
 	if len(line) < 3 || line[0] != '`' && line[0] != '~' {
-		return 0, 0, false
+		return 0, 0, false, false
 	}
-	marker := line[0]
-	length := 1
+	marker = line[0]
+	length = 1
 	for length < len(line) && line[length] == marker {
 		length++
 	}
-	return marker, length, length >= 3
+	return marker, length, strings.TrimSpace(line[length:]) == "", length >= 3
 }
 
-func fenceRemainderEmpty(line string, fenceLength int) bool {
-	line = strings.TrimLeft(line, " ")
-	return strings.TrimSpace(line[fenceLength:]) == ""
+func markdownListIndent(line string) (int, bool) {
+	line = trimBlockquotePrefix(line)
+	_, indent, ok := markdownListContent(line)
+	return indent, ok
+}
+
+func markdownListContent(line string) (string, int, bool) {
+	spaces := leadingSpaces(line)
+	if spaces > 3 {
+		return "", 0, false
+	}
+	line = line[spaces:]
+	markerLength := 0
+	if len(line) >= 2 && (line[0] == '-' || line[0] == '+' || line[0] == '*') {
+		markerLength = 1
+	} else {
+		for markerLength < len(line) && markerLength < 9 && line[markerLength] >= '0' && line[markerLength] <= '9' {
+			markerLength++
+		}
+		if markerLength == 0 || markerLength >= len(line) || line[markerLength] != '.' && line[markerLength] != ')' {
+			return "", 0, false
+		}
+		markerLength++
+	}
+	if markerLength >= len(line) || line[markerLength] != ' ' {
+		return "", 0, false
+	}
+	whitespace := 1
+	for markerLength+whitespace < len(line) && line[markerLength+whitespace] == ' ' {
+		whitespace++
+	}
+	indent := spaces + markerLength + whitespace
+	return line[markerLength+whitespace:], indent, true
+}
+
+func trimBlockquotePrefix(line string) string {
+	for {
+		spaces := leadingSpaces(line)
+		if spaces > 3 || spaces >= len(line) || line[spaces] != '>' {
+			return line
+		}
+		line = line[spaces+1:]
+		if len(line) > 0 && line[0] == ' ' {
+			line = line[1:]
+		}
+	}
+}
+
+func leadingSpaces(line string) int {
+	return len(line) - len(strings.TrimLeft(line, " "))
 }
