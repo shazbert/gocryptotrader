@@ -70,7 +70,7 @@ Templates do not need to worry about joining around separators; Trailing separat
 
 Template functions should panic to handle errors. They are caught by text/template and turned into errors for use in `subscription.expandTemplate`.
 
-### Donations
+## Donations
 
 <img src="https://raw.githubusercontent.com/thrasher-corp/gocryptotrader/master/docs/assets/donate.png" alt="Donate to GoCryptoTrader" hspace="70">
 

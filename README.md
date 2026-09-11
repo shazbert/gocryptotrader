@@ -177,8 +177,8 @@ Binaries will be published once the codebase reaches a stable condition.
 |--|--|
 | [thrasher-](https://github.com/thrasher-) | 787 |
 | [dependabot[bot]](https://github.com/apps/dependabot) | 485 |
-| [shazbert](https://github.com/shazbert) | 415 |
-| [gloriousCode](https://github.com/gloriousCode) | 246 |
+| [shazbert](https://github.com/shazbert) | 416 |
+| [gloriousCode](https://github.com/gloriousCode) | 247 |
 | [gbjk](https://github.com/gbjk) | 145 |
 | [dependabot-preview[bot]](https://github.com/apps/dependabot-preview) | 88 |
 | [xtda](https://github.com/xtda) | 47 |

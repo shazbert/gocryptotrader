@@ -30,6 +30,10 @@ misc_checks:
 	bash ./scripts/misc_checks.sh
 
 markdownlint:
+	@if ! command -v npx >/dev/null 2>&1; then \
+		if [ -n "$$CI" ]; then echo "npx not found: Markdown lint cannot run in CI"; exit 1; fi; \
+		echo "npx not found: skipping Markdown lint, which CI still runs"; exit 0; \
+	fi; \
 	npx --yes markdownlint-cli2@0.23.2 "**/*.md" "cmd/documentation/**/*.tmpl"
 
 check: lint misc_checks markdownlint test

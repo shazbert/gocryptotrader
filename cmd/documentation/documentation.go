@@ -22,6 +22,9 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/common/file"
 	"github.com/thrasher-corp/gocryptotrader/core"
 	"github.com/thrasher-corp/gocryptotrader/encoding/json"
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/text"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -521,56 +524,21 @@ func runTemplate(details DocumentationDetails, mainPath, name string) error {
 	return os.WriteFile(mainPath, []byte(contents), 0o644)
 }
 
+var markdownParser = goldmark.New().Parser()
+
 func normalizeMarkdown(contents string) string {
 	contents = strings.ReplaceAll(contents, "\r\n", "\n")
+	code := markdownCodeLines([]byte(contents))
 	lines := strings.Split(contents, "\n")
 	output := lines[:0]
 	previousBlank := false
-	var fence byte
-	var fenceLength int
-	var fenceBlockquoteDepth int
-	var fenceListIndent int
-	var listIndent int
-	for _, line := range lines {
-		if fence != 0 {
-			content, ok := stripBlockquoteDepth(line, fenceBlockquoteDepth)
-			if ok {
-				marker, length, remainderEmpty, delimiter := markdownFenceDelimiter(content, fenceListIndent)
-				if delimiter && marker == fence && length >= fenceLength && remainderEmpty {
-					fence = 0
-					fenceLength = 0
-					fenceBlockquoteDepth = 0
-					fenceListIndent = 0
-					output = append(output, strings.TrimRight(line, " "))
-					previousBlank = false
-					continue
-				}
-				output = append(output, line)
-				continue
-			}
-			fence = 0
-			fenceLength = 0
-			fenceBlockquoteDepth = 0
-			fenceListIndent = 0
-		}
-
-		content, blockquoteDepth := trimBlockquotePrefix(line)
-		if indent, ok := markdownListIndent(content); ok {
-			listIndent = indent
-		} else if strings.TrimSpace(content) != "" && leadingIndent(content) < listIndent {
-			listIndent = 0
-		}
-		if marker, length, _, ok := markdownFence(content, listIndent); ok {
-			fence = marker
-			fenceLength = length
-			fenceBlockquoteDepth = blockquoteDepth
-			fenceListIndent = listIndent
-			output = append(output, strings.TrimRight(line, " "))
+	for i, line := range lines {
+		if code[i] {
+			output = append(output, line)
 			previousBlank = false
 			continue
 		}
-		line = strings.ReplaceAll(line, "\t", "    ")
-		line = strings.TrimRight(line, " ")
+		line = strings.TrimRight(expandTabs(line), " ")
 		blank := line == ""
 		if blank && previousBlank {
 			continue
@@ -581,109 +549,41 @@ func normalizeMarkdown(contents string) string {
 	return strings.TrimRight(strings.Join(output, "\n"), "\n") + "\n"
 }
 
-func markdownFence(line string, listIndent int) (marker byte, length int, remainderEmpty, ok bool) {
-	if content, indent, isListItem := markdownListContent(line); isListItem {
-		line = content
-		listIndent = indent
-	}
-	return markdownFenceDelimiter(line, listIndent)
+// markdownCodeLines returns the indexes of lines that hold fenced or indented code block content.
+func markdownCodeLines(source []byte) map[int]bool {
+	code := make(map[int]bool)
+	doc := markdownParser.Parse(text.NewReader(source))
+	_ = ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		switch n.(type) {
+		case *ast.FencedCodeBlock, *ast.CodeBlock:
+			segments := n.Lines()
+			for i := range segments.Len() {
+				code[bytes.Count(source[:segments.At(i).Start], []byte("\n"))] = true
+			}
+		}
+		return ast.WalkContinue, nil
+	})
+	return code
 }
 
-func markdownFenceDelimiter(line string, listIndent int) (marker byte, length int, remainderEmpty, ok bool) {
-	trimmed, indent := trimIndent(line)
-	if indent > listIndent+3 {
-		return 0, 0, false, false
+func expandTabs(line string) string {
+	if !strings.Contains(line, "\t") {
+		return line
 	}
-	line = trimmed
-	if len(line) < 3 || line[0] != '`' && line[0] != '~' {
-		return 0, 0, false, false
-	}
-	marker = line[0]
-	length = 1
-	for length < len(line) && line[length] == marker {
-		length++
-	}
-	return marker, length, strings.TrimSpace(line[length:]) == "", length >= 3
-}
-
-func markdownListIndent(line string) (int, bool) {
-	_, indent, ok := markdownListContent(line)
-	return indent, ok
-}
-
-func markdownListContent(line string) (content string, indent int, ok bool) {
-	trimmed, spaces := trimIndent(line)
-	if spaces > 3 {
-		return "", 0, false
-	}
-	line = trimmed
-	markerLength := 0
-	if line != "" && (line[0] == '-' || line[0] == '+' || line[0] == '*') {
-		markerLength = 1
-	} else {
-		for markerLength < len(line) && markerLength < 9 && line[markerLength] >= '0' && line[markerLength] <= '9' {
-			markerLength++
+	var b strings.Builder
+	column := 0
+	for _, r := range line {
+		if r == '\t' {
+			n := 4 - column%4
+			b.WriteString(strings.Repeat(" ", n))
+			column += n
+			continue
 		}
-		if markerLength == 0 || markerLength >= len(line) || line[markerLength] != '.' && line[markerLength] != ')' {
-			return "", 0, false
-		}
-		markerLength++
+		b.WriteRune(r)
+		column++
 	}
-	if markerLength == len(line) {
-		return "", spaces + markerLength + 1, true
-	}
-	if line[markerLength] != ' ' && line[markerLength] != '\t' {
-		return "", 0, false
-	}
-	content, whitespace := trimIndent(line[markerLength:])
-	indent = spaces + markerLength + whitespace
-	return content, indent, true
-}
-
-func trimBlockquotePrefix(line string) (content string, depth int) {
-	for {
-		trimmed, indent := trimIndent(line)
-		if indent > 3 || trimmed == "" || trimmed[0] != '>' {
-			return line, depth
-		}
-		line = trimmed[1:]
-		if line != "" && (line[0] == ' ' || line[0] == '\t') {
-			line = line[1:]
-		}
-		depth++
-	}
-}
-
-func stripBlockquoteDepth(line string, depth int) (string, bool) {
-	for range depth {
-		trimmed, indent := trimIndent(line)
-		if indent > 3 || trimmed == "" || trimmed[0] != '>' {
-			return line, false
-		}
-		line = trimmed[1:]
-		if line != "" && (line[0] == ' ' || line[0] == '\t') {
-			line = line[1:]
-		}
-	}
-	return line, true
-}
-
-func leadingIndent(line string) int {
-	_, indent := trimIndent(line)
-	return indent
-}
-
-func trimIndent(line string) (content string, indent int) {
-	for line != "" {
-		switch line[0] {
-		case ' ':
-			indent++
-		case '\t':
-			indent += 4 - indent%4
-		default:
-			return line, indent
-		}
-		line = line[1:]
-	}
-	return line, indent
+	return b.String()
 }

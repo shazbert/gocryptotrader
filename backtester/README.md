@@ -109,7 +109,7 @@ Creating strategies requires programming skills. Start with the [strategy docume
 - While an experimental feature, it is **not** recommended to **ever** use live trading and real orders
 - **Past performance is no guarantee of future results**
 
-### Donations
+## Donations
 
 <img src="https://raw.githubusercontent.com/thrasher-corp/gocryptotrader/master/docs/assets/donate.png" alt="Donate to GoCryptoTrader" hspace="70">
 

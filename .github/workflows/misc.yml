@@ -11,8 +11,4 @@ jobs:
       run: ./scripts/misc_checks.sh
 
     - name: Lint Markdown
-      uses: DavidAnson/markdownlint-cli2-action@v24
-      with:
-        globs: |
-          **/*.md
-          cmd/documentation/**/*.tmpl
+      run: make markdownlint
