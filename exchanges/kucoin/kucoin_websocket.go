@@ -1060,11 +1060,18 @@ func (e *Exchange) generateSubscriptions() (subscription.List, error) {
 		}
 		s = s.Clone()
 		channel := marketOrderbookChannel
+		formatAsset := s.Asset
 		if s.Asset == asset.Futures {
 			channel = futuresOrderbookChannel
+		} else if formatAsset == asset.All || formatAsset == asset.Empty {
+			formatAsset = asset.Spot
+		}
+		format, err := e.GetPairFormat(formatAsset, true)
+		if err != nil {
+			return nil, err
 		}
 		s.Channel = channel
-		s.QualifiedChannel = channel + ":" + s.Pairs.Join()
+		s.QualifiedChannel = channel + ":" + s.Pairs.Format(format).Join()
 		s.Interval = 0
 		s.Levels = 0
 		if err := seen.Add(s); err != nil {
@@ -1100,18 +1107,12 @@ func (e *Exchange) CalculateAssets(topic string, cp currency.Pair) ([]asset.Item
 	switch {
 	case cp.Quote.Equal(currency.USDTM), strings.HasPrefix(topic, "/contract"):
 		if err := e.CurrencyPairs.IsAssetEnabled(asset.Futures); err != nil {
-			if !errors.Is(err, asset.ErrNotSupported) {
-				return nil, err
-			}
-			return nil, nil
+			return nil, err
 		}
 		return []asset.Item{asset.Futures}, nil
 	case strings.HasPrefix(topic, "/margin"), strings.HasPrefix(topic, "/index"):
 		if err := e.CurrencyPairs.IsAssetEnabled(asset.Margin); err != nil {
-			if !errors.Is(err, asset.ErrNotSupported) {
-				return nil, err
-			}
-			return nil, nil
+			return nil, err
 		}
 		return []asset.Item{asset.Margin}, nil
 	default:
@@ -1129,6 +1130,9 @@ func (e *Exchange) CalculateAssets(topic string, cp currency.Pair) ([]asset.Item
 		}
 		if marginEnabled {
 			resp = append(resp, asset.Margin)
+		}
+		if len(resp) == 0 {
+			return nil, fmt.Errorf("%w for websocket topic %q and pair %s", asset.ErrNotEnabled, topic, cp)
 		}
 		return resp, nil
 	}
@@ -1212,9 +1216,20 @@ func (e *Exchange) checkSubscriptions() error {
 		for _, replacement := range replacements {
 			var coveredPairs currency.Pairs
 			covered := false
-			for _, sub := range e.Config.Features.Subscriptions {
-				if !sub.Enabled || sub.Channel != subscription.OrderbookChannel ||
-					(sub.Asset != asset.All && sub.Asset != replacement.Asset) {
+			partialReplacementIndex := -1
+			for i, sub := range e.Config.Features.Subscriptions {
+				if !sub.Enabled || sub.Channel != subscription.OrderbookChannel || (sub.Asset != asset.All && sub.Asset != replacement.Asset) {
+					continue
+				}
+				if sub.Authenticated && !e.API.AuthenticatedWebsocketSupport {
+					if len(replacement.Pairs) == 0 && sub.Asset == replacement.Asset {
+						sub = sub.Clone()
+						sub.Authenticated = false
+						sub.Pairs = nil
+						e.Config.Features.Subscriptions[i] = sub
+						covered = true
+						break
+					}
 					continue
 				}
 				if len(sub.Pairs) == 0 {
@@ -1222,19 +1237,39 @@ func (e *Exchange) checkSubscriptions() error {
 					break
 				}
 				coveredPairs = coveredPairs.Add(sub.Pairs...)
+				if sub.Asset == replacement.Asset && partialReplacementIndex == -1 {
+					partialReplacementIndex = i
+				}
 			}
 			if covered {
+				continue
+			}
+			if len(replacement.Pairs) == 0 && partialReplacementIndex >= 0 {
+				sub := e.Config.Features.Subscriptions[partialReplacementIndex].Clone()
+				sub.Pairs = nil
+				e.Config.Features.Subscriptions[partialReplacementIndex] = sub
 				continue
 			}
 			if len(coveredPairs) != 0 {
 				if len(replacement.Pairs) == 0 {
 					pairs, err := e.GetEnabledPairs(replacement.Asset)
-					if err != nil {
+					if err != nil && !errors.Is(err, asset.ErrNotEnabled) {
 						return fmt.Errorf("cannot migrate %s orderbook pairs: %w", replacement.Asset, err)
 					}
 					replacement.Pairs = pairs
 				}
-				replacement.Pairs = replacement.Pairs.Remove(coveredPairs...)
+				format, err := e.GetPairFormat(replacement.Asset, true)
+				if err != nil {
+					return fmt.Errorf("cannot migrate %s orderbook pair coverage: %w", replacement.Asset, err)
+				}
+				coveredSymbols := make(map[string]struct{}, len(coveredPairs))
+				for _, pair := range coveredPairs.Format(format) {
+					coveredSymbols[pair.String()] = struct{}{}
+				}
+				replacement.Pairs = slices.DeleteFunc(replacement.Pairs, func(pair currency.Pair) bool {
+					_, ok := coveredSymbols[pair.Format(format).String()]
+					return ok
+				})
 				if len(replacement.Pairs) == 0 {
 					continue
 				}
@@ -1259,10 +1294,14 @@ func (e *Exchange) checkSubscriptions() error {
 }
 
 func (e *Exchange) formatOrderbookPairs(s *subscription.Subscription, ap map[asset.Item]currency.Pairs) (string, error) {
+	// Other channels retain their existing request spelling; formatting assetless private channels would fail pair lookup.
 	if s.Channel != subscription.OrderbookChannel {
 		return "", nil
 	}
 	for assetType, pairs := range ap {
+		if assetType == asset.Empty {
+			continue
+		}
 		format, err := e.GetPairFormat(assetType, true)
 		if err != nil {
 			return "", err
@@ -1293,26 +1332,30 @@ func (e *Exchange) mergeMarginPairs(s *subscription.Subscription, ap map[asset.I
 	if strings.HasPrefix(s.Channel, "/margin") {
 		return ""
 	}
-	wantKey := &subscription.IgnoringAssetKey{Subscription: s}
 	switch s.Asset {
 	case asset.All:
 		_, marginEnabled := ap[asset.Margin]
 		_, spotEnabled := ap[asset.Spot]
 		if marginEnabled && spotEnabled {
-			marginPairs, _ := e.GetEnabledPairs(asset.Margin)
-			ap[asset.Spot] = common.SortStrings(ap[asset.Spot].Add(marginPairs...))
+			ap[asset.Spot] = common.SortStrings(ap[asset.Spot].Add(ap[asset.Margin]...))
 			ap[asset.Margin] = currency.Pairs{}
 		}
 	case asset.Spot:
-		// If there's a margin sub then we should merge the pairs into spot
-		hasMarginSub := slices.ContainsFunc(e.Features.Subscriptions, func(sB *subscription.Subscription) bool {
-			if sB.Asset != asset.Margin && sB.Asset != asset.All {
-				return false
+		var marginPairs currency.Pairs
+		for _, sB := range e.Features.Subscriptions {
+			if sB.Asset != asset.Margin {
+				continue
 			}
-			return wantKey.Match(&subscription.IgnoringAssetKey{Subscription: sB})
-		})
-		if hasMarginSub {
-			marginPairs, _ := e.GetEnabledPairs(asset.Margin)
+			if !sameOrderbookFeed(s, sB) {
+				continue
+			}
+			pairs := sB.Pairs
+			if len(pairs) == 0 {
+				pairs, _ = e.GetEnabledPairs(asset.Margin)
+			}
+			marginPairs = marginPairs.Add(pairs...)
+		}
+		if len(marginPairs) != 0 {
 			ap[asset.Spot] = common.SortStrings(ap[asset.Spot].Add(marginPairs...))
 		}
 	case asset.Margin:
@@ -1321,10 +1364,10 @@ func (e *Exchange) mergeMarginPairs(s *subscription.Subscription, ap map[asset.I
 		}
 		// If there's a spot sub, all margin pairs are already merged, so empty the margin pairs
 		hasSpotSub := slices.ContainsFunc(e.Features.Subscriptions, func(sB *subscription.Subscription) bool {
-			if sB.Asset != asset.Spot && sB.Asset != asset.All {
+			if sB.Asset != asset.Spot {
 				return false
 			}
-			return wantKey.Match(&subscription.IgnoringAssetKey{Subscription: sB})
+			return sameOrderbookFeed(s, sB)
 		})
 		if hasSpotSub {
 			ap[asset.Margin] = currency.Pairs{}
@@ -1356,6 +1399,15 @@ func channelInterval(s *subscription.Subscription) string {
 		}
 	}
 	return ""
+}
+
+func sameOrderbookFeed(a, b *subscription.Subscription) bool {
+	if a.Channel != b.Channel || a.Levels != b.Levels {
+		return false
+	}
+	aInterval, _ := IntervalToString(a.Interval)
+	bInterval, _ := IntervalToString(b.Interval)
+	return aInterval == bInterval
 }
 
 // assetCurrencies returns the currencies from all pairs in an asset
