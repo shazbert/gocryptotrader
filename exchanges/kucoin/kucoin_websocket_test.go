@@ -342,6 +342,19 @@ func TestGenerateRealtimeOrderbooksCoalescesNormalisedKeys(t *testing.T) {
 	}
 }
 
+func TestGenerateRealtimeOrderbooksCoalescesSameAssetSettings(t *testing.T) {
+	t.Parallel()
+	ku := testInstance(t)
+	ku.Features.Subscriptions = subscription.List{
+		{Channel: subscription.OrderbookChannel, Asset: asset.Spot, Interval: kline.HundredMilliseconds},
+		{Channel: subscription.OrderbookChannel, Asset: asset.Spot, Interval: kline.HundredMilliseconds, Levels: 50},
+	}
+	ku.Websocket.SetCanUseAuthenticatedEndpoints(true)
+	subs, err := ku.generateSubscriptions()
+	require.NoError(t, err, "same-asset orderbooks that differ only in depth must coalesce")
+	assert.Len(t, subs, 4, "each spot pair should be subscribed once after normalisation")
+}
+
 func TestGenerateOrderbooksRejectsConfiguredDuplicates(t *testing.T) {
 	t.Parallel()
 	for _, authenticated := range []bool{false, true} {
@@ -572,7 +585,7 @@ func TestGenerateSharedSpotMarginFeeds(t *testing.T) {
 			if test.threshold {
 				available, err := ku.GetAvailablePairs(asset.Spot)
 				require.NoError(t, err, "available spot pairs must load")
-				require.GreaterOrEqual(t, len(available), 10, "test requires ten spot pairs")
+				require.GreaterOrEqual(t, len(available), 10, "test must have at least ten available spot pairs")
 				ku.Features.Subscriptions[0].Pairs = available[:10]
 			}
 			for _, authenticated := range []bool{false, true} {

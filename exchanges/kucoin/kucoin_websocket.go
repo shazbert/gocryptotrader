@@ -1314,19 +1314,22 @@ func (e *Exchange) mergeMarginPairs(s *subscription.Subscription, ap map[asset.I
 }
 
 func (e *Exchange) filterAssetFeedPairs(s *subscription.Subscription, assetType asset.Item, pairs currency.Pairs) currency.Pairs {
-	return slices.DeleteFunc(common.SortStrings(slices.Clone(pairs)), func(pair currency.Pair) bool {
-		for _, other := range e.Features.Subscriptions {
-			if other == s || other.QualifiedChannel != "" || other.Authenticated && !e.Websocket.CanUseAuthenticatedEndpoints() ||
-				(other.Asset != asset.All && other.Asset != assetType) || !sameSharedFeed(other, s) ||
-				!e.subscriptionPairsForAsset(other, assetType).Contains(pair, true) {
-				continue
-			}
-			score, otherScore := sharedFeedPriority(s), sharedFeedPriority(other)
-			if otherScore > score || otherScore == score && other.Asset != s.Asset && other.Asset == assetType {
-				return true
+	score := sharedFeedPriority(s)
+	claimed := make(map[[2]*currency.Item]struct{})
+	for _, other := range e.Features.Subscriptions {
+		if other == s || other.QualifiedChannel != "" || other.Authenticated && !e.Websocket.CanUseAuthenticatedEndpoints() ||
+			(other.Asset != asset.All && other.Asset != assetType) || !sameSharedFeed(other, s) {
+			continue
+		}
+		if otherScore := sharedFeedPriority(other); otherScore > score || otherScore == score && other.Asset != s.Asset && other.Asset == assetType {
+			for _, pair := range e.subscriptionPairsForAsset(other, assetType) {
+				claimed[[2]*currency.Item{pair.Base.Item, pair.Quote.Item}] = struct{}{}
 			}
 		}
-		return false
+	}
+	return slices.DeleteFunc(common.SortStrings(slices.Clone(pairs)), func(pair currency.Pair) bool {
+		_, ok := claimed[[2]*currency.Item{pair.Base.Item, pair.Quote.Item}]
+		return ok
 	})
 }
 
@@ -1342,17 +1345,21 @@ func (e *Exchange) subscriptionPairsForAsset(s *subscription.Subscription, asset
 }
 
 func (e *Exchange) filterSharedFeedPairs(s *subscription.Subscription, pairs currency.Pairs) currency.Pairs {
-	return slices.DeleteFunc(common.SortStrings(slices.Clone(pairs)), func(pair currency.Pair) bool {
-		for _, other := range e.Features.Subscriptions {
-			if other == s || !e.sharedFeedCandidate(other, s) || !e.sharedFeedPairs(other).Contains(pair, true) {
-				continue
-			}
-			score, otherScore := sharedFeedPriority(s), sharedFeedPriority(other)
-			if otherScore > score || otherScore == score && other.Asset != s.Asset && sharedAssetPriority(other.Asset) > sharedAssetPriority(s.Asset) {
-				return true
+	score := sharedFeedPriority(s)
+	claimed := make(map[[2]*currency.Item]struct{})
+	for _, other := range e.Features.Subscriptions {
+		if other == s || !e.sharedFeedCandidate(other, s) {
+			continue
+		}
+		if otherScore := sharedFeedPriority(other); otherScore > score || otherScore == score && other.Asset != s.Asset && sharedAssetPriority(other.Asset) > sharedAssetPriority(s.Asset) {
+			for _, pair := range e.sharedFeedPairs(other) {
+				claimed[[2]*currency.Item{pair.Base.Item, pair.Quote.Item}] = struct{}{}
 			}
 		}
-		return false
+	}
+	return slices.DeleteFunc(common.SortStrings(slices.Clone(pairs)), func(pair currency.Pair) bool {
+		_, ok := claimed[[2]*currency.Item{pair.Base.Item, pair.Quote.Item}]
+		return ok
 	})
 }
 
