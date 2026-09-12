@@ -247,12 +247,12 @@ This ensures proper formatting across the codebase.
 - Use HTTPS `raw.githubusercontent.com` URLs for shared README logos. Leading
     slash repository paths render on GitHub but are not reliable in VS Code
     Markdown preview, especially in multi-root workspaces.
-- When upgrading the Markdown lint action, run the CLI version bundled by that
-    action locally and review newly introduced rules before changing the config.
+- When upgrading `markdownlint-cli2` in the `markdownlint` Makefile target,
+    review newly introduced rules before changing the config.
 - Lint both Markdown and template sources using the same scope as CI:
 
     ```console
-    npx --yes markdownlint-cli2@0.23.2 "**/*.md" "cmd/documentation/**/*.tmpl"
+    make markdownlint
     ```
 
 - Run the documentation generator twice when templates or normalisation
