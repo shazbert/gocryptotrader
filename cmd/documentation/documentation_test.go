@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"text/template"
 
@@ -140,6 +141,34 @@ func TestRunTemplateNormalizesMarkdown(t *testing.T) {
 			info, err := os.Stat(outputPath)
 			require.NoError(t, err, "stat generated documentation must not error")
 			assert.Zero(t, info.Mode().Perm()&0o111, "generated documentation should not be executable")
+		})
+	}
+}
+
+func TestRunTemplateReplacesExistingFile(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows does not expose executable and read-only permission bits consistently")
+	}
+
+	for _, permissions := range []os.FileMode{0o444, 0o755} {
+		t.Run(permissions.String(), func(t *testing.T) {
+			t.Parallel()
+			outputPath := filepath.Join(t.TempDir(), "README.md")
+			require.NoError(t, os.WriteFile(outputPath, []byte("old contents"), permissions), "fixture must be written")
+			require.NoError(t, os.Chmod(outputPath, permissions), "fixture permissions must be applied")
+
+			tmpl := template.Must(template.New("documentation").Parse(`{{define "documentation"}}new contents{{end}}`))
+			err := runTemplate(DocumentationDetails{Tmpl: tmpl}, outputPath, "documentation")
+			require.NoError(t, err, "runTemplate must replace an existing file")
+
+			contents, err := os.ReadFile(outputPath)
+			require.NoError(t, err, "generated documentation must be readable")
+			assert.Equal(t, "new contents\n", string(contents), "generated documentation should replace existing contents")
+
+			info, err := os.Stat(outputPath)
+			require.NoError(t, err, "generated documentation must be statable")
+			assert.Equal(t, os.FileMode(0o644), info.Mode().Perm(), "generated documentation should use regular file permissions")
 		})
 	}
 }

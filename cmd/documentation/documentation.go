@@ -521,6 +521,9 @@ func runTemplate(details DocumentationDetails, mainPath, name string) error {
 	}
 
 	contents := normalizeMarkdown(output.String())
+	if err := os.Remove(mainPath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
 	return os.WriteFile(mainPath, []byte(contents), 0o644)
 }
 
