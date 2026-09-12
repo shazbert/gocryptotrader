@@ -344,19 +344,23 @@ func TestV14MigrationGeneratesValidSpotSubscriptions(t *testing.T) {
 		name    string
 		upgrade bool
 		input   string
+		channel string
 	}{
 		{
 			name:    "uppercase upgrade",
 			upgrade: true,
 			input:   `{"features":{"subscriptions":[{"enabled":true,"channel":"orderbook","asset":"SPOT","interval":"100ms"},{"enabled":false,"channel":"spot.obu","asset":"Spot","levels":50}]}}`,
+			channel: spotOrderbookV2,
 		},
 		{
-			name:  "mixed-case downgrade",
-			input: `{"features":{"subscriptions":[{"enabled":false,"channel":"orderbook","asset":"Spot","interval":"100ms"},{"enabled":true,"channel":"spot.obu","asset":"SPOT","levels":50}]}}`,
+			name:    "mixed-case downgrade",
+			input:   `{"features":{"subscriptions":[{"enabled":false,"channel":"orderbook","asset":"Spot","interval":"100ms"},{"enabled":true,"channel":"spot.obu","asset":"SPOT","levels":50}]}}`,
+			channel: spotOrderbookUpdateChannel,
 		},
 		{
-			name:  "wildcard V2 downgrade",
-			input: `{"features":{"subscriptions":[{"enabled":false,"channel":"orderbook","asset":"spot","interval":"100ms"},{"enabled":true,"channel":"spot.obu","asset":"spot","levels":50},{"enabled":true,"channel":"spot.obu","asset":"all","levels":50,"pairs":"BTC_USDT"}]}}`,
+			name:    "wildcard V2 downgrade",
+			input:   `{"features":{"subscriptions":[{"enabled":false,"channel":"orderbook","asset":"spot","interval":"100ms"},{"enabled":true,"channel":"spot.obu","asset":"spot","levels":50},{"enabled":true,"channel":"spot.obu","asset":"all","levels":50,"pairs":"BTC_USDT"}]}}`,
+			channel: spotOrderbookV2,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -379,6 +383,9 @@ func TestV14MigrationGeneratesValidSpotSubscriptions(t *testing.T) {
 			subs, err := e.generateSubscriptionsSpot()
 			require.NoError(t, err, "migrated subscriptions must expand and validate")
 			assert.NotEmpty(t, subs, "migrated configuration should generate subscriptions")
+			for _, s := range subs {
+				assert.Equal(t, test.channel, channelName(s), "migrated subscriptions should use the expected orderbook feed")
+			}
 		})
 	}
 }
