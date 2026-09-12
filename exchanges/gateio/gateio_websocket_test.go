@@ -16,6 +16,7 @@ import (
 	"github.com/thrasher-corp/gocryptotrader/common"
 	"github.com/thrasher-corp/gocryptotrader/common/key"
 	"github.com/thrasher-corp/gocryptotrader/config"
+	v14 "github.com/thrasher-corp/gocryptotrader/config/versions/v14"
 	"github.com/thrasher-corp/gocryptotrader/currency"
 	"github.com/thrasher-corp/gocryptotrader/encoding/json"
 	"github.com/thrasher-corp/gocryptotrader/exchange/accounts"
@@ -288,7 +289,7 @@ func TestProcessOrderbookUpdateWithSnapshot(t *testing.T) {
 	}
 
 	require.Eventually(t, func() bool {
-		sub := e.Websocket.GetSubscription(qualifiedChannelKey{&subscription.Subscription{QualifiedChannel: "ob.BTC_USDT.50"}})
+		sub := e.Websocket.GetSubscription(qualifiedChannelKey{&subscription.Subscription{QualifiedChannel: "ob.BTC_USDT.50", Asset: asset.Spot}})
 		return sub != nil && sub.State() == subscription.SubscribedState
 	}, time.Second, 10*time.Millisecond, "out-of-order update must successfully resubscribe in the background")
 }
@@ -335,4 +336,49 @@ func TestDefaultSpotOrderbookSubscription(t *testing.T) {
 	require.NotNil(t, v2, "V2 spot orderbook subscription must be defined")
 	assert.True(t, v2.Enabled, "V2 spot orderbook subscription should be enabled")
 	assert.Equal(t, 50, v2.Levels, "V2 spot orderbook subscription should request 50 levels")
+}
+
+func TestV14MigrationGeneratesValidSpotSubscriptions(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name    string
+		upgrade bool
+		input   string
+	}{
+		{
+			name:    "uppercase upgrade",
+			upgrade: true,
+			input:   `{"features":{"subscriptions":[{"enabled":true,"channel":"orderbook","asset":"SPOT","interval":"100ms"},{"enabled":false,"channel":"spot.obu","asset":"Spot","levels":50}]}}`,
+		},
+		{
+			name:  "mixed-case downgrade",
+			input: `{"features":{"subscriptions":[{"enabled":false,"channel":"orderbook","asset":"Spot","interval":"100ms"},{"enabled":true,"channel":"spot.obu","asset":"SPOT","levels":50}]}}`,
+		},
+		{
+			name:  "wildcard V2 downgrade",
+			input: `{"features":{"subscriptions":[{"enabled":false,"channel":"orderbook","asset":"spot","interval":"100ms"},{"enabled":true,"channel":"spot.obu","asset":"spot","levels":50},{"enabled":true,"channel":"spot.obu","asset":"all","levels":50,"pairs":"BTC_USDT"}]}}`,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			version := new(v14.Version)
+			migrate := version.DowngradeExchange
+			if test.upgrade {
+				migrate = version.UpgradeExchange
+			}
+			migrated, err := migrate(t.Context(), []byte(test.input))
+			require.NoError(t, err, "migration must not error")
+			var migratedConfig config.Exchange
+			require.NoError(t, json.Unmarshal(migrated, &migratedConfig), "migrated configuration must unmarshal")
+			require.NotNil(t, migratedConfig.Features, "migrated configuration features must not be nil")
+
+			e := new(Exchange)
+			require.NoError(t, testexch.Setup(e), "test instance setup must not error")
+			e.Config.Features.Subscriptions = migratedConfig.Features.Subscriptions
+			e.SetSubscriptionsFromConfig()
+			subs, err := e.generateSubscriptionsSpot()
+			require.NoError(t, err, "migrated subscriptions must expand and validate")
+			assert.NotEmpty(t, subs, "migrated configuration should generate subscriptions")
+		})
+	}
 }

@@ -212,7 +212,11 @@ func TestMigrationPreservesRawLegacyChannel(t *testing.T) {
 		} {
 			t.Run(fmt.Sprintf("upgrade=%t/%s", upgrade, test.name), func(t *testing.T) {
 				t.Parallel()
-				raw := `{` + test.enabledField + `"channel":"` + test.channel + `","asset":"` + test.asset + `","interval":"100ms","pairs":"ETH_USDT"}`
+				settings := `"interval":"100ms","pairs":"ETH_USDT"`
+				if test.channel == "spot.obu" {
+					settings = `"levels":50,"pairs":"ETH_USDT"`
+				}
+				raw := `{` + test.enabledField + `"channel":"` + test.channel + `","asset":"` + test.asset + `",` + settings + `}`
 				input := fmt.Sprintf(`{"features":{"subscriptions":[{"enabled":%t,"channel":"orderbook","asset":"spot","interval":"100ms"},%s,{"enabled":%t,"channel":"spot.obu","asset":"spot","levels":50}]}}`, upgrade, raw, !upgrade)
 				version := new(v14.Version)
 				migrate := version.UpgradeExchange

@@ -113,7 +113,7 @@ Refer to the [ADD_NEW_EXCHANGE.md](/docs/ADD_NEW_EXCHANGE.md) document for compr
 
 ## Configuration Migrations
 
-Migration code lives in [config/versions](../config/versions), with each version in its own `vN` package. Start with the package instructions and the `ExchangeVersion` and `ConfigVersion` interfaces in [config/versions/versions.go](../config/versions/versions.go). Register new versions in [config/versions/register.go](../config/versions/register.go). For an exchange-specific example, see [config/versions/v14/v14.go](../config/versions/v14/v14.go) and its tests in [config/versions/v14/v14_test.go](../config/versions/v14/v14_test.go).
+Migration code lives in [config/versions](/config/versions), with each version in its own `vN` package. Start with the package instructions and the `ExchangeVersion` and `ConfigVersion` interfaces in [config/versions/versions.go](/config/versions/versions.go). Register new versions in [config/versions/register.go](/config/versions/register.go). For an exchange-specific example, see [config/versions/v14/v14.go](/config/versions/v14/v14.go) and its tests in [config/versions/v14/v14_test.go](/config/versions/v14/v14_test.go).
 
 - Add a new version for subsequent configuration changes rather than rewriting historical migrations to match new types. Keep migration-specific types local to the version package instead of depending on evolving types in the config package.
 - For every configuration change, assess how existing saved configurations behave after upgrade. Implement a versioned migration when existing values would otherwise lose functionality, change meaning, or prevent adoption of an intended replacement.
