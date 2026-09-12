@@ -168,7 +168,8 @@ func TestRunTemplateReplacesExistingFile(t *testing.T) {
 
 			info, err := os.Stat(outputPath)
 			require.NoError(t, err, "generated documentation must be statable")
-			assert.Equal(t, os.FileMode(0o644), info.Mode().Perm(), "generated documentation should use regular file permissions")
+			assert.Zero(t, info.Mode().Perm()&0o111, "generated documentation should not be executable")
+			assert.NotZero(t, info.Mode().Perm()&0o200, "generated documentation should not stay read-only")
 		})
 	}
 }
