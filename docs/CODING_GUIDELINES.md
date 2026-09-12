@@ -176,6 +176,13 @@ Use `require` and `assert` appropriately:
 - Distinguish mocked verification from live API verification when reporting results. A credential-gated test that skips does not establish endpoint compatibility; explicitly report the unverified behaviour without exposing credentials.
 - All unit tests must pass before finalising changes.
 
+### Interface Contracts
+
+- Name tests and files according to what they prove. Compile-time interface assertions establish API compatibility, not equivalent runtime behaviour; reserve "parity" for tests that compare behaviour.
+- Assert conformance against existing standard-library or dependency interfaces instead of duplicating their method signatures. Use custom contract interfaces only for the additional API being checked.
+- For build-tag-selected implementations, validate shared contracts and run relevant tests under every supported backend configuration affected by the change.
+- Keep signature compatibility separate from behavioural expectations. Document intentional backend differences and test them explicitly where relevant.
+
 ### Test deduplication
 
 - Test deduplication should be the default approach for exchanges and across the codebase, an example can be seen below:
