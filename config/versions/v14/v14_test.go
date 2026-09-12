@@ -288,3 +288,9 @@ func TestUpgradeExchangeRejectsMalformedSubscriptions(t *testing.T) {
 	_, err := new(v14.Version).UpgradeExchange(t.Context(), []byte(`{"features":{"subscriptions":{}}}`))
 	require.Error(t, err, "UpgradeExchange must reject malformed subscriptions")
 }
+
+func TestDowngradeExchangeRejectsMalformedSubscriptions(t *testing.T) {
+	t.Parallel()
+	_, err := new(v14.Version).DowngradeExchange(t.Context(), []byte(`{"features":{"subscriptions":{}}}`))
+	require.Error(t, err, "DowngradeExchange must reject malformed subscriptions")
+}
