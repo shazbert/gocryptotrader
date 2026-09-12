@@ -612,6 +612,28 @@ func TestGenerateSharedSpotMarginFeeds(t *testing.T) {
 	}
 }
 
+func TestGenerateFuturesOrderbookOverlap(t *testing.T) {
+	t.Parallel()
+	ku := testInstance(t)
+	ku.Features.Subscriptions = subscription.List{
+		{Channel: subscription.OrderbookChannel, Asset: asset.All},
+		{Channel: subscription.OrderbookChannel, Asset: asset.Futures},
+	}
+	for _, authenticated := range []bool{false, true} {
+		ku.Websocket.SetCanUseAuthenticatedEndpoints(authenticated)
+		subs, err := ku.generateSubscriptions()
+		require.NoErrorf(t, err, "overlapping futures orderbooks must generate with authentication=%t", authenticated)
+		var symbols []string
+		for _, sub := range subs {
+			if sub.Asset == asset.Futures {
+				_, symbol, _ := strings.Cut(sub.QualifiedChannel, ":")
+				symbols = append(symbols, symbol)
+			}
+		}
+		assert.ElementsMatchf(t, []string{"ETHUSDCM", "SOLUSDTM", "XBTUSDCM"}, symbols, "each futures pair should be subscribed once with authentication=%t", authenticated)
+	}
+}
+
 func TestMergeMarginPairsWithSpotDisabled(t *testing.T) {
 	t.Parallel()
 	for _, channel := range []string{subscription.OrderbookChannel, subscription.TickerChannel, subscription.AllTradesChannel} {
