@@ -222,13 +222,14 @@ Run the following after completing changes:
 
 This ensures proper formatting across the codebase.
 
-### Symlinks
+### Agent instruction entry points
 
-- `AGENTS.md` and `CLAUDE.md` are symlinks to `docs/CODING_GUIDELINES.md`.
-    They must remain mode `120000` with the exact target bytes
-    `docs/CODING_GUIDELINES.md`, without a BOM or trailing newline.
-- Do not run Markdown auto-fixers over symlinks. Verify them with
-    `git ls-files -s AGENTS.md CLAUDE.md` after bulk documentation changes.
+- Keep `AGENTS.md`, `CLAUDE.md` and `.github/copilot-instructions.md` as concise
+    regular Markdown files that direct their respective tools to read this
+    document completely before beginning work.
+- Keep detailed coding instructions in this document as the single source of
+    truth rather than duplicating them across tool-specific entry points.
+- Verify these files remain mode `100644` after bulk documentation changes.
 
 ## Documentation and Markdown
 

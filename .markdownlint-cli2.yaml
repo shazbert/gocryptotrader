@@ -8,6 +8,4 @@ config:
   MD041: false
   MD060: false
 ignores:
-  - AGENTS.md
-  - CLAUDE.md
   - cmd/documentation/sub_templates/contributors.tmpl
