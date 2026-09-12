@@ -3,6 +3,7 @@ package gateio
 import (
 	"fmt"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -105,6 +106,18 @@ func TestResubscribe(t *testing.T) {
 		10*time.Millisecond,
 		"resubscription state should clear after completion is signalled",
 	)
+
+	t.Run("failed background resubscription clears tracking", func(t *testing.T) {
+		t.Parallel()
+
+		synctest.Test(t, func(t *testing.T) {
+			m := newWSOBResubManager()
+			// An untracked connection fails after dispatch, so only background cleanup can clear the entry.
+			require.NoError(t, m.Resubscribe(t.Context(), e, &FixtureConnection{}, qualifiedChannel, currency.NewBTCUSDT(), asset.Spot), "Resubscribe must dispatch before the untracked connection fails")
+			synctest.Wait()
+			assert.False(t, m.IsResubscribing(currency.NewBTCUSDT(), asset.Spot), "a failed background resubscription should clear the tracking entry")
+		})
+	})
 }
 
 func TestFuturesV2GapRecovery(t *testing.T) {
