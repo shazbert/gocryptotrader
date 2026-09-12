@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/buger/jsonparser"
 )
@@ -63,13 +64,16 @@ func migrateSubscriptions(exchange []byte, upgrade bool) ([]byte, error) {
 
 	legacyIndex, v2Index := -1, -1
 	for i := range subscriptions {
-		if ((subscriptions[i].Channel == legacyOrderbookAliasChannel && subscriptions[i].Asset == spotAsset) ||
-			((subscriptions[i].Channel == legacyOrderbookAliasChannel || subscriptions[i].Channel == legacyOrderbookChannel) &&
-				subscriptions[i].Asset == allAsset)) &&
+		isSpot := strings.EqualFold(subscriptions[i].Asset, spotAsset)
+		isAll := strings.EqualFold(subscriptions[i].Asset, allAsset)
+		if ((subscriptions[i].Channel == legacyOrderbookAliasChannel && isSpot) ||
+			((subscriptions[i].Channel == legacyOrderbookAliasChannel ||
+				subscriptions[i].Channel == legacyOrderbookChannel ||
+				subscriptions[i].Channel == spotOrderbookV2Channel) && isAll)) &&
 			subscriptions[i].Enabled != nil && *subscriptions[i].Enabled {
 			return exchange, nil
 		}
-		if subscriptions[i].Asset != spotAsset {
+		if !isSpot {
 			continue
 		}
 		switch subscriptions[i].Channel {

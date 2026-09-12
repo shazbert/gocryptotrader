@@ -130,7 +130,7 @@ func TestMigrationPreservesLegacyAuthentication(t *testing.T) {
 					got, err := migrate(t.Context(), []byte(input))
 					require.NoError(t, err, "migration must accept legacy authentication settings")
 					if test.authenticated || (!upgrade && !hasV2) {
-						assert.Equal(t, input, string(got), "migration should preserve authenticated legacy entries byte-for-byte")
+						assert.Equal(t, input, string(got), "ineligible migrations should preserve the input byte-for-byte")
 					} else {
 						legacy := fmt.Sprintf(`{"enabled":%t,"channel":"orderbook","asset":"spot","interval":"100ms"%s}`, !upgrade, test.field)
 						v2 = fmt.Sprintf(`{"enabled":%t,"channel":"spot.obu","asset":"spot","levels":50}`, upgrade)
@@ -184,6 +184,7 @@ func TestMigrationPreservesRawLegacyChannel(t *testing.T) {
 	const (
 		rawLegacyChannel = "spot.order_book_update"
 		allAssets        = "all"
+		enabledTrue      = `"enabled":true,`
 	)
 	for _, upgrade := range []bool{true, false} {
 		for _, test := range []struct {
@@ -193,18 +194,21 @@ func TestMigrationPreservesRawLegacyChannel(t *testing.T) {
 			enabledField  string
 			wantMigration bool
 		}{
-			{name: "enabled", channel: rawLegacyChannel, asset: "spot", enabledField: `"enabled":true,`},
+			{name: "enabled", channel: rawLegacyChannel, asset: "spot", enabledField: enabledTrue},
 			{name: "disabled", channel: rawLegacyChannel, asset: "spot", enabledField: `"enabled":false,`, wantMigration: true},
 			{name: "missing enabled", channel: rawLegacyChannel, asset: "spot", wantMigration: true},
 			{name: "null enabled", channel: rawLegacyChannel, asset: "spot", enabledField: `"enabled":null,`, wantMigration: true},
-			{name: "all assets enabled", channel: rawLegacyChannel, asset: allAssets, enabledField: `"enabled":true,`},
+			{name: "all assets enabled", channel: rawLegacyChannel, asset: allAssets, enabledField: enabledTrue},
 			{name: "all assets disabled", channel: rawLegacyChannel, asset: allAssets, enabledField: `"enabled":false,`, wantMigration: true},
 			{name: "all assets missing enabled", channel: rawLegacyChannel, asset: allAssets, wantMigration: true},
 			{name: "all assets null enabled", channel: rawLegacyChannel, asset: allAssets, enabledField: `"enabled":null,`, wantMigration: true},
-			{name: "generic all assets enabled", channel: "orderbook", asset: allAssets, enabledField: `"enabled":true,`},
+			{name: "generic all assets enabled", channel: "orderbook", asset: allAssets, enabledField: enabledTrue},
 			{name: "generic all assets disabled", channel: "orderbook", asset: allAssets, enabledField: `"enabled":false,`, wantMigration: true},
 			{name: "generic all assets missing enabled", channel: "orderbook", asset: allAssets, wantMigration: true},
 			{name: "generic all assets null enabled", channel: "orderbook", asset: allAssets, enabledField: `"enabled":null,`, wantMigration: true},
+			{name: "uppercase spot enabled", channel: rawLegacyChannel, asset: "SPOT", enabledField: enabledTrue},
+			{name: "uppercase all assets enabled", channel: "orderbook", asset: "ALL", enabledField: enabledTrue},
+			{name: "all assets V2 enabled", channel: "spot.obu", asset: allAssets, enabledField: enabledTrue},
 		} {
 			t.Run(fmt.Sprintf("upgrade=%t/%s", upgrade, test.name), func(t *testing.T) {
 				t.Parallel()
@@ -219,13 +223,34 @@ func TestMigrationPreservesRawLegacyChannel(t *testing.T) {
 				require.NoError(t, err, "migration must accept raw legacy channels")
 				if test.wantMigration {
 					expected := fmt.Sprintf(`{"features":{"subscriptions":[{"enabled":%t,"channel":"orderbook","asset":"spot","interval":"100ms"},%s,{"enabled":%t,"channel":"spot.obu","asset":"spot","levels":50}]}}`, !upgrade, raw, upgrade)
-					assert.JSONEq(t, expected, string(got), "disabled raw legacy entries should allow migration without being changed")
+					assert.JSONEq(t, expected, string(got), "inactive raw legacy entries should allow migration without being changed")
 				} else {
 					assert.Equal(t, input, string(got), "migration should preserve the raw legacy feed and its generic snapshot dependency byte-for-byte")
 				}
 				again, err := migrate(t.Context(), got)
 				require.NoError(t, err, "repeated migration must not error")
 				assert.Equal(t, got, again, "migration should be idempotent")
+			})
+		}
+	}
+}
+
+func TestMigrationMatchesSpotAssetCaseInsensitively(t *testing.T) {
+	t.Parallel()
+	for _, assetName := range []string{"SPOT", "Spot"} {
+		for _, upgrade := range []bool{true, false} {
+			t.Run(fmt.Sprintf("asset=%s/upgrade=%t", assetName, upgrade), func(t *testing.T) {
+				t.Parallel()
+				input := fmt.Sprintf(`{"features":{"subscriptions":[{"enabled":%t,"channel":"orderbook","asset":%q,"interval":"100ms"},{"enabled":%t,"channel":"spot.obu","asset":%q,"levels":50}]}}`, upgrade, assetName, !upgrade, assetName)
+				expected := fmt.Sprintf(`{"features":{"subscriptions":[{"enabled":%t,"channel":"orderbook","asset":%q,"interval":"100ms"},{"enabled":%t,"channel":"spot.obu","asset":%q,"levels":50}]}}`, !upgrade, assetName, upgrade, assetName)
+				version := new(v14.Version)
+				migrate := version.UpgradeExchange
+				if !upgrade {
+					migrate = version.DowngradeExchange
+				}
+				got, err := migrate(t.Context(), []byte(input))
+				require.NoError(t, err, "migration must accept case-insensitive spot assets")
+				assert.JSONEq(t, expected, string(got), "migration should update case-insensitive spot assets")
 			})
 		}
 	}
